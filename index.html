@@ -415,18 +415,22 @@ function viewAccounts(){
   return html;
 }
 function txListHtml(){
-  const q=S.search.trim().toLowerCase();
-  const list=txIn(S.period).filter(t=>(!S.accFilter||t.acc===S.accFilter||t.to===S.accFilter)&&(!q||(t.note||'').toLowerCase().includes(q)||catById(t.cat).name.toLowerCase().includes(q)||accById(t.acc).name.toLowerCase().includes(q)||String(t.amount).includes(q)));
-  if(!list.length) return `<div class="empty"><b>${q?'لا نتائج':'لا توجد عمليات في هذه الفترة'}</b>${q?'جرّب كلمة أخرى':'اضغط زر + لإضافة عملية'}</div>`;
+  const q=S.search.trim().toLowerCase(), all=!!(q||S.catFilter);
+  const src=all?allTx().slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0):txIn(S.period);
+  let list=src.filter(t=>(!S.accFilter||t.acc===S.accFilter||t.to===S.accFilter)&&(!S.catFilter||t.cat===S.catFilter)&&(!q||(t.note||'').toLowerCase().includes(q)||catById(t.cat).name.toLowerCase().includes(q)||accById(t.acc).name.toLowerCase().includes(q)||String(t.amount).includes(q)));
+  if(!list.length) return `<div class="empty"><b>${all?'لا نتائج':'لا توجد عمليات في هذه الفترة'}</b>${all?'جرّب كلمة أخرى':'اضغط زر + لإضافة عملية'}</div>`;
+  const total=list.length, more=total>300; if(more) list=list.slice(0,300);
+  const tot=all?sum(list.filter(t=>t.type==='expense')):0;
+  const head=all?`<p class="note" style="margin:10px 4px 0">${total} عملية من كل الفترات${S.catFilter?'، مجموع المصروف '+fmt(tot):''}${more?' (يظهر آخر 300)':''}</p>`:'';
   const groups={}; list.forEach(t=>(groups[t.date]=groups[t.date]||[]).push(t));
-  return Object.keys(groups).sort().reverse().map(d=>{const g=groups[d],net=sum(g.filter(t=>t.type==='income'))-sum(g.filter(t=>t.type==='expense'));
-    return `<div class="day"><span>${esc(dayLabel(d))}</span>${money(net)}</div><div class="list">${g.map(txRow).join('')}</div>`}).join('');
+  return head+Object.keys(groups).sort().reverse().map(d=>{const g=groups[d],net=sum(g.filter(t=>t.type==='income'))-sum(g.filter(t=>t.type==='expense'));
+    return `<div class="day"><span>${esc(dayLabel(d))}${all?' '+d.slice(0,4):''}</span>${money(net)}</div><div class="list">${g.map(txRow).join('')}</div>`}).join('');
 }
 function viewTx(){
   const seg=`<div class="seg"><button data-action="txview" data-v="list" aria-pressed="${S.txView==='list'}">السجل</button><button data-action="txview" data-v="stats" aria-pressed="${S.txView==='stats'}">الإحصاءات</button></div>`;
   if(S.txView==='stats') return seg+viewStats();
-  return seg+`<input class="search" id="searchIn" type="search" placeholder="ابحث في الوصف أو البند أو الحساب أو المبلغ" value="${esc(S.search)}">`+
-    (S.accFilter?`<button class="filter" data-action="clearacc">${esc(accById(S.accFilter).name)} ✕</button>`:'')+`<div id="txList">${txListHtml()}</div>`;
+  return seg+`<input class="search" id="searchIn" type="search" placeholder="ابحث في كل العمليات: وصف، بند، حساب، مبلغ" value="${esc(S.search)}">`+
+    (S.accFilter?`<button class="filter" data-action="clearacc">${esc(accById(S.accFilter).name)} ✕</button>`:'')+(S.catFilter?`<button class="filter" data-action="clearcat">${esc(catById(S.catFilter).icon)} ${esc(catById(S.catFilter).name)} ✕</button>`:'')+`<div id="txList">${txListHtml()}</div>`;
 }
 function viewStats(){
   const k=S.period,list=txIn(k).filter(t=>t.type==='expense'),total=sum(list);
@@ -570,7 +574,7 @@ function catSheet(cat,kind){
     <label class="field"><span>اسم البند</span><input id="cName" value="${esc(c.name)}"></label></div>
     ${c.kind==='expense'?`<label class="field"><span>الميزانية الشهرية (${esc(curInfo()[0])})</span><input id="cBud" inputmode="decimal" value="${+c.budget?esc(c.budget):''}" placeholder="بدون ميزانية" style="direction:ltr;text-align:right"></label>`:''}
     <div class="err" id="cErr" hidden>اكتب اسم البند</div>
-    <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
+    <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="cTx">عرض كل عمليات البند</button><button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
   b=>{
     const ni=b.querySelector('#cName'), ii=b.querySelector('#cIcon');
     if(isNew) ni.addEventListener('input',()=>{if(!ii.dataset.touched) ii.value=guessIcon(ni.value,c.icon)});
@@ -582,6 +586,7 @@ function catSheet(cat,kind){
       if(isNew) S.settings.categories.push(c); else S.settings.categories=S.settings.categories.map(x=>x.id===c.id?c:x);
       saveSettings(); closeSheet(); toast('تم حفظ البند'); render();
     });
+    const ct=b.querySelector('#cTx'); if(ct) ct.addEventListener('click',()=>{S.catFilter=c.id;S.search='';S.tab='tx';S.txView='list';closeSheet();window.scrollTo(0,0);render()});
     const d=b.querySelector('#cDel'); if(d) d.addEventListener('click',()=>{
       if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات السابقة تبقى، اضغط للتأكيد';return}
       S.settings.categories=S.settings.categories.filter(x=>x.id!==c.id); saveSettings(); closeSheet(); toast('تم حذف البند'); render();
@@ -891,13 +896,14 @@ document.addEventListener('click',e=>{
     else if(act==='hide'){S.settings.hide=!S.settings.hide;saveSettings();render()}
     else if(act==='txview'){S.txView=a.dataset.v;render()}
     else if(act==='clearacc'){S.accFilter=null;render()}
+    else if(act==='clearcat'){S.catFilter=null;render()}
     else if(act==='import') $('#fileIn').click();
     else if(act==='export') exportCSV();
     else if(act==='backup') backup();
     return;
   }
   if(e.target.closest('#sheetBody')) return;
-  const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;if(S.tab!=='tx')S.accFilter=null;window.scrollTo(0,0);render();return}
+  const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;if(S.tab!=='tx'){S.accFilter=null;S.catFilter=null}window.scrollTo(0,0);render();return}
   const q=e.target.closest('[data-quick]'); if(q){const c=catById(q.dataset.quick);txSheet(null,{type:c.kind,cat:c.id});return}
   const tx=e.target.closest('[data-tx]'); if(tx){const t=txOf(tx.dataset.m).find(x=>x.id===tx.dataset.tx); if(t) txSheet(t); return}
   const rc=e.target.closest('[data-rec]'); if(rc){const r=(S.settings.recurring||[]).find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return}
