@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ميزانيتي</title>
+<meta name="theme-color" content="#0F3F45">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF2F0; --surface:#FFFFFF; --ink:#0F2A30; --muted:#5B7074; --line:#D3DEDB;
+  --accent:#0F5C63; --hero:#0F3F45; --hero-ink:#F2F6F4; --gold:#C79A3A;
+  --pos:#23805C; --neg:#B6452F; --track:#DCE6E3; --chip:#E3ECE9;
+  --body:"IBM Plex Sans Arabic", system-ui, "Segoe UI", Tahoma, sans-serif;
+  --display:"Reem Kufi", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B181B; --surface:#13262A; --ink:#E6EFEC; --muted:#8FA5A8; --line:#23393D;
+    --accent:#5FB3B0; --hero:#16393E; --hero-ink:#EEF5F3; --gold:#DDB45E;
+    --pos:#5CC095; --neg:#E6806A; --track:#1F3438; --chip:#1B3135;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B181B; --surface:#13262A; --ink:#E6EFEC; --muted:#8FA5A8; --line:#23393D;
+  --accent:#5FB3B0; --hero:#16393E; --hero-ink:#EEF5F3; --gold:#DDB45E;
+  --pos:#5CC095; --neg:#E6806A; --track:#1F3438; --chip:#1B3135;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+input,select{font:inherit;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+
+#app{max-width:560px;margin:0 auto;padding:10px 14px calc(110px + env(safe-area-inset-bottom,0px))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px 14px}
+.brand{font-family:var(--display);font-weight:600;font-size:1.3rem}
+.gear{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--muted);background:var(--surface);border:1px solid var(--line)}
+.gear[aria-current]{color:var(--accent);border-color:var(--accent)}
+.month{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.month button{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.month button:active{background:var(--chip)}
+.month span{min-width:96px;text-align:center;font-weight:600;font-size:.86rem;white-space:nowrap;padding:0 2px}
+
+/* hero */
+.hero{background:var(--hero);color:var(--hero-ink);border-radius:24px;padding:20px 20px 18px;position:relative}
+.hero .lbl{font-size:.9rem;opacity:.78;display:flex;justify-content:space-between;align-items:center}
+.hero .big{font-family:var(--display);font-weight:600;font-size:clamp(2.2rem,10vw,3.1rem);line-height:1.1;margin:6px 0 2px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hero .big small{font-family:var(--body);font-size:1rem;font-weight:500;opacity:.7}
+.hero.over .big{color:#FFB4A3}
+.hero .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15);font-size:.85rem}
+.hero .pair b{display:block;font-size:1.05rem;font-weight:600}
+.eye{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.12);color:var(--hero-ink)}
+.gauge{position:relative;height:10px;border-radius:6px;background:rgba(255,255,255,.14);margin:16px 0 10px}
+.gauge .fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:6px;background:var(--gold);transition:width .5s ease}
+.hero.over .gauge .fill{background:#FF8C73}
+.gauge .mark{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--hero-ink);border-radius:2px}
+.hero .cap{font-size:.86rem;opacity:.85}
+.hint{margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:.86rem;color:var(--hero-ink);border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:6px 12px}
+
+.strip{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px 6px}
+.strip div{text-align:center;padding:0 4px}
+.strip div+div{border-inline-start:1px solid var(--line)}
+.strip .l{font-size:.78rem;color:var(--muted)}
+.strip .v{font-weight:600;font-size:1.02rem}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+
+h2{font-family:var(--display);font-weight:600;font-size:1.08rem;margin:24px 2px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h2 .tot{font-family:var(--body);font-size:.95rem;font-weight:600}
+h2 button{font-family:var(--body);font-size:.85rem;color:var(--accent);font-weight:500}
+
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{--c:#0F5C63;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px 12px;border-radius:18px;background:color-mix(in srgb,var(--c) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 18%,transparent);text-align:center;min-height:132px}
+.tile:active{transform:scale(.97)}
+.tile .tn{font-size:.84rem;font-weight:500;line-height:1.3;height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.ring{--p:0;width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c) calc(var(--p)*1%),color-mix(in srgb,var(--c) 22%,transparent) 0)}
+.ring span{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:1.3rem;background:var(--surface)}
+.ring.full{background:var(--c)}
+.ring.full span{background:color-mix(in srgb,var(--c) 22%,var(--surface))}
+.ring.over{background:var(--neg)}
+.tile .ta{font-weight:600;font-size:.95rem}
+.tile .tb{font-size:.72rem;color:var(--muted);margin-top:-6px}
+.tile.add{border:1.5px dashed var(--line);background:transparent;justify-content:center;color:var(--muted);font-size:.85rem}
+
+.list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.cat-row,.tx,.set-row{display:flex;align-items:center;gap:12px;width:100%;text-align:start;padding:12px 14px;border-bottom:1px solid var(--line)}
+.list > :last-child{border-bottom:0}
+.cat-row{flex-wrap:wrap}
+.ic{width:38px;height:38px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-size:1.15rem;flex:none}
+.grow{flex:1;min-width:0}
+.t1{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.t2{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.amt{font-weight:600;flex:none;text-align:end}
+.bar{flex-basis:100%;height:6px;border-radius:4px;background:var(--track);position:relative;overflow:hidden;margin-inline-start:50px}
+.bar i{position:absolute;inset-block:0;inset-inline-start:0;background:var(--accent);border-radius:4px}
+.bar i.over{background:var(--neg)}
+.day{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);padding:14px 4px 6px}
+.empty{text-align:center;color:var(--muted);padding:30px 20px;background:var(--surface);border:1px dashed var(--line);border-radius:18px}
+.empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
+
+.search{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.filter{display:inline-flex;align-items:center;gap:8px;margin-top:10px;background:var(--chip);border-radius:999px;padding:6px 12px;font-size:.86rem}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.legend{display:grid;gap:8px;margin-top:14px}
+.legend div{display:flex;align-items:center;gap:8px;font-size:.9rem}
+.legend i{width:10px;height:10px;border-radius:3px;flex:none}
+.legend .grow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.keys{display:flex;gap:16px;font-size:.82rem;color:var(--muted);margin-top:8px}
+.keys span{display:inline-flex;align-items:center;gap:6px}
+.keys i{width:10px;height:10px;border-radius:3px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;padding:13px 18px;font-weight:600;background:var(--accent);color:#fff;width:100%}
+:root[data-theme="dark"] .btn{color:#0B181B}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0B181B}}
+.btn.ghost{background:var(--chip);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--neg);border:1px solid var(--line)}
+.btn.slim{padding:10px 14px;margin-top:12px}
+.set-row .t2{white-space:normal}
+.note{font-size:.84rem;color:var(--muted);margin:10px 4px 0}
+select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;padding:6px 14px;font-weight:500}
+
+/* nav */
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-around;align-items:center;z-index:5}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.7rem;color:var(--muted);padding:4px 4px;min-width:56px}
+.nav button[aria-current="page"]{color:var(--accent);font-weight:600}
+.nav .add{width:56px;height:56px;border-radius:18px;background:var(--gold);color:#1A1405;display:grid;place-items:center;margin-top:-26px;box-shadow:0 6px 18px rgba(199,154,58,.35);min-width:0;padding:0}
+
+/* sheet */
+.sheet-wrap{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.backdrop{position:absolute;inset:0;background:rgba(5,15,17,.45);animation:fade .2s ease}
+.sheet{position:relative;width:100%;max-width:560px;max-height:92%;overflow:auto;background:var(--surface);border-radius:24px 24px 0 0;padding:8px 18px calc(20px + env(safe-area-inset-bottom,0px));animation:up .25s ease}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 12px}
+.sheet h3{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0 0 14px}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border-radius:14px;padding:4px;margin-bottom:14px}
+.seg button{padding:9px 6px;border-radius:10px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.amount-in{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--line);padding:4px 2px 8px;margin-bottom:16px}
+.amount-in:focus-within{border-color:var(--accent)}
+.amount-in input{flex:1;min-width:0;border:0;background:none;font-family:var(--display);font-size:2.2rem;font-weight:600;outline:none;direction:ltr;text-align:right}
+.amount-in span{color:var(--muted)}
+.field{display:block;margin-bottom:14px}
+.field > span{display:block;font-size:.84rem;color:var(--muted);margin-bottom:6px}
+.field input,.field select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;max-height:200px;overflow:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:var(--chip);font-size:.9rem;border:1.5px solid transparent}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--surface);font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:grid;gap:10px;margin-top:8px}
+.err{color:var(--neg);font-size:.86rem;margin:-6px 0 10px}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:90%;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.loading{text-align:center;color:var(--muted);padding:60px 0}
+.preview{font-size:.82rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px;overflow-x:auto;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">ميزانيتي</div>
+    <div class="month" id="monthBox">
+      <button data-action="prev" aria-label="الفترة السابقة"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <span id="monthLbl"></span>
+      <button data-action="next" aria-label="الفترة التالية"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    </div>
+    <button class="gear" data-tab="settings" aria-label="الإعدادات"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+  <main id="view"><div class="loading">جاري التحميل…</div></main>
+</div>
+
+<nav class="nav" aria-label="التنقل">
+  <button data-tab="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>الرئيسية</button>
+  <button data-tab="accounts"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M15 15h3"/></svg>الحسابات</button>
+  <button class="add" data-action="add" aria-label="إضافة عملية"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button data-tab="tx"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>العمليات</button>
+  <button data-tab="budget"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l5.5 5.5"/></svg>الميزانية</button>
+</nav>
+
+<div id="sheetWrap" class="sheet-wrap" hidden>
+  <div class="backdrop" data-action="close"></div>
+  <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileIn" accept=".csv,.json,text/csv,application/json,text/plain" hidden>
+
+<script>
+(function(){
+"use strict";
+const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const CUR={KWD:['د.ك',3],SAR:['ر.س',2],AED:['د.إ',2],QAR:['ر.ق',2],BHD:['د.ب',3],OMR:['ر.ع',3],EGP:['ج.م',2],USD:['$',2],GBP:['£',2],EUR:['€',2]};
+const COLORS=['#2E8B7A','#C79A3A','#D0506A','#3E7CC4','#8A5CC2','#D9743A','#4E8A5A','#C2508F','#2F8FA8','#9A7B3F','#6B7C3A','#5A6BB0','#B6452F','#7F8C8D'];
+const ACC_TYPES={debit:'الحسابات والنقد',credit:'بطاقات الائتمان',loan:'الديون والقروض'};
+const GUESS=[[/grocer|بقال|سوبر|جمعي/i,'🛒'],[/food|drink|مطعم|اكل|أكل|افطار|فطور|قهو|غدا|عشا/i,'🍽️'],[/taxi|تاكسي|uber|careem/i,'🚕'],[/car|سيار|gas|fuel|بنزين|وقود/i,'🚗'],[/rent|ايجار|إيجار/i,'🏠'],[/bill|فاتور|كهرب|ماء/i,'💡'],[/health|صح|دواء|مستشف|طبي/i,'💊'],[/shop|تسوق/i,'🛍️'],[/book|كتب|app/i,'📚'],[/educat|تعليم|مدرس|علوم|وظائف/i,'🎓'],[/hotel|فندق/i,'🏨'],[/travel|سفر|طيران/i,'✈️'],[/gift|هدي|هدايا/i,'🎁'],[/sport|رياض/i,'👟'],[/pet|حيوان|قط/i,'🐾'],[/communic|اتصال|هاتف|phone|internet|نت/i,'📱'],[/salary|راتب/i,'💼'],[/freelance|حر/i,'💻'],[/صدق|زكا|charity|تبرع/i,'🤲'],[/دين|ديون|debt|قرض|loan/i,'🧾'],[/clean|غسيل|dry|كوي/i,'👔'],[/kid|عيال|أولاد|اولاد|اطفال/i,'🧒'],[/حكوم|gov/i,'🏛️'],[/self|عناية|care/i,'💆'],[/company|conference|مؤتمر|training|تدريب/i,'🎤'],[/نثري|misc/i,'🌹'],[/cash|نقد|كاش|pocket/i,'💵'],[/visa|master|card|بطاق|prepaid|signature|diamond/i,'💳'],[/retire|تقاعد|saving|ادخار/i,'🌱'],[/bank|بنك|kfh|بيتك|nbk|warba|turk|account/i,'🏦']];
+const guessIcon=(n,d)=>{for(const [re,ic] of GUESS) if(re.test(n)) return ic; return d};
+const DEFAULT_CATS=[
+ ['food','مطاعم وقهوة','🍽️','expense'],['groc','بقالة','🛒','expense'],['car','سيارة ووقود','🚗','expense'],
+ ['home','سكن وفواتير','🏠','expense'],['health','صحة','💊','expense'],['shop','تسوق','🛍️','expense'],
+ ['edu','تعليم','🎓','expense'],['fun','ترفيه وسفر','✈️','expense'],['family','أسرة','🧒','expense'],
+ ['charity','صدقات وزكاة','🤲','expense'],['other','أخرى','📌','expense'],
+ ['salary','راتب','💼','income'],['extra','دخل إضافي','💻','income']
+].map(([id,name,icon,kind],i)=>({id,name,icon,kind,budget:0,color:COLORS[i%COLORS.length]}));
+const DEFAULT_ACCS=[{id:'cash',name:'نقدي',icon:'💵',type:'debit',opening:0,limit:0},{id:'bank',name:'الحساب البنكي',icon:'🏦',type:'debit',opening:0,limit:0}];
+
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const shiftMonth=(k,n)=>{let [y,m]=k.split('-').map(Number);m+=n;while(m<1){m+=12;y--}while(m>12){m-=12;y++}return y+'-'+pad(m)};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const normNum=s=>String(s==null?'':s).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/٫/g,'.').replace(/٬/g,',');
+const sum=a=>a.reduce((s,t)=>s+(+t.amount||0),0);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let dayFmt; try{dayFmt=new Intl.DateTimeFormat('ar-KW-u-nu-latn',{weekday:'long',day:'numeric',month:'long'})}catch(e){dayFmt=null}
+
+const S={settings:null,months:{},period:null,tab:'home',txView:'list',search:'',accFilter:null,};
+
+/* ---------- storage ---------- */
+function localLoad(){
+  const out={settings:null,months:{}};
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i); if(!k||k.indexOf('budget:')!==0) continue;
+      const id=k.slice(7), v=JSON.parse(localStorage.getItem(k)||'null'); if(!v) continue;
+      if(id==='settings') out.settings=v; else if(id.indexOf('m-')===0) out.months[id.slice(2)]=v.tx||[];
+    }
+  }catch(e){}
+  return out;
+}
+function init(){
+  try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{})}catch(e){}
+  const data=localLoad();
+  const st=data.settings&&Array.isArray(data.settings.categories)?data.settings:{currency:'KWD',categories:DEFAULT_CATS.map(c=>({...c}))};
+  let dirty=!data.settings;
+  if(!st.currency) st.currency='KWD';
+  if(!st.periodStart){st.periodStart=1;dirty=true}
+  if(!Array.isArray(st.accounts)){st.accounts=DEFAULT_ACCS.map(a=>({...a}));dirty=true}
+  if(!Array.isArray(st.recurring)){st.recurring=[];dirty=true}
+  st.categories.forEach((c,i)=>{if(!c.color){c.color=COLORS[i%COLORS.length];dirty=true}});
+  st.accounts.forEach((a,i)=>{if(!a.color){a.color=COLORS[(i+3)%COLORS.length];dirty=true}});
+  S.settings=st; S.months=data.months; S.period=curPeriod();
+  if(dirty) saveSettings();
+  const n=runRecurring();
+  render();
+  if(n) toast('تمت إضافة '+n+' عملية متكررة');
+}
+const writeQ=new Map(); let writing=false;
+function queueWrite(id,fn){writeQ.set(id,fn); flush();}
+async function writeOne(id,body){
+  localStorage.setItem('budget:'+id,JSON.stringify(body));
+}
+async function flush(){
+  if(writing) return; writing=true;
+  while(writeQ.size){
+    const [id,fn]=writeQ.entries().next().value; writeQ.delete(id);
+    try{await writeOne(id,fn())}
+    catch(e){
+      toast(e&&e.name==='QuotaExceededError'?'امتلأت مساحة التخزين على الجهاز':'تعذّر الحفظ على الجهاز');
+    }
+  }
+  writing=false;
+}
+const saveMonth=k=>queueWrite('m-'+k,()=>({tx:S.months[k]||[]}));
+const saveSettings=()=>queueWrite('settings',()=>S.settings);
+
+/* ---------- periods ---------- */
+const ps=()=>Math.min(Math.max(+S.settings.periodStart||1,1),28);
+function curPeriod(){const t=todayStr(),d=+t.slice(8);return d>=ps()?t.slice(0,7):shiftMonth(t.slice(0,7),-1)}
+function range(k){const s=pad(ps());return{from:k+'-'+s,to:shiftMonth(k,1)+'-'+s}}
+function txIn(k){const r=range(k);const src=ps()>1?txOf(k).concat(txOf(shiftMonth(k,1))):txOf(k);return src.filter(t=>t.date>=r.from&&t.date<r.to).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0)}
+function periodLabel(k){const [y,m]=k.split('-').map(Number);const s=ps();if(s===1) return MONTHS[m-1]+' '+y;const m2=m%12;return s+' '+MONTHS[m-1]+' – '+(s-1)+' '+MONTHS[m2]}
+function periodShort(k){const m=+k.slice(5);return MONTHS[m-1]}
+function timePct(k){const r=range(k),f=Date.parse(r.from),to=Date.parse(r.to),n=Date.parse(todayStr());if(n<f)return 0;if(n>=to)return 1;return((n-f)/864e5+1)/((to-f)/864e5)}
+
+/* ---------- helpers ---------- */
+const curInfo=()=>CUR[S.settings.currency]||[S.settings.currency,2];
+function fmt(n){const dec=curInfo()[1];const v=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});return (n<0?'−':'')+v}
+const money=(n,cls)=>`<span class="num ${cls||''}">${fmt(n)}</span>`;
+const hid=()=>!!S.settings.hide;
+const mmoney=(n,cls)=>hid()?`<span class="num ${cls||''}">••••</span>`:money(n,cls);
+const catById=id=>S.settings.categories.find(c=>c.id===id)||{id:id,name:'بدون بند',icon:'•',kind:'expense',budget:0,color:'#7F8C8D'};
+const accById=id=>S.settings.accounts.find(a=>a.id===id)||(id?{id:id,name:'حساب محذوف',icon:'•',type:'debit'}:S.settings.accounts[0]||{id:'',name:'—',icon:'•',type:'debit'});
+const txOf=k=>S.months[k]||[];
+const allTx=()=>Object.values(S.months).reduce((a,l)=>a.concat(l),[]);
+const expenseCats=()=>S.settings.categories.filter(c=>c.kind==='expense');
+function dayLabel(s){const [y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);return dayFmt?dayFmt.format(dt):s}
+function parseAmount(s){
+  s=normNum(s).trim(); if(!s) return NaN;
+  let neg=/^\(.*\)$/.test(s)||s.indexOf('-')>=0||s.indexOf('−')>=0;
+  s=s.replace(/[^\d.,]/g,'');
+  if(s.indexOf(',')>=0&&s.indexOf('.')>=0) s=s.replace(/,/g,'');
+  else if(/^\d+,\d{1,2}$/.test(s)) s=s.replace(',','.');
+  else s=s.replace(/,/g,'');
+  const v=parseFloat(s); return isNaN(v)?NaN:(neg?-v:v);
+}
+function sortMonth(k){(S.months[k]||[]).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0)}
+function flows(){
+  const f={}; const first=(S.settings.accounts[0]||{}).id;
+  allTx().forEach(t=>{const a=t.acc||first,v=+t.amount||0;
+    if(t.type==='income') f[a]=(f[a]||0)+v;
+    else if(t.type==='expense') f[a]=(f[a]||0)-v;
+    else if(t.type==='transfer'){f[a]=(f[a]||0)-v; if(t.to) f[t.to]=(f[t.to]||0)+v}});
+  return f;
+}
+const nextColor=()=>COLORS[(S.settings.categories.length+S.settings.accounts.length)%COLORS.length];
+
+/* ---------- recurring ---------- */
+const FREQ={daily:'يومياً',weekly:'أسبوعياً',monthly:'شهرياً',yearly:'سنوياً'};
+function addDays(s,n){const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+function advance(r,s){
+  if(r.freq==='daily') return addDays(s,1);
+  if(r.freq==='weekly') return addDays(s,7);
+  let [y,m]=s.split('-').map(Number); if(r.freq==='yearly') y++; else {m++; if(m>12){m=1;y++}}
+  const dim=new Date(Date.UTC(y,m,0)).getUTCDate(); return y+'-'+pad(m)+'-'+pad(Math.min(r.day||+s.slice(8),dim));
+}
+function runRecurring(){
+  const today=todayStr(); let n=0; const touched=new Set();
+  (S.settings.recurring||[]).forEach(r=>{
+    if(r.paused) return; let guard=0;
+    while(r.next<=today&&guard++<400){
+      const mk=r.next.slice(0,7);
+      S.months[mk]=txOf(mk).concat({id:newId(),type:r.type,amount:r.amount,cat:r.cat||'',acc:r.acc,to:r.to||'',date:r.next,note:r.note||'',rid:r.id});
+      touched.add(mk); n++; r.next=advance(r,r.next);
+    }
+  });
+  touched.forEach(k=>{sortMonth(k);saveMonth(k)});
+  if(n) saveSettings();
+  return n;
+}
+function upcomingIn(k){
+  const r0=range(k),today=todayStr(); let tot=0;
+  (S.settings.recurring||[]).forEach(r=>{if(r.paused||r.type!=='expense')return; let d=r.next,g=0; while(d<r0.to&&g++<400){if(d>today&&d>=r0.from) tot+=+r.amount; d=advance(r,d)}});
+  return tot;
+}
+const recName=r=>r.type==='transfer'?{icon:'⇄',name:'تحويل'}:catById(r.cat);
+
+/* ---------- views ---------- */
+function txRow(t){
+  const m=t.date.slice(0,7);
+  if(t.type==='transfer'){
+    return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic">⇄</span><span class="grow"><span class="t1">تحويل</span><span class="t2">${esc(accById(t.acc).name)} ← ${esc(t.to?accById(t.to).name:'—')}</span></span><span class="amt">${money(t.amount)}</span></button>`;
+  }
+  const c=catById(t.cat), inc=t.type==='income';
+  const sub=[t.note,accById(t.acc).name].filter(Boolean).join('، ');
+  return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic" style="background:color-mix(in srgb,${c.color||'#7F8C8D'} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow"><span class="t1">${esc(c.name)}</span><span class="t2">${esc(sub)}</span></span><span class="amt">${money(inc?t.amount:-t.amount,inc?'pos':'')}</span></button>`;
+}
+function tile(c,val,budget){
+  let cls='ring',p=0;
+  if(budget>0){p=Math.min(val/budget,1)*100; if(val>budget) cls+=' over'}
+  else cls+=' full';
+  return `<button class="tile" data-quick="${esc(c.id)}" style="--c:${esc(c.color||'#7F8C8D')}"><span class="tn">${esc(c.name)}</span><span class="${cls}" style="--p:${p.toFixed(1)}"><span>${esc(c.icon)}</span></span><span class="ta">${money(val,budget>0&&val>budget?'neg':'')}</span>${budget>0?`<span class="tb">من ${fmt(budget)}</span>`:''}</button>`;
+}
+function viewHome(){
+  const list=txIn(S.period);
+  const byCat={}; list.forEach(t=>{if(t.type!=='transfer') byCat[t.cat]=(byCat[t.cat]||0)+ +t.amount});
+  const inc=sum(list.filter(t=>t.type==='income')),exp=sum(list.filter(t=>t.type==='expense'));
+  const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
+  return `<div class="strip"><div><div class="l">المصروف</div><div class="v">${money(exp)}</div></div><div><div class="l">الدخل</div><div class="v">${money(inc,'pos')}</div></div><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  <h2>المصروف <span class="tot">${money(exp)}</span></h2>
+  <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
+  <h2>الدخل <span class="tot">${money(inc,'pos')}</span></h2>
+  <div class="tiles">${ic.map(c=>tile(c,byCat[c.id]||0,0)).join('')}<button class="tile add" data-action="newcat" data-kind="income">＋ بند جديد</button></div>
+  <p class="note">اضغط على أي بند لتسجيل عملية فيه مباشرة.</p>`;
+}
+function viewAccounts(){
+  const f=flows(); const bal=a=>(+a.opening||0)+(f[a.id]||0);
+  const accs=S.settings.accounts;
+  let assets=0,liab=0; accs.forEach(a=>{const b=bal(a); if(b>=0) assets+=b; else liab+=-b});
+  const eyeSvg=hid()?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><path d="M4 4l16 16"/></svg>';
+  let html=`<section class="hero"><div class="lbl"><span>صافي الثروة</span><button class="eye" data-action="hide" aria-label="${hid()?'إظهار المبالغ':'إخفاء المبالغ'}">${eyeSvg}</button></div>
+    <div class="big">${mmoney(assets-liab)}<small>${esc(curInfo()[0])}</small></div>
+    <div class="pair"><div>الأصول<b>${mmoney(assets)}</b></div><div>الالتزامات<b>${mmoney(liab)}</b></div></div></section>
+    <button class="btn ghost slim" data-action="transfer">⇄ تحويل بين الحسابات</button>`;
+  Object.keys(ACC_TYPES).forEach(type=>{
+    const group=accs.filter(a=>a.type===type);
+    if(!group.length&&type!=='debit') return;
+    const tot=group.reduce((s,a)=>s+bal(a),0);
+    html+=`<h2>${ACC_TYPES[type]} <span class="tot">${mmoney(type==='debit'?tot:-tot,type==='debit'?'':'neg')}</span></h2><div class="tiles">`+
+      group.map(a=>{const b=bal(a);const shown=type==='debit'?b:-b;
+        return `<button class="tile" data-acc="${esc(a.id)}" style="--c:${esc(a.color||'#3E7CC4')}"><span class="tn">${esc(a.name)}</span><span class="ring full"><span>${esc(a.icon)}</span></span><span class="ta">${mmoney(shown,type!=='debit'&&shown>0?'neg':(b<0&&type==='debit'?'neg':''))}</span>${type==='credit'&&+a.limit?`<span class="tb">المتاح ${hid()?'••••':fmt(+a.limit+b)}</span>`:''}</button>`}).join('')+
+      `<button class="tile add" data-action="newacc" data-type="${type}">＋ إضافة</button></div>`;
+  });
+  if(!accs.some(a=>a.type==='credit')||!accs.some(a=>a.type==='loan')) html+=`<p class="note">لإضافة بطاقة ائتمان أو دين، اضغط ＋ إضافة واختر النوع.</p>`;
+  return html;
+}
+function txListHtml(){
+  const q=S.search.trim().toLowerCase();
+  const list=txIn(S.period).filter(t=>(!S.accFilter||t.acc===S.accFilter||t.to===S.accFilter)&&(!q||(t.note||'').toLowerCase().includes(q)||catById(t.cat).name.toLowerCase().includes(q)||accById(t.acc).name.toLowerCase().includes(q)||String(t.amount).includes(q)));
+  if(!list.length) return `<div class="empty"><b>${q?'لا نتائج':'لا توجد عمليات في هذه الفترة'}</b>${q?'جرّب كلمة أخرى':'اضغط زر + لإضافة عملية'}</div>`;
+  const groups={}; list.forEach(t=>(groups[t.date]=groups[t.date]||[]).push(t));
+  return Object.keys(groups).sort().reverse().map(d=>{const g=groups[d],net=sum(g.filter(t=>t.type==='income'))-sum(g.filter(t=>t.type==='expense'));
+    return `<div class="day"><span>${esc(dayLabel(d))}</span>${money(net)}</div><div class="list">${g.map(txRow).join('')}</div>`}).join('');
+}
+function viewTx(){
+  const seg=`<div class="seg"><button data-action="txview" data-v="list" aria-pressed="${S.txView==='list'}">السجل</button><button data-action="txview" data-v="stats" aria-pressed="${S.txView==='stats'}">الإحصاءات</button></div>`;
+  if(S.txView==='stats') return seg+viewStats();
+  return seg+`<input class="search" id="searchIn" type="search" placeholder="ابحث في البند أو الحساب أو الملاحظة" value="${esc(S.search)}">`+
+    (S.accFilter?`<button class="filter" data-action="clearacc">${esc(accById(S.accFilter).name)} ✕</button>`:'')+`<div id="txList">${txListHtml()}</div>`;
+}
+function viewStats(){
+  const k=S.period,list=txIn(k).filter(t=>t.type==='expense'),total=sum(list);
+  let donut;
+  if(total>0){
+    const by={}; list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);
+    const arr=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+    const R=62,C=2*Math.PI*R; let off=0;
+    const segs=arr.map(([id,v])=>{const len=v/total*C;const s=`<circle cx="90" cy="90" r="${R}" fill="none" stroke="${esc(catById(id).color)}" stroke-width="24" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"/>`;off+=len;return s}).join('');
+    donut=`<div class="chart"><svg viewBox="0 0 180 180" width="190" height="190" style="display:block;margin:0 auto" role="img" aria-label="توزيع المصروفات">${segs}<text x="90" y="86" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans Arabic, sans-serif">المصروف</text><text x="90" y="106" text-anchor="middle" font-size="17" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans Arabic, sans-serif">${fmt(total)}</text></svg>
+      <div class="legend">${arr.map(([id,v])=>{const c=catById(id);return `<div><i style="background:${esc(c.color)}"></i><span class="grow">${esc(c.icon)} ${esc(c.name)}</span><span class="num t2">${Math.round(v/total*100)}%</span><span class="amt">${money(v)}</span></div>`}).join('')}</div></div>`;
+  }else donut=`<div class="empty"><b>لا مصروفات في هذه الفترة</b>سيظهر هنا توزيع المصروف على البنود</div>`;
+  const ms=[];for(let i=5;i>=0;i--) ms.push(shiftMonth(k,-i));
+  const data=ms.map(m=>{const l=txIn(m);return{m,inc:sum(l.filter(t=>t.type==='income')),exp:sum(l.filter(t=>t.type==='expense'))}});
+  const max=Math.max(1,...data.map(d=>Math.max(d.inc,d.exp)));
+  const W=320,H=170,base=140,gw=W/6;
+  const bars=data.map((d,i)=>{const x=W-(i+1)*gw+gw/2;const hi=d.inc/max*110,he=d.exp/max*110;
+    return `<rect x="${x+1}" y="${base-hi}" width="14" height="${hi}" rx="3" fill="var(--pos)"/><rect x="${x-15}" y="${base-he}" width="14" height="${he}" rx="3" fill="var(--accent)"/><text x="${x}" y="${base+18}" text-anchor="middle" font-size="10.5" fill="${d.m===k?'var(--ink)':'var(--muted)'}" font-weight="${d.m===k?600:400}" font-family="IBM Plex Sans Arabic, sans-serif">${periodShort(d.m)}</text>`}).join('');
+  return `${donut}<h2>آخر ست فترات</h2><div class="chart"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="الدخل والمصروف لآخر ست فترات"><line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg><div class="keys"><span><i style="background:var(--pos)"></i>الدخل</span><span><i style="background:var(--accent)"></i>المصروف</span></div></div>`;
+}
+function viewBudget(){
+  const k=S.period,list=txIn(k);
+  const exp=sum(list.filter(t=>t.type==='expense'));
+  const cats=expenseCats(),budget=cats.reduce((a,c)=>a+(+c.budget||0),0);
+  let hero;
+  if(budget>0){
+    const left=budget-exp,sp=exp/budget,tp=timePct(k),over=left<0;
+    const cp=over?`تجاوزت الميزانية بـ ${fmt(-left)}`:`صرفت ${Math.round(sp*100)}٪ من الميزانية، ومضى ${Math.round(tp*100)}٪ من الفترة`;
+    hero=`<section class="hero${over?' over':''}"><div class="lbl">${over?'تجاوز الميزانية':'المتبقي من الميزانية'}</div>
+      <div class="big"><span class="num">${fmt(Math.abs(left))}</span><small>${esc(curInfo()[0])}</small></div>
+      <div class="gauge" role="img" aria-label="${esc(cp)}"><div class="fill" style="width:${Math.min(sp,1)*100}%"></div>${tp>0&&tp<1?`<div class="mark" style="inset-inline-start:${tp*100}%"></div>`:''}</div>
+      <div class="cap">${esc(cp)}</div><div class="pair"><div>الميزانية<b>${money(budget)}</b></div><div>المصروف<b>${money(exp)}</b></div></div></section>`;
+  }else hero=`<section class="hero"><div class="lbl">لم تحدد ميزانية بعد</div><div class="cap" style="margin-top:8px">اضغط على أي بند تحت وحدد له مبلغاً شهرياً، وبيظهر لك هنا كم باقي لك.</div></section>`;
+  const rows=cats.map(c=>({c,spent:sum(list.filter(t=>t.type==='expense'&&t.cat===c.id))})).sort((a,b)=>(+b.c.budget>0)-(+a.c.budget>0)||b.spent-a.spent);
+  const up=k===curPeriod()?upcomingIn(k):0;
+  return hero+(up?`<p class="note">مصروفات متكررة باقية في هذه الفترة: ${money(up)}</p>`:'')+`<h2>البنود</h2><div class="list">${rows.map(r=>{const b=+r.c.budget||0,p=b?Math.min(r.spent/b,1):0,over=b&&r.spent>b;
+    return `<button class="cat-row" data-cat="${esc(r.c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(r.c.color)} 18%,var(--surface))">${esc(r.c.icon)}</span><span class="grow t1">${esc(r.c.name)}</span><span class="amt">${money(r.spent,over?'neg':'')}<span class="t2">${b?'من '+fmt(b):'بدون ميزانية'}</span></span>${b?`<span class="bar"><i class="${over?'over':''}" style="width:${p*100}%"></i></span>`:''}</button>`}).join('')}</div>`;
+}
+function viewSettings(){
+  const cats=k=>S.settings.categories.filter(c=>c.kind===k).map(c=>`<button class="set-row" data-cat="${esc(c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(c.color)} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow t1">${esc(c.name)}</span>${k==='expense'?`<span class="t2">${+c.budget?fmt(+c.budget):''}</span>`:''}</button>`).join('');
+  const accs=S.settings.accounts.map(a=>`<button class="set-row" data-acc="${esc(a.id)}"><span class="ic">${esc(a.icon)}</span><span class="grow"><span class="t1">${esc(a.name)}</span><span class="t2">${ACC_TYPES[a.type]||''}</span></span></button>`).join('');
+  const nTx=allTx().length;
+  let days=''; for(let d=1;d<=28;d++) days+=`<option value="${d}"${d===ps()?' selected':''}>${d}</option>`;
+  return `<h2 style="margin-top:4px">عام</h2><div class="list">
+    <div class="set-row"><span class="grow">العملة</span><select class="pill" id="curSel">${Object.keys(CUR).map(c=>`<option value="${c}"${c===S.settings.currency?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></div>
+    <div class="set-row"><span class="grow"><span class="t1">بداية الشهر المالي</span><span class="t2">مثلاً 21 إذا راتبك ينزل يوم 21</span></span><select class="pill" id="psSel">${days}</select></div></div>
+  <h2>بنود المصروف <button data-action="newcat" data-kind="expense">إضافة بند</button></h2><div class="list">${cats('expense')}</div>
+  <h2>بنود الدخل <button data-action="newcat" data-kind="income">إضافة بند</button></h2><div class="list">${cats('income')}</div>
+  <h2>الحسابات <button data-action="newacc" data-type="debit">إضافة حساب</button></h2><div class="list">${accs}</div>
+  <h2>العمليات المتكررة</h2>${(S.settings.recurring||[]).length?`<div class="list">${S.settings.recurring.map(r=>{const c=recName(r);return `<button class="set-row" data-rec="${esc(r.id)}"><span class="ic">${esc(c.icon)}</span><span class="grow"><span class="t1">${esc(c.name)}${r.note?' – '+esc(r.note):''}</span><span class="t2">${FREQ[r.freq]}، ${r.paused?'موقوفة':'القادمة '+esc(r.next)}</span></span><span class="amt">${money(r.amount,r.paused?'t2':'')}</span></button>`}).join('')}</div>`:`<p class="note">عند إضافة عملية، اختر من خانة التكرار شهرياً أو أسبوعياً، وتنضاف تلقائياً في موعدها.</p>`}
+  <h2>البيانات</h2><div class="list">
+    <button class="set-row" data-action="backup"><span class="ic">💾</span><span class="grow"><span class="t1">نسخة احتياطية</span><span class="t2">احفظ ملفاً فيه كل بياناتك</span></span></button>
+    <button class="set-row" data-action="import"><span class="ic">📥</span><span class="grow"><span class="t1">استيراد CSV أو استعادة نسخة</span><span class="t2">ملف CSV من البرنامج القديم، أو ملف النسخة الاحتياطية</span></span></button>
+    <button class="set-row" data-action="export"><span class="ic">📤</span><span class="grow"><span class="t1">تصدير كل العمليات</span><span class="t2">ملف CSV يفتح في Excel</span></span></button>
+  </div>
+  <p class="note">بياناتك محفوظة على هذا الجهاز فقط، ولا تُرسل لأي مكان. خذ نسخة احتياطية كل فترة واحفظها في Google Drive. عدد العمليات: <span class="num">${nTx}</span></p>`;
+}
+function render(){
+  if(!S.settings) return;
+  $('#monthLbl').textContent=periodLabel(S.period);
+  $('#monthBox').style.visibility=(S.tab==='settings'||S.tab==='accounts')?'hidden':'visible';
+  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===S.tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  const v=$('#view');
+  v.innerHTML=S.tab==='home'?viewHome():S.tab==='accounts'?viewAccounts():S.tab==='tx'?viewTx():S.tab==='budget'?viewBudget():viewSettings();
+  const si=$('#searchIn'); if(si) si.addEventListener('input',e=>{S.search=e.target.value;$('#txList').innerHTML=txListHtml()});
+  const cs=$('#curSel'); if(cs) cs.addEventListener('change',e=>{S.settings.currency=e.target.value;saveSettings();render()});
+  const pss=$('#psSel'); if(pss) pss.addEventListener('change',e=>{S.settings.periodStart=+e.target.value;S.period=curPeriod();saveSettings();render();toast('تم تغيير بداية الشهر المالي')});
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html,mount){$('#sheetBody').innerHTML=html;$('#sheetWrap').hidden=false;if(mount)mount($('#sheetBody'))}
+function closeSheet(){$('#sheetWrap').hidden=true;$('#sheetBody').innerHTML=''}
+let toastT; function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2800)}
+const accOptions=sel=>S.settings.accounts.map(a=>`<option value="${esc(a.id)}"${a.id===sel?' selected':''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('');
+
+function txSheet(existing,preset){
+  preset=preset||{};
+  const first=(S.settings.accounts[0]||{}).id||'';
+  const defAcc=S.settings.accounts.some(a=>a.id===S.settings.lastAcc)?S.settings.lastAcc:first;
+  const t=existing?{...existing,acc:existing.acc||first}:{id:newId(),type:preset.type||'expense',amount:'',cat:preset.cat||'',acc:preset.acc||defAcc,to:'',date:S.period===curPeriod()?todayStr():range(S.period).from,note:''};
+  const oldMonth=existing?existing.date.slice(0,7):null;
+  const draw=()=>{
+    const isTr=t.type==='transfer';
+    const cats=S.settings.categories.filter(c=>c.kind===t.type);
+    if(!isTr&&!cats.some(c=>c.id===t.cat)) t.cat=cats[0]?cats[0].id:'';
+    if(isTr&&(!t.to||t.to===t.acc)){const o=S.settings.accounts.find(a=>a.id!==t.acc);t.to=o?o.id:''}
+    openSheet(`<h3>${existing?'تعديل العملية':'عملية جديدة'}</h3>
+      <div class="seg"><button data-k="type" data-v="expense" aria-pressed="${t.type==='expense'}">مصروف</button><button data-k="type" data-v="income" aria-pressed="${t.type==='income'}">دخل</button><button data-k="type" data-v="transfer" aria-pressed="${isTr}">تحويل</button></div>
+      <label class="amount-in"><input id="amtIn" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(t.amount)}" aria-label="المبلغ"><span>${esc(curInfo()[0])}</span></label>
+      <div class="err" id="amtErr" hidden>اكتب المبلغ بالأرقام</div>
+      ${isTr?`<div class="row2"><label class="field"><span>من حساب</span><select id="accIn">${accOptions(t.acc)}</select></label><label class="field"><span>إلى حساب</span><select id="toIn">${accOptions(t.to)}</select></label></div><div class="err" id="trErr" hidden>اختر حسابين مختلفين</div>`
+      :`<div class="chips">${cats.map(c=>`<button class="chip" data-k="cat" data-v="${esc(c.id)}" aria-pressed="${c.id===t.cat}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
+      <label class="field"><span>${t.type==='income'?'إلى حساب':'من حساب'}</span><select id="accIn">${accOptions(t.acc)}</select></label>`}
+      <div class="row2"><label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
+      <label class="field"><span>ملاحظة</span><input id="noteIn" value="${esc(t.note)}" placeholder="اختياري"></label></div>
+      ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
+      <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
+    b=>{
+      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value};
+      b.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('click',()=>{grab();t[el.dataset.k]=el.dataset.v;draw()}));
+      if(!existing) setTimeout(()=>{const i=b.querySelector('#amtIn');if(i)i.focus()},250);
+      b.querySelector('#saveTx').addEventListener('click',()=>{
+        grab(); const a=Math.abs(parseAmount(t.amount));
+        if(!a){b.querySelector('#amtErr').hidden=false;return}
+        if(t.type==='transfer'&&(!t.to||t.to===t.acc)){b.querySelector('#trErr').hidden=false;return}
+        const rec={id:t.id,type:t.type,amount:a,cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
+        if(!existing&&t.rep){
+          S.settings.recurring.push({id:newId(),type:rec.type,amount:rec.amount,cat:rec.cat,acc:rec.acc,to:rec.to,note:rec.note,freq:t.rep,day:+rec.date.slice(8),next:rec.date,paused:false});
+          if(rec.type!=='transfer') S.settings.lastAcc=rec.acc;
+          saveSettings(); runRecurring(); closeSheet(); toast('تم إنشاء عملية متكررة '+FREQ[t.rep]); render(); return;
+        }
+        const nm=rec.date.slice(0,7);
+        if(oldMonth){S.months[oldMonth]=txOf(oldMonth).filter(x=>x.id!==rec.id); if(oldMonth!==nm) saveMonth(oldMonth);}
+        S.months[nm]=txOf(nm).concat(rec); sortMonth(nm); saveMonth(nm);
+        if(S.settings.lastAcc!==rec.acc&&rec.type!=='transfer'){S.settings.lastAcc=rec.acc;saveSettings()}
+        closeSheet(); toast(existing?'تم حفظ التعديل':'تمت الإضافة'); render();
+      });
+      const d=b.querySelector('#delTx'); if(d) d.addEventListener('click',()=>{
+        if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='اضغط مرة أخرى للتأكيد';return}
+        S.months[oldMonth]=txOf(oldMonth).filter(x=>x.id!==t.id); saveMonth(oldMonth); closeSheet(); toast('تم حذف العملية'); render();
+      });
+    });
+  };
+  draw();
+}
+function catSheet(cat,kind){
+  const isNew=!cat; const c=cat?{...cat}:{id:newId(),name:'',icon:kind==='income'?'💰':'📌',kind:kind,budget:0,color:nextColor()};
+  openSheet(`<h3>${isNew?'بند جديد':'تعديل البند'}</h3>
+    <div class="row2" style="grid-template-columns:80px 1fr"><label class="field"><span>رمز</span><input id="cIcon" value="${esc(c.icon)}" maxlength="4" style="text-align:center"></label>
+    <label class="field"><span>اسم البند</span><input id="cName" value="${esc(c.name)}"></label></div>
+    ${c.kind==='expense'?`<label class="field"><span>الميزانية الشهرية (${esc(curInfo()[0])})</span><input id="cBud" inputmode="decimal" value="${+c.budget?esc(c.budget):''}" placeholder="بدون ميزانية" style="direction:ltr;text-align:right"></label>`:''}
+    <div class="err" id="cErr" hidden>اكتب اسم البند</div>
+    <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
+  b=>{
+    const ni=b.querySelector('#cName'), ii=b.querySelector('#cIcon');
+    if(isNew) ni.addEventListener('input',()=>{if(!ii.dataset.touched) ii.value=guessIcon(ni.value,c.icon)});
+    ii.addEventListener('input',()=>ii.dataset.touched='1');
+    b.querySelector('#cSave').addEventListener('click',()=>{
+      const name=ni.value.trim(); if(!name){b.querySelector('#cErr').hidden=false;return}
+      c.name=name; c.icon=ii.value.trim()||'•';
+      const bi=b.querySelector('#cBud'); if(bi){const v=parseAmount(bi.value);c.budget=isNaN(v)?0:Math.abs(v)}
+      if(isNew) S.settings.categories.push(c); else S.settings.categories=S.settings.categories.map(x=>x.id===c.id?c:x);
+      saveSettings(); closeSheet(); toast('تم حفظ البند'); render();
+    });
+    const d=b.querySelector('#cDel'); if(d) d.addEventListener('click',()=>{
+      if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات السابقة تبقى، اضغط للتأكيد';return}
+      S.settings.categories=S.settings.categories.filter(x=>x.id!==c.id); saveSettings(); closeSheet(); toast('تم حذف البند'); render();
+    });
+  });
+}
+function accSheet(acc,type){
+  const isNew=!acc; const a=acc?{...acc}:{id:newId(),name:'',icon:type==='credit'?'💳':type==='loan'?'🧾':'🏦',type:type||'debit',opening:0,limit:0,color:nextColor()};
+  const f=flows()[a.id]||0; const curBal=(+a.opening||0)+f;
+  const draw=()=>{
+    const debt=a.type!=='debit';
+    const shown=isNew?'':(debt?-curBal:curBal);
+    openSheet(`<h3>${isNew?'حساب جديد':'تعديل الحساب'}</h3>
+      <div class="seg"><button data-t="debit" aria-pressed="${a.type==='debit'}">حساب أو نقد</button><button data-t="credit" aria-pressed="${a.type==='credit'}">بطاقة ائتمان</button><button data-t="loan" aria-pressed="${a.type==='loan'}">دين أو قرض</button></div>
+      <div class="row2" style="grid-template-columns:80px 1fr"><label class="field"><span>رمز</span><input id="aIcon" value="${esc(a.icon)}" maxlength="4" style="text-align:center"></label>
+      <label class="field"><span>اسم الحساب</span><input id="aName" value="${esc(a.name)}"></label></div>
+      <label class="field"><span>${debt?'المبلغ المستحق عليك حالياً':'الرصيد الحالي'} (${esc(curInfo()[0])})</span><input id="aBal" inputmode="decimal" value="${shown===''?'':esc(+shown.toFixed(curInfo()[1]))}" placeholder="0" style="direction:ltr;text-align:right"></label>
+      ${a.type==='credit'?`<label class="field"><span>حد البطاقة</span><input id="aLim" inputmode="decimal" value="${+a.limit?esc(a.limit):''}" placeholder="اختياري" style="direction:ltr;text-align:right"></label>`:''}
+      <div class="err" id="aErr" hidden>اكتب اسم الحساب</div>
+      <div class="actions"><button class="btn" id="aSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="aTx">عرض عمليات الحساب</button><button class="btn danger" id="aDel">حذف الحساب</button>'}</div>`,
+    b=>{
+      const grab=()=>{a.name=b.querySelector('#aName').value;a.icon=b.querySelector('#aIcon').value};
+      b.querySelectorAll('[data-t]').forEach(el=>el.addEventListener('click',()=>{grab();a.type=el.dataset.t;draw()}));
+      const ni=b.querySelector('#aName'),ii=b.querySelector('#aIcon');
+      if(isNew) ni.addEventListener('input',()=>{if(!ii.dataset.touched) ii.value=guessIcon(ni.value,ii.value)});
+      ii.addEventListener('input',()=>ii.dataset.touched='1');
+      b.querySelector('#aSave').addEventListener('click',()=>{
+        grab(); const name=a.name.trim(); if(!name){b.querySelector('#aErr').hidden=false;return}
+        a.name=name; a.icon=a.icon.trim()||'•';
+        let v=parseAmount(b.querySelector('#aBal').value); if(isNaN(v)) v=0;
+        const target=a.type==='debit'?v:-Math.abs(v);
+        a.opening=+(target-f).toFixed(6);
+        const li=b.querySelector('#aLim'); if(li){const l=parseAmount(li.value);a.limit=isNaN(l)?0:Math.abs(l)}
+        if(isNew) S.settings.accounts.push(a); else S.settings.accounts=S.settings.accounts.map(x=>x.id===a.id?a:x);
+        saveSettings(); closeSheet(); toast('تم حفظ الحساب'); render();
+      });
+      const tb=b.querySelector('#aTx'); if(tb) tb.addEventListener('click',()=>{S.accFilter=a.id;S.tab='tx';S.txView='list';closeSheet();render()});
+      const d=b.querySelector('#aDel'); if(d) d.addEventListener('click',()=>{
+        if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات تبقى، اضغط للتأكيد';return}
+        S.settings.accounts=S.settings.accounts.filter(x=>x.id!==a.id); saveSettings(); closeSheet(); toast('تم حذف الحساب'); render();
+      });
+    });
+  };
+  draw();
+}
+
+function recSheet(r){
+  const c=recName(r);
+  openSheet(`<h3>${esc(c.icon)} ${esc(c.name)} ${esc(FREQ[r.freq])}</h3>
+    <label class="amount-in"><input id="rAmt" inputmode="decimal" value="${esc(r.amount)}" aria-label="المبلغ"><span>${esc(curInfo()[0])}</span></label>
+    <div class="row2"><label class="field"><span>التكرار</span><select id="rFreq">${Object.keys(FREQ).map(f=>`<option value="${f}"${r.freq===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>
+    <label class="field"><span>الموعد القادم</span><input type="date" id="rNext" value="${esc(r.next)}"></label></div>
+    ${r.type!=='transfer'?`<label class="field"><span>الحساب</span><select id="rAcc">${accOptions(r.acc)}</select></label>`:''}
+    <label class="field"><span>ملاحظة</span><input id="rNote" value="${esc(r.note||'')}" placeholder="اختياري"></label>
+    <div class="actions"><button class="btn" id="rSave">حفظ</button><button class="btn ghost" id="rPause">${r.paused?'استئناف التكرار':'إيقاف مؤقت'}</button><button class="btn danger" id="rDel">حذف التكرار</button></div>
+    <p class="note">العمليات اللي انضافت قبل تبقى في السجل.</p>`,
+  b=>{
+    const upd=()=>{const a=Math.abs(parseAmount(b.querySelector('#rAmt').value));if(a)r.amount=a;r.freq=b.querySelector('#rFreq').value;const nx=b.querySelector('#rNext').value;if(nx){r.next=nx;r.day=+nx.slice(8)}const ra=b.querySelector('#rAcc');if(ra)r.acc=ra.value;r.note=b.querySelector('#rNote').value.trim()};
+    b.querySelector('#rSave').addEventListener('click',()=>{upd();saveSettings();const n=runRecurring();closeSheet();toast(n?'تم الحفظ وإضافة '+n+' عملية':'تم الحفظ');render()});
+    b.querySelector('#rPause').addEventListener('click',()=>{upd();r.paused=!r.paused;saveSettings();runRecurring();closeSheet();toast(r.paused?'تم إيقاف التكرار':'تم استئناف التكرار');render()});
+    const d=b.querySelector('#rDel'); d.addEventListener('click',()=>{
+      if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='اضغط مرة أخرى للتأكيد';return}
+      S.settings.recurring=S.settings.recurring.filter(x=>x.id!==r.id);saveSettings();closeSheet();toast('تم حذف التكرار');render();
+    });
+  });
+}
+function saveFile(name,text,mime){
+  const blob=new Blob([text],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);
+}
+function backup(){
+  saveFile('mizaniyati-backup-'+todayStr()+'.json',JSON.stringify({app:'mizaniyati',v:2,date:todayStr(),settings:S.settings,months:S.months}),'application/json');
+  toast('تم حفظ النسخة الاحتياطية في التنزيلات');
+}
+function restoreSheet(obj){
+  if(!obj||obj.app!=='mizaniyati'||!obj.settings||!obj.months){toast('هذا الملف ليس نسخة احتياطية من ميزانيتي');return}
+  const n=Object.values(obj.months).reduce((a,l)=>a+(l||[]).length,0);
+  openSheet(`<h3>استعادة نسخة احتياطية</h3><p class="note" style="margin:0 0 14px">النسخة بتاريخ ${esc(obj.date||'')} وفيها <span class="num">${n}</span> عملية. الاستعادة تستبدل كل البيانات الموجودة الآن على الجهاز.</p>
+    <div class="actions"><button class="btn" id="doRes">استبدال بياناتي بالنسخة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>b.querySelector('#doRes').addEventListener('click',()=>{
+    try{const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('budget:')===0)ks.push(k)}ks.forEach(k=>localStorage.removeItem(k))}catch(e){}
+    try{localStorage.setItem('budget:settings',JSON.stringify(obj.settings));Object.keys(obj.months).forEach(k=>localStorage.setItem('budget:m-'+k,JSON.stringify({tx:obj.months[k]||[]})))}catch(e){toast('تعذّر الحفظ على الجهاز');return}
+    closeSheet();init();toast('تمت الاستعادة');
+  }));
+}
+
+/* ---------- CSV ---------- */
+function parseCSV(text){
+  text=text.replace(/^\uFEFF/,'');
+  const first=text.split(/\r?\n/)[0]||'';
+  const cnt=ch=>first.split(ch).length;
+  const delim=[',',';','\t'].sort((a,b)=>cnt(b)-cnt(a))[0];
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){f+='"';i++} else q=false } else f+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===delim){row.push(f);f=''}
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[i+1]==='\n') i++; row.push(f);f=''; if(row.some(x=>x.trim()!=='')) rows.push(row); row=[]; }
+    else f+=ch;
+  }
+  row.push(f); if(row.some(x=>x.trim()!=='')) rows.push(row);
+  return rows;
+}
+function ymd(y,m,d){m=+m;d=+d;if(m<1||m>12||d<1||d>31)return null;return y+'-'+pad(m)+'-'+pad(d)}
+function parseDate(s,fm){
+  s=normNum(s).trim(); let m;
+  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return ymd(m[1],m[2],m[3]);
+  if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){const y=m[3].length===2?'20'+m[3]:m[3];return fm==='mdy'?ymd(y,m[1],m[2]):ymd(y,m[2],m[1])}
+  const d=new Date(s); if(!isNaN(d)) return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  return null;
+}
+function importSheet(text){
+  const rows=parseCSV(text);
+  if(rows.length<2){toast('الملف فارغ أو غير مقروء');return}
+  const headers=rows[0].map(h=>h.trim()), data=rows.slice(1);
+  const lc=headers.map(h=>h.toLowerCase());
+  const g=(keys,not)=>lc.findIndex((h,i)=>!(not||[]).includes(i)&&keys.some(k=>h.includes(k)));
+  const map={date:g(['date','تاريخ','day','time']),amount:g(['amount','مبلغ','value','sum','قيمة','price']),cat:g(['category','بند','فئة','تصنيف','cat']),type:g(['type','نوع','kind'])};
+  map.to=g(['to account','target','إلى','الى','destination','in account']);
+  map.acc=g(['account','حساب','wallet','محفظة','from account'],[map.to]);
+  map.note=g(['note','memo','description','ملاحظ','وصف','title','payee','remark'],[map.cat,map.acc,map.to]);
+  const ds=map.date>=0?data.map(r=>normNum(r[map.date]||'')):[];
+  let fm='dmy'; for(const s of ds){const m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.]/); if(m){if(+m[1]>12){fm='dmy';break} if(+m[2]>12){fm='mdy';break}}}
+  const hasNeg=map.amount>=0&&data.some(r=>parseAmount(r[map.amount])<0);
+  const opt=(sel,none)=>(none?`<option value="-1">— لا يوجد —</option>`:'')+headers.map((h,i)=>`<option value="${i}"${i===sel?' selected':''}>${esc(h||('عمود '+(i+1)))}</option>`).join('');
+  openSheet(`<h3>استيراد ملف CSV</h3>
+    <p class="note" style="margin:0 0 12px">وجدنا <span class="num">${data.length}</span> صف. طابق الأعمدة ثم اضغط استيراد.</p>
+    <div class="preview">${esc(headers.join('  |  '))}<br>${esc((data[0]||[]).join('  |  '))}</div>
+    <div class="row2"><label class="field"><span>التاريخ</span><select id="mDate">${opt(map.date)}</select></label><label class="field"><span>المبلغ</span><select id="mAmt">${opt(map.amount)}</select></label></div>
+    <div class="row2"><label class="field"><span>البند</span><select id="mCat">${opt(map.cat,true)}</select></label><label class="field"><span>الحساب</span><select id="mAcc">${opt(map.acc,true)}</select></label></div>
+    <div class="row2"><label class="field"><span>نوع العملية</span><select id="mType">${opt(map.type,true)}</select></label><label class="field"><span>الملاحظة</span><select id="mNote">${opt(map.note,true)}</select></label></div>
+    <div class="row2"><label class="field"><span>حساب التحويل إليه</span><select id="mTo">${opt(map.to,true)}</select></label>
+    <label class="field"><span>صيغة التاريخ</span><select id="mFmt"><option value="dmy"${fm==='dmy'?' selected':''}>يوم/شهر/سنة</option><option value="mdy"${fm==='mdy'?' selected':''}>شهر/يوم/سنة</option></select></label></div>
+    <label class="field"><span>إذا ما في عمود للنوع</span><select id="mSign"><option value="neg"${hasNeg?' selected':''}>السالب مصروف والموجب دخل</option><option value="all"${hasNeg?'':' selected'}>كل المبالغ مصروفات</option></select></label>
+    <div class="actions"><button class="btn" id="doImp">استيراد</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>{
+    b.querySelector('#doImp').addEventListener('click',()=>{
+      const v=id=>+b.querySelector(id).value;
+      const M={date:v('#mDate'),amount:v('#mAmt'),cat:v('#mCat'),note:v('#mNote'),type:v('#mType'),acc:v('#mAcc'),to:v('#mTo')};
+      const F=b.querySelector('#mFmt').value, sign=b.querySelector('#mSign').value;
+      const byName=new Map(S.settings.categories.map(c=>[c.kind+'|'+c.name.trim().toLowerCase(),c]));
+      const accByName=new Map(S.settings.accounts.map(a=>[a.name.trim().toLowerCase(),a]));
+      const getAcc=name=>{name=String(name||'').trim(); if(!name) return null; let a=accByName.get(name.toLowerCase());
+        if(!a){const credit=/visa|master|credit|بطاق|prepaid|signature|diamond|ائتمان/i.test(name),loan=/loan|قرض|borrow|دين/i.test(name);
+          a={id:newId(),name,icon:guessIcon(name,credit?'💳':'🏦'),type:loan?'loan':credit?'credit':'debit',opening:0,limit:0,color:nextColor()};
+          S.settings.accounts.push(a);accByName.set(name.toLowerCase(),a)} return a};
+      const touched=new Set(); let n=0,skip=0,dup=0;
+      const seen={}; const first=(S.settings.accounts[0]||{}).id||'';
+      for(const r of data){
+        const date=parseDate(r[M.date],F), raw=parseAmount(r[M.amount]);
+        if(!date||isNaN(raw)||raw===0){skip++;continue}
+        let type;
+        if(M.type>=0){const tv=String(r[M.type]||'').toLowerCase();type=/transfer|تحويل/.test(tv)?'transfer':/inc|دخل|credit|إيراد|ايراد|deposit|earn/.test(tv)?'income':'expense'}
+        else type=sign==='all'?'expense':(raw<0?'expense':'income');
+        const accObj=M.acc>=0?getAcc(r[M.acc]):null; const acc=accObj?accObj.id:first;
+        let cat=null,to='';
+        if(type==='transfer'){const tObj=M.to>=0?getAcc(r[M.to]):null; to=tObj?tObj.id:''}
+        else{
+          const cname=M.cat>=0?String(r[M.cat]||'').trim():'';
+          if(cname){cat=byName.get(type+'|'+cname.toLowerCase()); if(!cat){cat={id:newId(),name:cname,icon:guessIcon(cname,type==='income'?'💰':'📌'),kind:type,budget:0,color:nextColor()};S.settings.categories.push(cat);byName.set(type+'|'+cname.toLowerCase(),cat)}}
+          else cat=S.settings.categories.find(c=>c.id===(type==='income'?'extra':'other'))||S.settings.categories.find(c=>c.kind===type);
+        }
+        const note=M.note>=0?String(r[M.note]||'').trim():'';
+        const mk=date.slice(0,7), amount=Math.abs(raw);
+        if(!seen[mk]) seen[mk]=new Set(txOf(mk).map(t=>[t.date,t.amount,t.cat,t.note,t.type,t.acc].join('|')));
+        const key=[date,amount,cat?cat.id:'',note,type,acc].join('|');
+        if(seen[mk].has(key)){dup++;continue} seen[mk].add(key);
+        S.months[mk]=txOf(mk).concat({id:newId(),type,amount,cat:cat?cat.id:'',acc,to,date,note}); touched.add(mk); n++;
+      }
+      touched.forEach(k=>{sortMonth(k);saveMonth(k)});
+      saveSettings(); closeSheet();
+      toast(`تم استيراد ${n} عملية`+(dup?`، وتجاهل ${dup} مكررة`:'')+(skip?`، و${skip} صف غير مفهوم`:'')); S.tab='home'; render();
+    });
+  });
+}
+$('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{const txt=(await f.text()).replace(/^\uFEFF/,'');
+    if(txt.trim().charAt(0)==='{'){let o=null;try{o=JSON.parse(txt)}catch(x){} restoreSheet(o)} else importSheet(txt);
+  }catch(err){toast('تعذّرت قراءة الملف')}});
+
+function exportCSV(){
+  const q=s=>{s=String(s==null?'':s);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const lines=['date,type,category,account,to_account,amount,note'];
+  Object.keys(S.months).sort().forEach(k=>txOf(k).slice().reverse().forEach(t=>lines.push([t.date,t.type,t.type==='transfer'?'':catById(t.cat).name,accById(t.acc).name,t.to?accById(t.to).name:'',t.amount,t.note].map(q).join(','))));
+  saveFile('mizaniyati-'+todayStr()+'.csv','\uFEFF'+lines.join('\n'),'text/csv');toast('تم التصدير إلى التنزيلات');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-action]');
+  if(a){const act=a.dataset.action;
+    if(act==='prev'){S.period=shiftMonth(S.period,-1);render()}
+    else if(act==='next'){S.period=shiftMonth(S.period,1);render()}
+    else if(act==='add'){if(S.settings) txSheet(null)}
+    else if(act==='close') closeSheet();
+    else if(act==='newcat') catSheet(null,a.dataset.kind);
+    else if(act==='newacc') accSheet(null,a.dataset.type);
+    else if(act==='transfer') txSheet(null,{type:'transfer'});
+    else if(act==='hide'){S.settings.hide=!S.settings.hide;saveSettings();render()}
+    else if(act==='txview'){S.txView=a.dataset.v;render()}
+    else if(act==='clearacc'){S.accFilter=null;render()}
+    else if(act==='import') $('#fileIn').click();
+    else if(act==='export') exportCSV();
+    else if(act==='backup') backup();
+    return;
+  }
+  if(e.target.closest('#sheetBody')) return;
+  const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;if(S.tab!=='tx')S.accFilter=null;window.scrollTo(0,0);render();return}
+  const q=e.target.closest('[data-quick]'); if(q){const c=catById(q.dataset.quick);txSheet(null,{type:c.kind,cat:c.id});return}
+  const tx=e.target.closest('[data-tx]'); if(tx){const t=txOf(tx.dataset.m).find(x=>x.id===tx.dataset.tx); if(t) txSheet(t); return}
+  const rc=e.target.closest('[data-rec]'); if(rc){const r=(S.settings.recurring||[]).find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return}
+  const ac=e.target.closest('[data-acc]'); if(ac){accSheet(S.settings.accounts.find(x=>x.id===ac.dataset.acc)||null,'debit');return}
+  const c=e.target.closest('[data-cat]'); if(c){catSheet(S.settings.categories.find(x=>x.id===c.dataset.cat)||null,'expense')}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheetWrap').hidden) closeSheet()});
+init();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.settings){const n=runRecurring();if(n){render();toast('تمت إضافة '+n+' عملية متكررة')}}});
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
