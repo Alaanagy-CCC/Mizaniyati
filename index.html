@@ -548,14 +548,39 @@ function budgetHistory(k){
   const yb=base-tb/max*105;
   return `<h2>الالتزام بالميزانية</h2><div class="chart"><svg viewBox="0 0 ${W} ${H-10}" width="100%" role="img"><line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}<line x1="0" x2="${W}" y1="${yb}" y2="${yb}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="6 4"/></svg><p class="note" style="margin:4px 2px 0">مقارنة بميزانيتك الحالية: الأخضر ضمن الميزانية، والأحمر تجاوز.</p></div>`;
 }
+function median(a){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function smartSuggest(k){
+  let first=null;Object.keys(S.months).forEach(m=>{if(S.months[m].length&&(!first||m<first))first=m});
+  const ps_=[];for(let i=1;i<=12;i++){const m=shiftMonth(k,-i);if(first&&shiftMonth(m,1)>=first)ps_.push(m)}
+  const N=ps_.length;if(N<2)return null;
+  const per=ps_.map(m=>spentBy(txIn(m)));
+  const incs=ps_.map(m=>sum(txIn(m).filter(t=>t.type==='income')));
+  const rnd=v=>v<=0?0:v<20?Math.ceil(v):Math.ceil(v/5)*5;
+  const rows=expenseCats().map(c=>{
+    const vals=per.map(p=>p[c.id]||0),nz=vals.filter(v=>v>0),active=nz.length;if(!active)return null;
+    const tot=vals.reduce((a,b)=>a+b,0),mx=Math.max(...vals);
+    const mean=nz.reduce((a,b)=>a+b,0)/active,sd=Math.sqrt(nz.reduce((a,b)=>a+(b-mean)**2,0)/active);
+    let type,val,why;
+    if(active/N<0.5){type='موسمي';val=tot/N;why=`ظهر في ${active} من ${N} شهر · المجموع ${fmt(tot)} موزّع على الشهور`}
+    else if(active>=0.75*N&&active>=3&&sd/mean<0.15){type='ثابت';val=vals.slice().reverse().find(v=>v>0)||mean;why=`شبه ثابت كل شهر · آخر مبلغ ${fmt(val)}`}
+    else{type='متغير';val=median(vals);why=`الوسيط ${fmt(val)} · ظهر في ${active} من ${N} شهر · أعلى شهر ${fmt(mx)}`}
+    return{c,type,s:rnd(val),why};
+  }).filter(Boolean).sort((a,b)=>b.s-a.s);
+  return{rows,N,inc:median(incs)};
+}
 function suggestSheet(){
-  const k=S.period,avg=avgSpent(k,3);
-  const rows=expenseCats().map(c=>({c,a:avg[c.id]||0,s:Math.ceil((avg[c.id]||0)/5)*5})).filter(r=>r.a>0).sort((a,b)=>b.a-a.a);
-  if(!rows.length){toast('ما في بيانات كافية من الفترات السابقة');return}
-  openSheet(`<h3>اقتراح ميزانيات</h3><p class="note" style="margin:0 0 12px">محسوبة من متوسط صرفك في آخر 3 فترات، ومقرّبة لأقرب 5. عدّل أي رقم أو ألغِ تحديده.</p>
-    <div class="list">${rows.map(r=>`<label class="set-row"><input type="checkbox" class="sg-ck" data-id="${esc(r.c.id)}" checked style="width:20px;height:20px"><span class="ic">${esc(r.c.icon)}</span><span class="grow"><span class="t1">${esc(r.c.name)}</span><span class="t2">المتوسط ${fmt(r.a)}${+r.c.budget?' · الحالية '+fmt(+r.c.budget):''}</span></span><input class="sg-v" data-id="${esc(r.c.id)}" inputmode="decimal" value="${r.s}" style="width:86px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></label>`).join('')}</div>
+  const r=smartSuggest(S.period);
+  if(!r||!r.rows.length){toast('ما في بيانات كافية من الشهور السابقة');return}
+  const badge=t=>`<span style="font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--chip);color:${t==='ثابت'?'var(--accent)':t==='موسمي'?'var(--gold)':'var(--muted)'}">${t}</span>`;
+  openSheet(`<h3>اقتراح ميزانيات</h3><p class="note" style="margin:0 0 10px">محسوبة من آخر ${r.N} شهر. البنود <b>المتغيرة</b> بالوسيط (الشهر العادي، بدون تأثير الشهور الشاذة)، و<b>الثابتة</b> بآخر مبلغ، و<b>الموسمية</b> بمجموعها موزّع على الشهور. عدّل أي رقم أو ألغِ تحديده.</p>
+    <div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="t2" style="white-space:normal">مجموع المقترح: <b class="num" id="sgTot"></b> · دخلك المعتاد: <b class="num">${fmt(r.inc)}</b></div></div>
+    <div class="list">${r.rows.map(x=>`<label class="set-row"><input type="checkbox" class="sg-ck" data-id="${esc(x.c.id)}" checked style="width:20px;height:20px;flex:none"><span class="ic">${esc(x.c.icon)}</span><span class="grow"><span class="t1">${esc(x.c.name)} ${badge(x.type)}</span><span class="t2" style="white-space:normal">${x.why}${+x.c.budget?' · الحالية '+fmt(+x.c.budget):''}</span></span><input class="sg-v" data-id="${esc(x.c.id)}" inputmode="decimal" value="${x.s}" style="width:80px;flex:none;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></label>`).join('')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn" id="sgApply">تطبيق الميزانيات المحددة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
-  b=>b.querySelector('#sgApply').addEventListener('click',()=>{let n=0;b.querySelectorAll('.sg-ck').forEach(ck=>{if(!ck.checked)return;const v=parseAmount(b.querySelector(`.sg-v[data-id="${ck.dataset.id}"]`).value);const c=S.settings.categories.find(x=>x.id===ck.dataset.id);if(c&&v>=0){c.budget=Math.abs(v);n++}});saveSettings();closeSheet();toast('تم تحديد ميزانية '+n+' بند');render()}));
+  b=>{
+    const upT=()=>{let t=0;b.querySelectorAll('.sg-ck').forEach(ck=>{if(ck.checked){const v=parseAmount(b.querySelector(`.sg-v[data-id="${ck.dataset.id}"]`).value);if(v>0)t+=v}});const el=b.querySelector('#sgTot');el.textContent=fmt(t);el.className='num '+(r.inc&&t>r.inc?'neg':'')};
+    b.querySelectorAll('.sg-ck,.sg-v').forEach(el=>el.addEventListener('input',upT));upT();
+    b.querySelector('#sgApply').addEventListener('click',()=>{let n=0;b.querySelectorAll('.sg-ck').forEach(ck=>{if(!ck.checked)return;const v=parseAmount(b.querySelector(`.sg-v[data-id="${ck.dataset.id}"]`).value);const c=S.settings.categories.find(x=>x.id===ck.dataset.id);if(c&&!isNaN(v)){c.budget=Math.abs(v);n++}});saveSettings();closeSheet();toast('تم تحديد ميزانية '+n+' بند');render()});
+  });
 }
 function totalSheet(){
   const sumCats=expenseCats().reduce((a,c)=>a+(+c.budget||0),0);
