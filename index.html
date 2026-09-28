@@ -197,7 +197,7 @@ select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;
   <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<input type="file" id="fileIn" accept=".csv,.json,text/csv,application/json,text/plain" hidden>
+<input type="file" id="fileIn" accept=".csv,.json,.txt,.xlsx,.zip,text/csv,application/json,text/plain,application/zip,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
 
 <script>
 (function(){
@@ -206,7 +206,7 @@ const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','ي
 const CUR={KWD:['د.ك',3],SAR:['ر.س',2],AED:['د.إ',2],QAR:['ر.ق',2],BHD:['د.ب',3],OMR:['ر.ع',3],EGP:['ج.م',2],USD:['$',2],GBP:['£',2],EUR:['€',2]};
 const COLORS=['#2E8B7A','#C79A3A','#D0506A','#3E7CC4','#8A5CC2','#D9743A','#4E8A5A','#C2508F','#2F8FA8','#9A7B3F','#6B7C3A','#5A6BB0','#B6452F','#7F8C8D'];
 const ACC_TYPES={debit:'الحسابات والنقد',credit:'بطاقات الائتمان',loan:'الديون والقروض'};
-const GUESS=[[/grocer|بقال|سوبر|جمعي/i,'🛒'],[/food|drink|مطعم|اكل|أكل|افطار|فطور|قهو|غدا|عشا/i,'🍽️'],[/taxi|تاكسي|uber|careem/i,'🚕'],[/car|سيار|gas|fuel|بنزين|وقود/i,'🚗'],[/rent|ايجار|إيجار/i,'🏠'],[/bill|فاتور|كهرب|ماء/i,'💡'],[/health|صح|دواء|مستشف|طبي/i,'💊'],[/shop|تسوق/i,'🛍️'],[/book|كتب|app/i,'📚'],[/educat|تعليم|مدرس|علوم|وظائف/i,'🎓'],[/hotel|فندق/i,'🏨'],[/travel|سفر|طيران/i,'✈️'],[/gift|هدي|هدايا/i,'🎁'],[/sport|رياض/i,'👟'],[/pet|حيوان|قط/i,'🐾'],[/communic|اتصال|هاتف|phone|internet|نت/i,'📱'],[/salary|راتب/i,'💼'],[/freelance|حر/i,'💻'],[/صدق|زكا|charity|تبرع/i,'🤲'],[/دين|ديون|debt|قرض|loan/i,'🧾'],[/clean|غسيل|dry|كوي/i,'👔'],[/kid|عيال|أولاد|اولاد|اطفال/i,'🧒'],[/حكوم|gov/i,'🏛️'],[/self|عناية|care/i,'💆'],[/company|conference|مؤتمر|training|تدريب/i,'🎤'],[/نثري|misc/i,'🌹'],[/cash|نقد|كاش|pocket/i,'💵'],[/visa|master|card|بطاق|prepaid|signature|diamond/i,'💳'],[/retire|تقاعد|saving|ادخار/i,'🌱'],[/bank|بنك|kfh|بيتك|nbk|warba|turk|account/i,'🏦']];
+const GUESS=[[/grocer|بقال|سوبر|جمعي/i,'🛒'],[/food|drink|مطعم|اكل|أكل|افطار|فطور|قهو|غدا|عشا/i,'🍽️'],[/taxi|تاكسي|uber|careem/i,'🚕'],[/car|سيار|gas|fuel|بنزين|وقود/i,'🚗'],[/rent|ايجار|إيجار/i,'🏠'],[/bill|فاتور|كهرب|ماء/i,'💡'],[/health|صح|دواء|مستشف|طبي/i,'💊'],[/shop|تسوق/i,'🛍️'],[/book|كتب|app/i,'📚'],[/علوم شرعية|دعوة|قرآن/i,'📖'],[/educat|تعليم|مدرس|علوم|وظائف/i,'🎓'],[/invest|استثمار/i,'📈'],[/hotel|فندق/i,'🏨'],[/travel|سفر|طيران/i,'✈️'],[/gift|هدي|هدايا/i,'🎁'],[/sport|رياض/i,'👟'],[/pet|حيوان|قط/i,'🐾'],[/communic|اتصال|هاتف|phone|internet|نت/i,'📱'],[/salary|راتب/i,'💼'],[/freelance|حر/i,'💻'],[/صدق|زكا|charity|تبرع/i,'🤲'],[/دين|ديون|debt|قرض|loan/i,'🧾'],[/clean|غسيل|dry|كوي/i,'👔'],[/kid|عيال|أولاد|اولاد|اطفال/i,'🧒'],[/حكوم|gov/i,'🏛️'],[/self|عناية|care/i,'💆'],[/company|conference|مؤتمر|training|تدريب/i,'🎤'],[/نثري|misc/i,'🌹'],[/بيت|منزل|house/i,'🏠'],[/cash|نقد|كاش|pocket/i,'💵'],[/visa|master|card|بطاق|prepaid|signature|diamond/i,'💳'],[/retire|تقاعد|saving|ادخار/i,'🌱'],[/bank|بنك|kfh|بيتك|nbk|warba|turk|account/i,'🏦']];
 const guessIcon=(n,d)=>{for(const [re,ic] of GUESS) if(re.test(n)) return ic; return d};
 const DEFAULT_CATS=[
  ['food','مطاعم وقهوة','🍽️','expense'],['groc','بقالة','🛒','expense'],['car','سيارة ووقود','🚗','expense'],
@@ -294,7 +294,7 @@ const money=(n,cls)=>`<span class="num ${cls||''}">${fmt(n)}</span>`;
 const hid=()=>!!S.settings.hide;
 const mmoney=(n,cls)=>hid()?`<span class="num ${cls||''}">••••</span>`:money(n,cls);
 const catById=id=>S.settings.categories.find(c=>c.id===id)||{id:id,name:'بدون بند',icon:'•',kind:'expense',budget:0,color:'#7F8C8D'};
-const accById=id=>S.settings.accounts.find(a=>a.id===id)||(id?{id:id,name:'حساب محذوف',icon:'•',type:'debit'}:S.settings.accounts[0]||{id:'',name:'—',icon:'•',type:'debit'});
+const accById=id=>S.settings.accounts.find(a=>a.id===id)||(id===''?{id:'',name:'بدون حساب',icon:'•',type:'debit'}:id?{id:id,name:'حساب محذوف',icon:'•',type:'debit'}:S.settings.accounts[0]||{id:'',name:'—',icon:'•',type:'debit'});
 const txOf=k=>S.months[k]||[];
 const allTx=()=>Object.values(S.months).reduce((a,l)=>a.concat(l),[]);
 const expenseCats=()=>S.settings.categories.filter(c=>c.kind==='expense');
@@ -311,7 +311,7 @@ function parseAmount(s){
 function sortMonth(k){(S.months[k]||[]).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0)}
 function flows(){
   const f={}; const first=(S.settings.accounts[0]||{}).id;
-  allTx().forEach(t=>{const a=t.acc||first,v=+t.amount||0;
+  allTx().forEach(t=>{const a=t.acc===undefined?first:t.acc,v=+t.amount||0; if(!a&&t.type!=='transfer') return;
     if(t.type==='income') f[a]=(f[a]||0)+v;
     else if(t.type==='expense') f[a]=(f[a]||0)-v;
     else if(t.type==='transfer'){f[a]=(f[a]||0)-v; if(t.to) f[t.to]=(f[t.to]||0)+v}});
@@ -463,7 +463,7 @@ function viewSettings(){
   <h2>العمليات المتكررة</h2>${(S.settings.recurring||[]).length?`<div class="list">${S.settings.recurring.map(r=>{const c=recName(r);return `<button class="set-row" data-rec="${esc(r.id)}"><span class="ic">${esc(c.icon)}</span><span class="grow"><span class="t1">${esc(c.name)}${r.note?' – '+esc(r.note):''}</span><span class="t2">${FREQ[r.freq]}، ${r.paused?'موقوفة':'القادمة '+esc(r.next)}</span></span><span class="amt">${money(r.amount,r.paused?'t2':'')}</span></button>`}).join('')}</div>`:`<p class="note">عند إضافة عملية، اختر من خانة التكرار شهرياً أو أسبوعياً، وتنضاف تلقائياً في موعدها.</p>`}
   <h2>البيانات</h2><div class="list">
     <button class="set-row" data-action="backup"><span class="ic">💾</span><span class="grow"><span class="t1">نسخة احتياطية</span><span class="t2">احفظ ملفاً فيه كل بياناتك</span></span></button>
-    <button class="set-row" data-action="import"><span class="ic">📥</span><span class="grow"><span class="t1">استيراد CSV أو استعادة نسخة</span><span class="t2">ملف CSV من البرنامج القديم، أو ملف النسخة الاحتياطية</span></span></button>
+    <button class="set-row" data-action="import"><span class="ic">📥</span><span class="grow"><span class="t1">استيراد أو استعادة</span><span class="t2">ملف Excel من برنامج Budget، أو CSV، أو ملف النسخة الاحتياطية</span></span></button>
     <button class="set-row" data-action="export"><span class="ic">📤</span><span class="grow"><span class="t1">تصدير كل العمليات</span><span class="t2">ملف CSV يفتح في Excel</span></span></button>
   </div>
   <p class="note">بياناتك محفوظة على هذا الجهاز فقط، ولا تُرسل لأي مكان. خذ نسخة احتياطية كل فترة واحفظها في Google Drive. عدد العمليات: <span class="num">${nTx}</span></p>`;
@@ -622,12 +622,14 @@ function recSheet(r){
   });
 }
 function saveFile(name,text,mime){
+  if(window.AndroidBridge){try{window.AndroidBridge.saveFile(name,mime,text);return true}catch(e){}}
   const blob=new Blob([text],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);
+  return false;
 }
 function backup(){
-  saveFile('mizaniyati-backup-'+todayStr()+'.json',JSON.stringify({app:'mizaniyati',v:2,date:todayStr(),settings:S.settings,months:S.months}),'application/json');
-  toast('تم حفظ النسخة الاحتياطية في التنزيلات');
+  if(!saveFile('mizaniyati-backup-'+todayStr()+'.json',JSON.stringify({app:'mizaniyati',v:2,date:todayStr(),settings:S.settings,months:S.months}),'application/json'))
+    toast('تم حفظ النسخة الاحتياطية في التنزيلات');
 }
 function restoreSheet(obj){
   if(!obj||obj.app!=='mizaniyati'||!obj.settings||!obj.months){toast('هذا الملف ليس نسخة احتياطية من ميزانيتي');return}
@@ -668,7 +670,7 @@ function parseDate(s,fm){
   return null;
 }
 function importSheet(text){
-  const rows=parseCSV(text);
+  const rows=Array.isArray(text)?text:parseCSV(text);
   if(rows.length<2){toast('الملف فارغ أو غير مقروء');return}
   const headers=rows[0].map(h=>h.trim()), data=rows.slice(1);
   const lc=headers.map(h=>h.toLowerCase());
@@ -731,16 +733,106 @@ function importSheet(text){
     });
   });
 }
+/* ---------- zip / xlsx ---------- */
+async function inflateRaw(bytes){
+  if(typeof DecompressionStream==='undefined') throw new Error('nodecomp');
+  const ds=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(ds).arrayBuffer());
+}
+async function unzip(u8){
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  let eocd=-1; for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break}}
+  if(eocd<0) throw new Error('zip');
+  const n=dv.getUint16(eocd+10,true); let p=dv.getUint32(eocd+16,true); const files={}; const dec=new TextDecoder();
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nl));
+    files[name]={method,csize,off}; p+=46+nl+el+cl;
+  }
+  return {names:Object.keys(files),get:async name=>{const f=files[name];if(!f)return null;
+    const lnl=dv.getUint16(f.off+26,true),lel=dv.getUint16(f.off+28,true),start=f.off+30+lnl+lel,data=u8.subarray(start,start+f.csize);
+    return f.method===0?data:await inflateRaw(data)}};
+}
+async function readXlsx(z){
+  const dec=new TextDecoder(),xml=async n=>{const b=await z.get(n);return b?new DOMParser().parseFromString(dec.decode(b),'application/xml'):null};
+  const tags=(d,t)=>Array.from(d.getElementsByTagName(t));
+  const ss=[]; const sd=await xml('xl/sharedStrings.xml');
+  if(sd) tags(sd,'si').forEach(si=>ss.push(tags(si,'t').map(t=>t.textContent).join('')));
+  const wb=await xml('xl/workbook.xml'), rel=await xml('xl/_rels/workbook.xml.rels'); const rmap={};
+  if(rel) tags(rel,'Relationship').forEach(r=>rmap[r.getAttribute('Id')]=r.getAttribute('Target'));
+  const colIdx=ref=>{let c=0;for(const ch of ref.replace(/\d+/g,''))c=c*26+ch.charCodeAt(0)-64;return c-1};
+  const out={};
+  for(const s of tags(wb,'sheet')){
+    const rid=s.getAttribute('r:id')||s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    let t=rmap[rid]||''; t=t.replace(/^\/?xl\//,''); t=t.startsWith('/')?t.slice(1):'xl/'+t;
+    const d=await xml(t); if(!d) continue; const rows=[];
+    tags(d,'row').forEach(r=>{const arr=[];tags(r,'c').forEach(c=>{const ty=c.getAttribute('t'),v=c.getElementsByTagName('v')[0];let val='';
+      if(ty==='s') val=v?ss[+v.textContent]||'':''; else if(ty==='inlineStr') val=tags(c,'t').map(x=>x.textContent).join(''); else val=v?v.textContent:'';
+      const ref=c.getAttribute('r'); arr[ref?colIdx(ref):arr.length]=val}); rows.push(Array.from(arr,x=>x==null?'':x))});
+    out[s.getAttribute('name')]=rows;
+  }
+  return out;
+}
+function sheetObjs(rows){if(!rows||rows.length<2)return[];const h=rows[0];return rows.slice(1).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i]==null?'':r[i]);return o})}
+function budgetToBackup(sh){
+  const R=sheetObjs(sh.Records),T=sheetObjs(sh.AccountTransactions),A=sheetObjs(sh.Accounts),C=sheetObjs(sh.Categories),L=sheetObjs(sh.Loans);
+  const sid=x=>String(x||'').replace(/_+defaultOwner_+$/,''), num=x=>{const v=parseFloat(String(x).replace(/,/g,''));return isNaN(v)?0:v};
+  const tb=x=>x===true||x==='1'||String(x).toLowerCase()==='true';
+  const rate={KWD:1,SAR:0.0817};
+  const tot={}; R.forEach(r=>{const c=r.original_currency;if(!c||c==='KWD')return;tot[c]=tot[c]||[0,0];tot[c][0]+=num(r.system_amount);tot[c][1]+=num(r.original_amount)});
+  Object.keys(tot).forEach(c=>{if(tot[c][1]>0)rate[c]=tot[c][0]/tot[c][1]});
+  const col=x=>{x=String(x||'').trim().replace(/^#/,'');return /^[0-9a-f]{6}$/i.test(x)?'#'+x.toUpperCase():'#7F8C8D'};
+  const emo=x=>{x=String(x||'');return x&&x.length<=4&&!/[A-Za-z0-9_\u4e00-\u9fff]/.test(x)};
+  const d10=x=>{if(/^\d{4}-\d{2}-\d{2}/.test(String(x)))return String(x).slice(0,10);const n=parseFloat(x);if(!isNaN(n)&&n>20000){const dt=new Date(Date.UTC(1899,11,30)+n*864e5);return dt.toISOString().slice(0,10)}return parseDate(String(x),'dmy')};
+  const cs=C.filter(c=>+c.status===0).concat(C.filter(c=>+c.status!==0));
+  const categories=cs.map((c,i)=>{const nm=String(c.name).trim(),inc=tb(c.is_income);return{id:sid(c.source_uid),name:nm,icon:emo(c.icon_name)?c.icon_name:guessIcon(nm,inc?'💰':'📌'),kind:inc?'income':'expense',budget:0,color:col(c.color_hex)}});
+  const months={},flow={},adj={}; const put=t=>{(months[t.date.slice(0,7)]=months[t.date.slice(0,7)]||[]).push(t)};
+  let n=0;
+  R.forEach(r=>{const typ=r.record_type==='income'||tb(r.is_income)?'income':'expense',amt=+num(r.system_amount).toFixed(3),date=d10(r.Date||r.occurred_at_utc);if(!date||!amt)return;
+    let note=String(r.Note||r.note||'').trim(); if(r.subcategory_name) note=r.subcategory_name+(note?' – '+note:'');
+    if(r.original_currency&&r.original_currency!=='KWD') note=(note?note+' ':'')+'('+num(r.original_amount)+' '+r.original_currency+')';
+    const acc=sid(r.account_id); put({id:sid(r.source_uid)||newId(),type:typ,amount:amt,cat:sid(r.category_id),acc,to:'',date,note}); flow[acc]=(flow[acc]||0)+(typ==='income'?amt:-amt); n++});
+  T.forEach(t=>{const amt=+num(t.system_amount).toFixed(3),acc=sid(t.account_id);
+    if(t.entry_type==='balance_adjustment'){adj[acc]=(adj[acc]||0)+(tb(t.is_income)?amt:-amt);return}
+    if(tb(t.is_income))return; const date=d10(t.Date||t.occurred_at_utc); if(!date||!amt)return;
+    put({id:sid(t.source_uid)||newId(),type:'transfer',amount:amt,cat:'',acc,to:sid(t.counterpart_account_id),date,note:String(t.Note||'').trim()}); n++});
+  let accounts=A.map(a=>{const i=sid(a.source_uid),nm=String(a.name).trim(),r=rate[a.currency]||1,credit=+a.account_type===0&&!/prepaid/i.test(nm);
+    const opening=(credit?-num(a.liability):num(a.credit_limit))*r+(adj[i]||0);
+    return{id:i,name:nm,icon:guessIcon(nm,credit?'💳':'🏦'),type:credit?'credit':'debit',opening:+opening.toFixed(3),limit:credit?+(num(a.credit_limit)*r).toFixed(3):0,color:col(a.color_hex)}}).reverse();
+  L.forEach(l=>{const owed=num(l.amount||l.Amount)*(rate[l.currency||l.Currency]||1);accounts.push({id:'loan-'+sid(l.source_uid),name:'دين '+(l.target||l.Counterparty||''),icon:'🧾',type:'loan',opening:+(-owed).toFixed(3),limit:0,color:'#B6452F'})});
+  Object.keys(months).forEach(k=>months[k].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0));
+  return {app:'mizaniyati',v:2,date:todayStr(),source:'Budget',settings:{currency:S.settings.currency||'KWD',periodStart:S.settings.periodStart||1,categories,accounts,recurring:S.settings.recurring||[],hide:!!S.settings.hide},months};
+}
+async function handleZip(u8){
+  const z=await unzip(u8);
+  if(z.names.includes('xl/workbook.xml')){
+    const sh=await readXlsx(z);
+    if(sh.Records&&sh.Accounts&&sh.Categories){restoreSheet(budgetToBackup(sh));return}
+    const first=Object.values(sh)[0]; if(first&&first.length>1){importSheet(first);return}
+    toast('ملف Excel فارغ');return;
+  }
+  const pick=z.names.find(n=>/\.xlsx$/i.test(n))||z.names.find(n=>/\.(json|txt)$/i.test(n))||z.names.find(n=>/\.csv$/i.test(n));
+  if(!pick){toast('ما لقيت ملف مناسب داخل الملف المضغوط');return}
+  const b=await z.get(pick); if(/\.xlsx$/i.test(pick)) return handleZip(b);
+  handleText(new TextDecoder().decode(b));
+}
+function handleText(txt){
+  txt=txt.replace(/^\uFEFF/,'');
+  if(txt.trim().charAt(0)==='{'){let o=null;try{o=JSON.parse(txt)}catch(x){} restoreSheet(o)} else importSheet(txt);
+}
 $('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0]; e.target.value=''; if(!f) return;
-  try{const txt=(await f.text()).replace(/^\uFEFF/,'');
-    if(txt.trim().charAt(0)==='{'){let o=null;try{o=JSON.parse(txt)}catch(x){} restoreSheet(o)} else importSheet(txt);
-  }catch(err){toast('تعذّرت قراءة الملف')}});
+  try{const u8=new Uint8Array(await f.arrayBuffer());
+    if(u8[0]===0x25&&u8[1]===0x50&&u8[2]===0x44&&u8[3]===0x46){toast('هذا ملف PDF، اختر ملف Excel أو النسخة الاحتياطية');return}
+    if(u8[0]===0x50&&u8[1]===0x4B){toast('جاري قراءة الملف…');await handleZip(u8);return}
+    handleText(new TextDecoder().decode(u8));
+  }catch(err){toast(err&&err.message==='nodecomp'?'حدّث Chrome لقراءة ملفات Excel':'تعذّرت قراءة الملف')}});
 
 function exportCSV(){
   const q=s=>{s=String(s==null?'':s);return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
   const lines=['date,type,category,account,to_account,amount,note'];
   Object.keys(S.months).sort().forEach(k=>txOf(k).slice().reverse().forEach(t=>lines.push([t.date,t.type,t.type==='transfer'?'':catById(t.cat).name,accById(t.acc).name,t.to?accById(t.to).name:'',t.amount,t.note].map(q).join(','))));
-  saveFile('mizaniyati-'+todayStr()+'.csv','\uFEFF'+lines.join('\n'),'text/csv');toast('تم التصدير إلى التنزيلات');
+  if(!saveFile('mizaniyati-'+todayStr()+'.csv','\uFEFF'+lines.join('\n'),'text/csv')) toast('تم التصدير إلى التنزيلات');
 }
 
 /* ---------- events ---------- */
@@ -771,6 +863,8 @@ document.addEventListener('click',e=>{
   const c=e.target.closest('[data-cat]'); if(c){catSheet(S.settings.categories.find(x=>x.id===c.dataset.cat)||null,'expense')}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheetWrap').hidden) closeSheet()});
+window.__toast=toast;
+window.__onBack=()=>{if(!$('#sheetWrap').hidden){closeSheet();return true} if(S.tab!=='home'){S.tab='home';S.accFilter=null;render();return true} return false};
 init();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.settings){const n=runRecurring();if(n){render();toast('تمت إضافة '+n+' عملية متكررة')}}});
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
