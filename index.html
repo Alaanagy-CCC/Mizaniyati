@@ -293,6 +293,19 @@ function fmt(n){const dec=curInfo()[1];const v=Math.abs(n).toLocaleString('en-US
 const money=(n,cls)=>`<span class="num ${cls||''}">${fmt(n)}</span>`;
 const hid=()=>!!S.settings.hide;
 const mmoney=(n,cls)=>hid()?`<span class="num ${cls||''}">••••</span>`:money(n,cls);
+const baseCur=()=>S.settings.currency;
+const DEF_RATES={USD:0.307,GBP:0.406,EUR:0.335,EGP:0.0063,SAR:0.0818,AED:0.0836,QAR:0.0843,BHD:0.815,OMR:0.798};
+const accCur=a=>(a&&a.currency)||baseCur();
+const rateOf=c=>c===baseCur()?1:(+((S.settings.rates||{})[c])||(baseCur()==='KWD'?DEF_RATES[c]:0)||1);
+const curSym=c=>(CUR[c]||[c])[0];
+function fmtC(n,c){const dec=(CUR[c]||[c,2])[1];const v=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});return (n<0?'−':'')+v}
+const moneyC=(n,c,cls)=>hid()?`<span class="num ${cls||''}">••••</span>`:`<span class="num ${cls||''}">${fmtC(n,c)}${c!==baseCur()?' <small>'+esc(curSym(c))+'</small>':''}</span>`;
+const fromAmt=t=>{const c=accCur(accById(t.acc));return t.oamt!=null?+t.oamt:(c===baseCur()?+t.amount:+t.amount/rateOf(c))};
+const toAmt=t=>{const c=accCur(accById(t.to));return t.toamt!=null?+t.toamt:(c===baseCur()?+t.amount:+t.amount/rateOf(c))};
+function accFlow(id,cur){let f=0;const b=baseCur();allTx().forEach(t=>{
+  const conv=(o)=>o!=null?+o:(cur===b?+t.amount:+t.amount/rateOf(cur));
+  if(t.acc===id){const v=conv(t.oamt);if(t.type==='income')f+=v;else f-=v}
+  if(t.type==='transfer'&&t.to===id) f+=conv(t.toamt)});return f}
 const catById=id=>S.settings.categories.find(c=>c.id===id)||{id:id,name:'بدون بند',icon:'•',kind:'expense',budget:0,color:'#7F8C8D'};
 const accById=id=>S.settings.accounts.find(a=>a.id===id)||(id===''?{id:'',name:'بدون حساب',icon:'•',type:'debit'}:id?{id:id,name:'حساب محذوف',icon:'•',type:'debit'}:S.settings.accounts[0]||{id:'',name:'—',icon:'•',type:'debit'});
 const txOf=k=>S.months[k]||[];
@@ -311,10 +324,11 @@ function parseAmount(s){
 function sortMonth(k){(S.months[k]||[]).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0)}
 function flows(){
   const f={}; const first=(S.settings.accounts[0]||{}).id;
-  allTx().forEach(t=>{const a=t.acc===undefined?first:t.acc,v=+t.amount||0; if(!a&&t.type!=='transfer') return;
+  allTx().forEach(t=>{const a=t.acc===undefined?first:t.acc; if(!a&&t.type!=='transfer') return;
+    const v=a?fromAmt(t.acc===undefined?Object.assign({},t,{acc:first}):t):0;
     if(t.type==='income') f[a]=(f[a]||0)+v;
     else if(t.type==='expense') f[a]=(f[a]||0)-v;
-    else if(t.type==='transfer'){f[a]=(f[a]||0)-v; if(t.to) f[t.to]=(f[t.to]||0)+v}});
+    else if(t.type==='transfer'){if(a) f[a]=(f[a]||0)-v; if(t.to) f[t.to]=(f[t.to]||0)+toAmt(t)}});
   return f;
 }
 const nextColor=()=>COLORS[(S.settings.categories.length+S.settings.accounts.length)%COLORS.length];
@@ -334,7 +348,7 @@ function runRecurring(){
     if(r.paused) return; let guard=0;
     while(r.next<=today&&guard++<400){
       const mk=r.next.slice(0,7);
-      S.months[mk]=txOf(mk).concat({id:newId(),type:r.type,amount:r.amount,cat:r.cat||'',acc:r.acc,to:r.to||'',date:r.next,note:r.note||'',rid:r.id});
+      S.months[mk]=txOf(mk).concat({id:newId(),type:r.type,amount:r.amount,oamt:r.oamt,toamt:r.toamt,cat:r.cat||'',acc:r.acc,to:r.to||'',date:r.next,note:r.note||'',rid:r.id});
       touched.add(mk); n++; r.next=advance(r,r.next);
     }
   });
@@ -351,13 +365,14 @@ const recName=r=>r.type==='transfer'?{icon:'⇄',name:'تحويل'}:catById(r.ca
 
 /* ---------- views ---------- */
 function txRow(t){
-  const m=t.date.slice(0,7);
+  const m=t.date.slice(0,7), fa=accById(t.acc), fc=accCur(fa);
   if(t.type==='transfer'){
-    return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic">⇄</span><span class="grow"><span class="t1">تحويل</span><span class="t2">${esc(accById(t.acc).name)} ← ${esc(t.to?accById(t.to).name:'—')}</span></span><span class="amt">${money(t.amount)}</span></button>`;
+    return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic">⇄</span><span class="grow"><span class="t1">تحويل</span><span class="t2">${esc(fa.name)} ← ${esc(t.to?accById(t.to).name:'—')}</span></span><span class="amt"><span class="num">${fmtC(fromAmt(t),fc)}${fc!==baseCur()?' <small>'+esc(curSym(fc))+'</small>':''}</span></span></button>`;
   }
   const c=catById(t.cat), inc=t.type==='income';
-  const sub=[t.note,accById(t.acc).name].filter(Boolean).join('، ');
-  return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic" style="background:color-mix(in srgb,${c.color||'#7F8C8D'} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow"><span class="t1">${esc(c.name)}</span><span class="t2">${esc(sub)}</span></span><span class="amt">${money(inc?t.amount:-t.amount,inc?'pos':'')}</span></button>`;
+  const sub=[t.note,fa.name].filter(Boolean).join('، ');
+  const orig=fc!==baseCur()&&t.acc?`<span class="t2 num">${fmtC(fromAmt(t),fc)} ${esc(curSym(fc))}</span>`:'';
+  return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic" style="background:color-mix(in srgb,${c.color||'#7F8C8D'} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow"><span class="t1">${esc(c.name)}</span><span class="t2">${esc(sub)}</span></span><span class="amt">${money(inc?t.amount:-t.amount,inc?'pos':'')}${orig}</span></button>`;
 }
 function tile(c,val,budget){
   let cls='ring',p=0;
@@ -378,9 +393,9 @@ function viewHome(){
   <p class="note">اضغط على أي بند لتسجيل عملية فيه مباشرة.</p>`;
 }
 function viewAccounts(){
-  const f=flows(); const bal=a=>(+a.opening||0)+(f[a.id]||0);
+  const f=flows(); const bal=a=>(+a.opening||0)+(f[a.id]||0); const bb=a=>bal(a)*rateOf(accCur(a));
   const accs=S.settings.accounts;
-  let assets=0,liab=0; accs.forEach(a=>{const b=bal(a); if(b>=0) assets+=b; else liab+=-b});
+  let assets=0,liab=0; accs.forEach(a=>{const b=bb(a); if(b>=0) assets+=b; else liab+=-b});
   const eyeSvg=hid()?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><path d="M4 4l16 16"/></svg>';
   let html=`<section class="hero"><div class="lbl"><span>صافي الثروة</span><button class="eye" data-action="hide" aria-label="${hid()?'إظهار المبالغ':'إخفاء المبالغ'}">${eyeSvg}</button></div>
     <div class="big">${mmoney(assets-liab)}<small>${esc(curInfo()[0])}</small></div>
@@ -389,10 +404,10 @@ function viewAccounts(){
   Object.keys(ACC_TYPES).forEach(type=>{
     const group=accs.filter(a=>a.type===type);
     if(!group.length&&type!=='debit') return;
-    const tot=group.reduce((s,a)=>s+bal(a),0);
+    const tot=group.reduce((s,a)=>s+bb(a),0);
     html+=`<h2>${ACC_TYPES[type]} <span class="tot">${mmoney(type==='debit'?tot:-tot,type==='debit'?'':'neg')}</span></h2><div class="tiles">`+
-      group.map(a=>{const b=bal(a);const shown=type==='debit'?b:-b;
-        return `<button class="tile" data-acc="${esc(a.id)}" style="--c:${esc(a.color||'#3E7CC4')}"><span class="tn">${esc(a.name)}</span><span class="ring full"><span>${esc(a.icon)}</span></span><span class="ta">${mmoney(shown,type!=='debit'&&shown>0?'neg':(b<0&&type==='debit'?'neg':''))}</span>${type==='credit'&&+a.limit?`<span class="tb">المتاح ${hid()?'••••':fmt(+a.limit+b)}</span>`:''}</button>`}).join('')+
+      group.map(a=>{const b=bal(a),c=accCur(a);const shown=type==='debit'?b:-b;
+        return `<button class="tile" data-acc="${esc(a.id)}" style="--c:${esc(a.color||'#3E7CC4')}"><span class="tn">${esc(a.name)}</span><span class="ring full"><span>${esc(a.icon)}</span></span><span class="ta">${moneyC(shown,c,type!=='debit'&&shown>0?'neg':(b<0&&type==='debit'?'neg':''))}</span>${type==='credit'&&+a.limit?`<span class="tb">المتاح ${hid()?'••••':fmtC(+a.limit+b,c)}</span>`:(c!==baseCur()&&!hid()?`<span class="tb">≈ ${fmt(b*rateOf(c)*(type==='debit'?1:-1))} ${esc(curInfo()[0])}</span>`:'')}</button>`}).join('')+
       `<button class="tile add" data-action="newacc" data-type="${type}">＋ إضافة</button></div>`;
   });
   if(!accs.some(a=>a.type==='credit')||!accs.some(a=>a.type==='loan')) html+=`<p class="note">لإضافة بطاقة ائتمان أو دين، اضغط ＋ إضافة واختر النوع.</p>`;
@@ -456,6 +471,7 @@ function viewSettings(){
   let days=''; for(let d=1;d<=28;d++) days+=`<option value="${d}"${d===ps()?' selected':''}>${d}</option>`;
   return `<h2 style="margin-top:4px">عام</h2><div class="list">
     <div class="set-row"><span class="grow">العملة</span><select class="pill" id="curSel">${Object.keys(CUR).map(c=>`<option value="${c}"${c===S.settings.currency?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></div>
+    ${[...new Set(S.settings.accounts.map(accCur))].filter(c=>c!==baseCur()).map(c=>`<div class="set-row"><span class="grow"><span class="t1">سعر ${esc(c)}</span><span class="t2">كم ${esc(curInfo()[0])} يساوي 1 ${esc(curSym(c))}</span></span><input class="rate-in" data-cur="${esc(c)}" inputmode="decimal" value="${+rateOf(c).toFixed(6)}" style="width:110px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></div>`).join('')}
     <div class="set-row"><span class="grow"><span class="t1">بداية الشهر المالي</span><span class="t2">مثلاً 21 إذا راتبك ينزل يوم 21</span></span><select class="pill" id="psSel">${days}</select></div></div>
   <h2>بنود المصروف <button data-action="newcat" data-kind="expense">إضافة بند</button></h2><div class="list">${cats('expense')}</div>
   <h2>بنود الدخل <button data-action="newcat" data-kind="income">إضافة بند</button></h2><div class="list">${cats('income')}</div>
@@ -477,6 +493,7 @@ function render(){
   v.innerHTML=S.tab==='home'?viewHome():S.tab==='accounts'?viewAccounts():S.tab==='tx'?viewTx():S.tab==='budget'?viewBudget():viewSettings();
   const si=$('#searchIn'); if(si) si.addEventListener('input',e=>{S.search=e.target.value;$('#txList').innerHTML=txListHtml()});
   const cs=$('#curSel'); if(cs) cs.addEventListener('change',e=>{S.settings.currency=e.target.value;saveSettings();render()});
+  document.querySelectorAll('.rate-in').forEach(el=>el.addEventListener('change',()=>{const v=parseAmount(el.value);if(v>0){S.settings.rates=S.settings.rates||{};S.settings.rates[el.dataset.cur]=v;saveSettings();toast('تم تحديث سعر الصرف')}}));
   const pss=$('#psSel'); if(pss) pss.addEventListener('change',e=>{S.settings.periodStart=+e.target.value;S.period=curPeriod();saveSettings();render();toast('تم تغيير بداية الشهر المالي')});
 }
 
@@ -490,18 +507,20 @@ function txSheet(existing,preset){
   preset=preset||{};
   const first=(S.settings.accounts[0]||{}).id||'';
   const defAcc=S.settings.accounts.some(a=>a.id===S.settings.lastAcc)?S.settings.lastAcc:first;
-  const t=existing?{...existing,acc:existing.acc||first}:{id:newId(),type:preset.type||'expense',amount:'',cat:preset.cat||'',acc:preset.acc||defAcc,to:'',date:S.period===curPeriod()?todayStr():range(S.period).from,note:''};
+  const t=existing?Object.assign({...existing,acc:existing.acc===undefined?first:existing.acc},{amount:+fromAmt(existing).toFixed(3),recv:existing.type==='transfer'&&existing.to?+toAmt(existing).toFixed(3):''}):{id:newId(),type:preset.type||'expense',amount:'',cat:preset.cat||'',acc:preset.acc||defAcc,to:'',date:S.period===curPeriod()?todayStr():range(S.period).from,note:''};
   const oldMonth=existing?existing.date.slice(0,7):null;
   const draw=()=>{
     const isTr=t.type==='transfer';
     const cats=S.settings.categories.filter(c=>c.kind===t.type);
     if(!isTr&&!cats.some(c=>c.id===t.cat)) t.cat=cats[0]?cats[0].id:'';
     if(isTr&&(!t.to||t.to===t.acc)){const o=S.settings.accounts.find(a=>a.id!==t.acc);t.to=o?o.id:''}
+    const fc=accCur(accById(t.acc)), tc=isTr?accCur(accById(t.to)):fc;
     openSheet(`<h3>${existing?'تعديل العملية':'عملية جديدة'}</h3>
       <div class="seg"><button data-k="type" data-v="expense" aria-pressed="${t.type==='expense'}">مصروف</button><button data-k="type" data-v="income" aria-pressed="${t.type==='income'}">دخل</button><button data-k="type" data-v="transfer" aria-pressed="${isTr}">تحويل</button></div>
-      <label class="amount-in"><input id="amtIn" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(t.amount)}" aria-label="المبلغ"><span>${esc(curInfo()[0])}</span></label>
+      <label class="amount-in"><input id="amtIn" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(t.amount)}" aria-label="المبلغ"><span>${esc(curSym(fc))}</span></label>
+      ${fc!==baseCur()?`<p class="note" id="eqv" style="margin:-10px 2px 12px"></p>`:''}
       <div class="err" id="amtErr" hidden>اكتب المبلغ بالأرقام</div>
-      ${isTr?`<div class="row2"><label class="field"><span>من حساب</span><select id="accIn">${accOptions(t.acc)}</select></label><label class="field"><span>إلى حساب</span><select id="toIn">${accOptions(t.to)}</select></label></div><div class="err" id="trErr" hidden>اختر حسابين مختلفين</div>`
+      ${isTr?`<div class="row2"><label class="field"><span>من حساب</span><select id="accIn">${accOptions(t.acc)}</select></label><label class="field"><span>إلى حساب</span><select id="toIn">${accOptions(t.to)}</select></label></div>${tc!==fc?`<label class="field"><span>المبلغ اللي وصل للحساب الثاني (${esc(curSym(tc))})</span><input id="recvIn" inputmode="decimal" value="${esc(t.recv||'')}" placeholder="حسب سعر الصرف" style="direction:ltr;text-align:right"></label>`:''}<div class="err" id="trErr" hidden>اختر حسابين مختلفين</div>`
       :`<div class="chips">${cats.map(c=>`<button class="chip" data-k="cat" data-v="${esc(c.id)}" aria-pressed="${c.id===t.cat}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
       <label class="field"><span>${t.type==='income'?'إلى حساب':'من حساب'}</span><select id="accIn">${accOptions(t.acc)}</select></label>`}
       <div class="row2"><label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
@@ -509,16 +528,23 @@ function txSheet(existing,preset){
       ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
       <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
     b=>{
-      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value};
+      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value};
+      ['#accIn','#toIn'].forEach(s=>{const el=b.querySelector(s);if(el)el.addEventListener('change',()=>{grab();t.recv='';draw()})});
+      const eq=b.querySelector('#eqv'),ain=b.querySelector('#amtIn');
+      const upEq=()=>{if(!eq)return;const v=Math.abs(parseAmount(ain.value));eq.textContent=v?'≈ '+fmt(v*rateOf(fc))+' '+curInfo()[0]:'يُحسب بالدينار حسب سعر الصرف في الإعدادات'};
+      if(eq){upEq();ain.addEventListener('input',upEq)}
       b.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('click',()=>{grab();t[el.dataset.k]=el.dataset.v;draw()}));
       if(!existing) setTimeout(()=>{const i=b.querySelector('#amtIn');if(i)i.focus()},250);
       b.querySelector('#saveTx').addEventListener('click',()=>{
         grab(); const a=Math.abs(parseAmount(t.amount));
         if(!a){b.querySelector('#amtErr').hidden=false;return}
         if(t.type==='transfer'&&(!t.to||t.to===t.acc)){b.querySelector('#trErr').hidden=false;return}
-        const rec={id:t.id,type:t.type,amount:a,cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
+        const bdec=curInfo()[1];
+        const rec={id:t.id,type:t.type,amount:fc===baseCur()?a:+(a*rateOf(fc)).toFixed(bdec),cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
+        if(fc!==baseCur()) rec.oamt=a;
+        if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3)}
         if(!existing&&t.rep){
-          S.settings.recurring.push({id:newId(),type:rec.type,amount:rec.amount,cat:rec.cat,acc:rec.acc,to:rec.to,note:rec.note,freq:t.rep,day:+rec.date.slice(8),next:rec.date,paused:false});
+          S.settings.recurring.push({id:newId(),type:rec.type,amount:rec.amount,oamt:rec.oamt,toamt:rec.toamt,cat:rec.cat,acc:rec.acc,to:rec.to,note:rec.note,freq:t.rep,day:+rec.date.slice(8),next:rec.date,paused:false});
           if(rec.type!=='transfer') S.settings.lastAcc=rec.acc;
           saveSettings(); runRecurring(); closeSheet(); toast('تم إنشاء عملية متكررة '+FREQ[t.rep]); render(); return;
         }
@@ -563,20 +589,23 @@ function catSheet(cat,kind){
 }
 function accSheet(acc,type){
   const isNew=!acc; const a=acc?{...acc}:{id:newId(),name:'',icon:type==='credit'?'💳':type==='loan'?'🧾':'🏦',type:type||'debit',opening:0,limit:0,color:nextColor()};
-  const f=flows()[a.id]||0; const curBal=(+a.opening||0)+f;
+  const orig=acc?{...acc}:null;
   const draw=()=>{
+    const cur=accCur(a), f=accFlow(a.id,cur), curBal=(+a.opening||0)+f;
     const debt=a.type!=='debit';
     const shown=isNew?'':(debt?-curBal:curBal);
     openSheet(`<h3>${isNew?'حساب جديد':'تعديل الحساب'}</h3>
       <div class="seg"><button data-t="debit" aria-pressed="${a.type==='debit'}">حساب أو نقد</button><button data-t="credit" aria-pressed="${a.type==='credit'}">بطاقة ائتمان</button><button data-t="loan" aria-pressed="${a.type==='loan'}">دين أو قرض</button></div>
       <div class="row2" style="grid-template-columns:80px 1fr"><label class="field"><span>رمز</span><input id="aIcon" value="${esc(a.icon)}" maxlength="4" style="text-align:center"></label>
       <label class="field"><span>اسم الحساب</span><input id="aName" value="${esc(a.name)}"></label></div>
-      <label class="field"><span>${debt?'المبلغ المستحق عليك حالياً':'الرصيد الحالي'} (${esc(curInfo()[0])})</span><input id="aBal" inputmode="decimal" value="${shown===''?'':esc(+shown.toFixed(curInfo()[1]))}" placeholder="0" style="direction:ltr;text-align:right"></label>
-      ${a.type==='credit'?`<label class="field"><span>حد البطاقة</span><input id="aLim" inputmode="decimal" value="${+a.limit?esc(a.limit):''}" placeholder="اختياري" style="direction:ltr;text-align:right"></label>`:''}
+      <label class="field"><span>العملة</span><select id="aCur">${Object.keys(CUR).map(c=>`<option value="${c}"${c===cur?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></label>
+      <label class="field"><span>${debt?'المبلغ المستحق عليك حالياً':'الرصيد الحالي'} (${esc(curSym(cur))})</span><input id="aBal" inputmode="decimal" value="${shown===''?'':esc(+shown.toFixed((CUR[cur]||[0,2])[1]))}" placeholder="0" style="direction:ltr;text-align:right"></label>
+      ${a.type==='credit'?`<label class="field"><span>حد البطاقة (${esc(curSym(accCur(a)))})</span><input id="aLim" inputmode="decimal" value="${+a.limit?esc(a.limit):''}" placeholder="اختياري" style="direction:ltr;text-align:right"></label>`:''}
       <div class="err" id="aErr" hidden>اكتب اسم الحساب</div>
       <div class="actions"><button class="btn" id="aSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="aTx">عرض عمليات الحساب</button><button class="btn danger" id="aDel">حذف الحساب</button>'}</div>`,
     b=>{
       const grab=()=>{a.name=b.querySelector('#aName').value;a.icon=b.querySelector('#aIcon').value};
+      b.querySelector('#aCur').addEventListener('change',e=>{grab();a.currency=e.target.value;draw()});
       b.querySelectorAll('[data-t]').forEach(el=>el.addEventListener('click',()=>{grab();a.type=el.dataset.t;draw()}));
       const ni=b.querySelector('#aName'),ii=b.querySelector('#aIcon');
       if(isNew) ni.addEventListener('input',()=>{if(!ii.dataset.touched) ii.value=guessIcon(ni.value,ii.value)});
@@ -586,7 +615,7 @@ function accSheet(acc,type){
         a.name=name; a.icon=a.icon.trim()||'•';
         let v=parseAmount(b.querySelector('#aBal').value); if(isNaN(v)) v=0;
         const target=a.type==='debit'?v:-Math.abs(v);
-        a.opening=+(target-f).toFixed(6);
+        a.opening=+(target-accFlow(a.id,accCur(a))).toFixed(6);
         const li=b.querySelector('#aLim'); if(li){const l=parseAmount(li.value);a.limit=isNaN(l)?0:Math.abs(l)}
         if(isNew) S.settings.accounts.push(a); else S.settings.accounts=S.settings.accounts.map(x=>x.id===a.id?a:x);
         saveSettings(); closeSheet(); toast('تم حفظ الحساب'); render();
@@ -779,30 +808,42 @@ function budgetToBackup(sh){
   const R=sheetObjs(sh.Records),T=sheetObjs(sh.AccountTransactions),A=sheetObjs(sh.Accounts),C=sheetObjs(sh.Categories),L=sheetObjs(sh.Loans);
   const sid=x=>String(x||'').replace(/_+defaultOwner_+$/,''), num=x=>{const v=parseFloat(String(x).replace(/,/g,''));return isNaN(v)?0:v};
   const tb=x=>x===true||x==='1'||String(x).toLowerCase()==='true';
-  const rate={KWD:1,SAR:0.0817};
-  const tot={}; R.forEach(r=>{const c=r.original_currency;if(!c||c==='KWD')return;tot[c]=tot[c]||[0,0];tot[c][0]+=num(r.system_amount);tot[c][1]+=num(r.original_amount)});
-  Object.keys(tot).forEach(c=>{if(tot[c][1]>0)rate[c]=tot[c][0]/tot[c][1]});
+  const base=(R[0]&&R[0].system_currency)||'KWD';
+  const rate={}; rate[base]=1;
+  const tot={}; R.concat(T).forEach(r=>{const c=r.original_currency;if(!c||c===base)return;tot[c]=tot[c]||[0,0];tot[c][0]+=num(r.system_amount);tot[c][1]+=num(r.original_amount)});
+  Object.keys(tot).forEach(c=>{if(tot[c][1]>0)rate[c]=+(tot[c][0]/tot[c][1]).toFixed(6)});
+  const rt=c=>rate[c]||(base==='KWD'?DEF_RATES[c]:0)||1;
   const col=x=>{x=String(x||'').trim().replace(/^#/,'');return /^[0-9a-f]{6}$/i.test(x)?'#'+x.toUpperCase():'#7F8C8D'};
   const emo=x=>{x=String(x||'');return x&&x.length<=4&&!/[A-Za-z0-9_\u4e00-\u9fff]/.test(x)};
   const d10=x=>{if(/^\d{4}-\d{2}-\d{2}/.test(String(x)))return String(x).slice(0,10);const n=parseFloat(x);if(!isNaN(n)&&n>20000){const dt=new Date(Date.UTC(1899,11,30)+n*864e5);return dt.toISOString().slice(0,10)}return parseDate(String(x),'dmy')};
   const cs=C.filter(c=>+c.status===0).concat(C.filter(c=>+c.status!==0));
-  const categories=cs.map((c,i)=>{const nm=String(c.name).trim(),inc=tb(c.is_income);return{id:sid(c.source_uid),name:nm,icon:emo(c.icon_name)?c.icon_name:guessIcon(nm,inc?'💰':'📌'),kind:inc?'income':'expense',budget:0,color:col(c.color_hex)}});
-  const months={},flow={},adj={}; const put=t=>{(months[t.date.slice(0,7)]=months[t.date.slice(0,7)]||[]).push(t)};
-  let n=0;
+  const categories=cs.map(c=>{const nm=String(c.name).trim(),inc=tb(c.is_income);return{id:sid(c.source_uid),name:nm,icon:emo(c.icon_name)?c.icon_name:guessIcon(nm,inc?'💰':'📌'),kind:inc?'income':'expense',budget:0,color:col(c.color_hex)}});
+  const aCur={}; A.forEach(a=>aCur[sid(a.source_uid)]=a.currency||base);
+  const inCur=(e,cur)=>e.original_currency===cur?num(e.original_amount):(e.Currency===cur?num(e.original_amount):num(e.system_amount)/rt(cur));
+  const byId={}; T.forEach(t=>byId[sid(t.source_uid)]=t);
+  const months={},adj={}; const put=t=>{(months[t.date.slice(0,7)]=months[t.date.slice(0,7)]||[]).push(t)};
   R.forEach(r=>{const typ=r.record_type==='income'||tb(r.is_income)?'income':'expense',amt=+num(r.system_amount).toFixed(3),date=d10(r.Date||r.occurred_at_utc);if(!date||!amt)return;
+    const acc=r.account_id?sid(r.account_id):'', cur=acc?(aCur[acc]||base):base;
     let note=String(r.Note||r.note||'').trim(); if(r.subcategory_name) note=r.subcategory_name+(note?' – '+note:'');
-    if(r.original_currency&&r.original_currency!=='KWD') note=(note?note+' ':'')+'('+num(r.original_amount)+' '+r.original_currency+')';
-    const acc=sid(r.account_id); put({id:sid(r.source_uid)||newId(),type:typ,amount:amt,cat:sid(r.category_id),acc,to:'',date,note}); flow[acc]=(flow[acc]||0)+(typ==='income'?amt:-amt); n++});
-  T.forEach(t=>{const amt=+num(t.system_amount).toFixed(3),acc=sid(t.account_id);
-    if(t.entry_type==='balance_adjustment'){adj[acc]=(adj[acc]||0)+(tb(t.is_income)?amt:-amt);return}
-    if(tb(t.is_income))return; const date=d10(t.Date||t.occurred_at_utc); if(!date||!amt)return;
-    put({id:sid(t.source_uid)||newId(),type:'transfer',amount:amt,cat:'',acc,to:sid(t.counterpart_account_id),date,note:String(t.Note||'').trim()}); n++});
-  let accounts=A.map(a=>{const i=sid(a.source_uid),nm=String(a.name).trim(),r=rate[a.currency]||1,credit=+a.account_type===0&&!/prepaid/i.test(nm);
-    const opening=(credit?-num(a.liability):num(a.credit_limit))*r+(adj[i]||0);
-    return{id:i,name:nm,icon:guessIcon(nm,credit?'💳':'🏦'),type:credit?'credit':'debit',opening:+opening.toFixed(3),limit:credit?+(num(a.credit_limit)*r).toFixed(3):0,color:col(a.color_hex)}}).reverse();
-  L.forEach(l=>{const owed=num(l.amount||l.Amount)*(rate[l.currency||l.Currency]||1);accounts.push({id:'loan-'+sid(l.source_uid),name:'دين '+(l.target||l.Counterparty||''),icon:'🧾',type:'loan',opening:+(-owed).toFixed(3),limit:0,color:'#B6452F'})});
+    if(r.original_currency&&r.original_currency!==base&&r.original_currency!==cur) note=(note?note+' ':'')+'('+num(r.original_amount)+' '+r.original_currency+')';
+    const tx={id:sid(r.source_uid)||newId(),type:typ,amount:amt,cat:sid(r.category_id),acc,to:'',date,note};
+    if(acc&&cur!==base) tx.oamt=+inCur(r,cur).toFixed(3);
+    put(tx)});
+  T.forEach(t=>{const acc=sid(t.account_id),cur=aCur[acc]||base;
+    if(t.entry_type==='balance_adjustment'){const v=inCur(t,cur);adj[acc]=(adj[acc]||0)+(tb(t.is_income)?v:-v);return}
+    if(tb(t.is_income))return; const date=d10(t.Date||t.occurred_at_utc),amt=+num(t.system_amount).toFixed(3); if(!date||!amt)return;
+    const to=sid(t.counterpart_account_id),tc=aCur[to]||base,cp=byId[sid(t.counterpart_entry_id)];
+    const tx={id:sid(t.source_uid)||newId(),type:'transfer',amount:amt,cat:'',acc,to,date,note:String(t.Note||'').trim()};
+    if(cur!==base) tx.oamt=+inCur(t,cur).toFixed(3);
+    if(tc!==base) tx.toamt=+(cp?inCur(cp,tc):num(t.system_amount)/rt(tc)).toFixed(3);
+    put(tx)});
+  let accounts=A.map(a=>{const i=sid(a.source_uid),nm=String(a.name).trim(),credit=+a.account_type===0&&!/prepaid/i.test(nm);
+    const opening=(credit?-num(a.liability):num(a.credit_limit))+(adj[i]||0);
+    return{id:i,name:nm,icon:guessIcon(nm,credit?'💳':'🏦'),type:credit?'credit':'debit',currency:a.currency||base,opening:+opening.toFixed(3),limit:credit?num(a.credit_limit):0,color:col(a.color_hex)}}).reverse();
+  L.forEach(l=>{const c=l.currency||l.Currency||base;accounts.push({id:'loan-'+sid(l.source_uid),name:'دين '+(l.target||l.Counterparty||''),icon:'🧾',type:'loan',currency:c,opening:-num(l.amount||l.Amount),limit:0,color:'#B6452F'})});
   Object.keys(months).forEach(k=>months[k].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0));
-  return {app:'mizaniyati',v:2,date:todayStr(),source:'Budget',settings:{currency:S.settings.currency||'KWD',periodStart:S.settings.periodStart||1,categories,accounts,recurring:S.settings.recurring||[],hide:!!S.settings.hide},months};
+  const rates={}; Object.keys(rate).filter(c=>c!==base).forEach(c=>rates[c]=rate[c]); if(!rates.SAR&&accounts.some(a=>a.currency==='SAR')) rates.SAR=rt('SAR');
+  return {app:'mizaniyati',v:3,date:todayStr(),source:'Budget',settings:{currency:base,periodStart:S.settings.periodStart||1,rates,categories,accounts,recurring:S.settings.recurring||[],hide:!!S.settings.hide},months};
 }
 async function handleZip(u8){
   const z=await unzip(u8);
