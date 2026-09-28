@@ -26,15 +26,15 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0B181B; --surface:#13262A; --ink:#E6EFEC; --muted:#8FA5A8; --line:#23393D;
-    --accent:#5FB3B0; --hero:#16393E; --hero-ink:#EEF5F3; --gold:#DDB45E;
-    --pos:#5CC095; --neg:#E6806A; --track:#1F3438; --chip:#1B3135;
+    --bg:#0C1416; --surface:#152227; --ink:#E3ECEA; --muted:#94A7AA; --line:#25363A;
+    --accent:#62B8B4; --hero:#113A40; --hero-ink:#EEF5F3; --gold:#E0B862;
+    --pos:#62C79B; --neg:#EE8670; --track:#223539; --chip:#1D2E33;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0B181B; --surface:#13262A; --ink:#E6EFEC; --muted:#8FA5A8; --line:#23393D;
-  --accent:#5FB3B0; --hero:#16393E; --hero-ink:#EEF5F3; --gold:#DDB45E;
-  --pos:#5CC095; --neg:#E6806A; --track:#1F3438; --chip:#1B3135;
+  --bg:#0C1416; --surface:#152227; --ink:#E3ECEA; --muted:#94A7AA; --line:#25363A;
+  --accent:#62B8B4; --hero:#113A40; --hero-ink:#EEF5F3; --gold:#E0B862;
+  --pos:#62C79B; --neg:#EE8670; --track:#223539; --chip:#1D2E33;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
@@ -73,7 +73,8 @@ input,select{font:inherit;color:var(--ink)}
 
 .strip{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px 6px}
 .strip div{text-align:center;padding:0 4px}
-.strip div+div{border-inline-start:1px solid var(--line)}
+.strip>*+*{border-inline-start:1px solid var(--line)}
+.strip>button{text-align:center;padding:0 4px;min-width:0}
 .strip .l{font-size:.78rem;color:var(--muted)}
 .strip .v{font-weight:600;font-size:1.02rem}
 .pos{color:var(--pos)} .neg{color:var(--neg)}
@@ -103,6 +104,20 @@ h2 button{font-family:var(--body);font-size:.85rem;color:var(--accent);font-weig
 .ic{width:38px;height:38px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-size:1.15rem;flex:none}
 .grow{flex:1;min-width:0}
 .t1{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.strip.four{grid-template-columns:1fr 1fr;row-gap:12px}.strip.four>*:nth-child(3){border-inline-start:0}.strip>div{min-width:0}
+.legend>*{min-width:0}
+.lg{min-width:0;display:flex;align-items:center;gap:8px;font-size:.9rem;width:100%;text-align:start;padding:3px 0}
+.lg i{width:10px;height:10px;border-radius:3px;flex:none}.lg .grow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .avg{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);border-radius:1px}
+.bar i.warn{background:var(--gold)}
+.yearbar{display:flex;align-items:center;justify-content:center;gap:18px;margin:0 0 12px;font-size:1.2rem}
+.yearbar button{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--line);font-size:1.2rem}
+.hgroup{display:flex;gap:6px;flex:none}
+.sheet .sback{position:absolute;inset-inline-start:14px;top:12px;width:36px;height:36px;border-radius:11px}
+.sheet h3{padding-inline-start:46px;min-height:36px;display:flex;align-items:center}
+@media (max-width:430px){.brand{display:none}}
+.back{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink);flex:none}
+.warnbar{display:flex;gap:8px;align-items:center;width:100%;margin:0 0 10px;padding:10px 14px;border-radius:14px;background:color-mix(in srgb,var(--neg) 12%,var(--surface));color:var(--neg);font-size:.88rem;text-align:start}
 .t1.wrap{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.35}
 .t2{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 .amt{font-weight:600;flex:none;text-align:end}
@@ -174,13 +189,15 @@ select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;
 <body>
 <div id="app">
   <header class="top">
-    <div class="brand">ميزانيتي</div>
+    <button class="back" id="backBtn" data-action="back" aria-label="رجوع" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="brand" id="brand">ميزانيتي</div>
     <div class="month" id="monthBox">
       <button data-action="prev" aria-label="الفترة السابقة"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
       <span id="monthLbl"></span>
       <button data-action="next" aria-label="الفترة التالية"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     </div>
-    <button class="gear" data-tab="settings" aria-label="الإعدادات"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <div class="hgroup"><button class="gear" id="themeBtn" data-action="theme" aria-label="تبديل المظهر"></button>
+    <button class="gear" data-tab="settings" aria-label="الإعدادات"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
   <main id="view"><div class="loading">جاري التحميل…</div></main>
 </div>
@@ -195,7 +212,7 @@ select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;
 
 <div id="sheetWrap" class="sheet-wrap" hidden>
   <div class="backdrop" data-action="close"></div>
-  <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+  <div class="sheet" role="dialog" aria-modal="true"><button class="back sback" data-action="close" aria-label="رجوع"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button><div class="grab"></div><div id="sheetBody"></div></div>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileIn" accept=".csv,.json,.txt,.xlsx,.zip,text/csv,application/json,text/plain,application/zip,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
@@ -254,7 +271,7 @@ function init(){
   if(!Array.isArray(st.recurring)){st.recurring=[];dirty=true}
   st.categories.forEach((c,i)=>{if(!c.color){c.color=COLORS[i%COLORS.length];dirty=true}});
   st.accounts.forEach((a,i)=>{if(!a.color){a.color=COLORS[(i+3)%COLORS.length];dirty=true}});
-  S.settings=st; S.months=data.months; S.period=curPeriod();
+  S.settings=st; S.months=data.months; S.period=curPeriod(); applyTheme();
   if(dirty) saveSettings();
   const n=runRecurring();
   render();
@@ -386,10 +403,12 @@ function viewHome(){
   const byCat={}; list.forEach(t=>{if(t.type!=='transfer') byCat[t.cat]=(byCat[t.cat]||0)+ +t.amount});
   const inc=sum(list.filter(t=>t.type==='income')),exp=sum(list.filter(t=>t.type==='expense'));
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
-  return `<div class="strip"><div><div class="l">المصروف</div><div class="v">${money(exp)}</div></div><div><div class="l">الدخل</div><div class="v">${money(inc,'pos')}</div></div><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
-  <h2>المصروف <span class="tot">${money(exp)}</span></h2>
+  const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byCat[c.id]||0)>b}).length:0;
+  const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
+  return warn+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
-  <h2>الدخل <span class="tot">${money(inc,'pos')}</span></h2>
+  <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
   <div class="tiles">${ic.map(c=>tile(c,byCat[c.id]||0,0)).join('')}<button class="tile add" data-action="newcat" data-kind="income">＋ بند جديد</button></div>
   <p class="note">اضغط على أي بند لتسجيل عملية فيه مباشرة.</p>`;
 }
@@ -415,59 +434,164 @@ function viewAccounts(){
   return html;
 }
 function txListHtml(){
-  const q=S.search.trim().toLowerCase(), all=!!(q||S.catFilter);
+  const q=S.search.trim().toLowerCase(), all=!!(q||(S.catFilter&&S.catScope!=='period'));
   const src=all?allTx().slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0):txIn(S.period);
-  let list=src.filter(t=>(!S.accFilter||t.acc===S.accFilter||t.to===S.accFilter)&&(!S.catFilter||t.cat===S.catFilter)&&(!q||(t.note||'').toLowerCase().includes(q)||catById(t.cat).name.toLowerCase().includes(q)||accById(t.acc).name.toLowerCase().includes(q)||String(t.amount).includes(q)));
+  let list=src.filter(t=>(!S.typeFilter||t.type===S.typeFilter)&&(!S.accFilter||t.acc===S.accFilter||t.to===S.accFilter)&&(!S.catFilter||t.cat===S.catFilter)&&(!q||(t.note||'').toLowerCase().includes(q)||catById(t.cat).name.toLowerCase().includes(q)||accById(t.acc).name.toLowerCase().includes(q)||String(t.amount).includes(q)));
   if(!list.length) return `<div class="empty"><b>${all?'لا نتائج':'لا توجد عمليات في هذه الفترة'}</b>${all?'جرّب كلمة أخرى':'اضغط زر + لإضافة عملية'}</div>`;
   const total=list.length, more=total>300; if(more) list=list.slice(0,300);
   const tot=all?sum(list.filter(t=>t.type==='expense')):0;
+  let brk='';
+  if(S.typeFilter&&!all&&!S.catFilter){const by={};list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);const totT=sum(list);
+    const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([id,v])=>{const c=catById(id);return{id,label:c.name,icon:c.icon,color:c.color,val:v,sub:Math.round(v/totT*100)+'٪ · '+list.filter(t=>t.cat===id).length+' عملية'}});
+    brk=`<div class="hero" style="margin-top:12px;padding:16px 18px"><div class="lbl">${S.typeFilter==='income'?'إجمالي الدخل':'إجمالي المصروف'} · ${esc(periodLabel(S.period))}</div><div class="big" style="font-size:2rem"><span class="num">${fmt(totT)}</span><small>${esc(curInfo()[0])}</small></div><div class="cap">${list.length} عملية</div></div><h2>حسب البند</h2>`+hbars(rows,'data-scope="period"')+`<h2>كل العمليات</h2>`}
   const head=all?`<p class="note" style="margin:10px 4px 0">${total} عملية من كل الفترات${S.catFilter?'، مجموع المصروف '+fmt(tot):''}${more?' (يظهر آخر 300)':''}</p>`:'';
   const groups={}; list.forEach(t=>(groups[t.date]=groups[t.date]||[]).push(t));
-  return head+Object.keys(groups).sort().reverse().map(d=>{const g=groups[d],net=sum(g.filter(t=>t.type==='income'))-sum(g.filter(t=>t.type==='expense'));
+  return brk+head+Object.keys(groups).sort().reverse().map(d=>{const g=groups[d],net=sum(g.filter(t=>t.type==='income'))-sum(g.filter(t=>t.type==='expense'));
     return `<div class="day"><span>${esc(dayLabel(d))}${all?' '+d.slice(0,4):''}</span>${money(net)}</div><div class="list">${g.map(txRow).join('')}</div>`}).join('');
 }
 function viewTx(){
-  const seg=`<div class="seg"><button data-action="txview" data-v="list" aria-pressed="${S.txView==='list'}">السجل</button><button data-action="txview" data-v="stats" aria-pressed="${S.txView==='stats'}">الإحصاءات</button></div>`;
+  const seg=`<div class="seg"><button data-action="txview" data-v="list" aria-pressed="${S.txView==='list'}">السجل</button><button data-action="txview" data-v="stats" aria-pressed="${S.txView==='stats'}">التقارير</button></div>`;
   if(S.txView==='stats') return seg+viewStats();
   return seg+`<input class="search" id="searchIn" type="search" placeholder="ابحث في كل العمليات: وصف، بند، حساب، مبلغ" value="${esc(S.search)}">`+
-    (S.accFilter?`<button class="filter" data-action="clearacc">${esc(accById(S.accFilter).name)} ✕</button>`:'')+(S.catFilter?`<button class="filter" data-action="clearcat">${esc(catById(S.catFilter).icon)} ${esc(catById(S.catFilter).name)} ✕</button>`:'')+`<div id="txList">${txListHtml()}</div>`;
+    (S.accFilter?`<button class="filter" data-action="clearacc">${esc(accById(S.accFilter).name)} ✕</button>`:'')+(S.typeFilter?`<button class="filter" data-action="cleartype">${S.typeFilter==='income'?'الدخل':'المصروف'} ✕</button>`:'')+(S.catFilter?`<button class="filter" data-action="clearcat">${esc(catById(S.catFilter).icon)} ${esc(catById(S.catFilter).name)} ✕</button>`:'')+`<div id="txList">${txListHtml()}</div>`;
+}
+/* ---------- analytics helpers ---------- */
+const FONT='IBM Plex Sans Arabic, sans-serif';
+const spentBy=list=>{const m={};list.forEach(t=>{if(t.type==='expense')m[t.cat]=(m[t.cat]||0)+ +t.amount});return m};
+function effBudget(c,k){const b=+c.budget||0;if(!b||!c.rollover)return b;const prev=spentBy(txIn(shiftMonth(k,-1)))[c.id]||0;return b+Math.max(0,b-prev)}
+function totalBudget(k){const t=+S.settings.totalBudget||0;return t>0?t:expenseCats().reduce((a,c)=>a+effBudget(c,k),0)}
+function avgSpent(k,n){const acc={};for(let i=1;i<=n;i++){const m=spentBy(txIn(shiftMonth(k,-i)));Object.keys(m).forEach(c=>acc[c]=(acc[c]||0)+m[c])}Object.keys(acc).forEach(c=>acc[c]/=n);return acc}
+function periodDays(k){const r=range(k);return Math.round((Date.parse(r.to)-Date.parse(r.from))/864e5)}
+function cumDaily(k){const r=range(k),n=periodDays(k),arr=new Array(n).fill(0);txIn(k).forEach(t=>{if(t.type!=='expense')return;const i=Math.round((Date.parse(t.date)-Date.parse(r.from))/864e5);if(i>=0&&i<n)arr[i]+= +t.amount});for(let i=1;i<n;i++)arr[i]+=arr[i-1];return arr}
+function shortNum(v){const a=Math.abs(v);return a>=1000?(v/1000).toFixed(a>=10000?0:1)+'k':Math.round(v)+''}
+function lineChart(series,budget,n,labels){
+  const W=320,H=180,L=8,R=8,T=12,B=24,max=Math.max(1,budget||0,...series.map(s=>Math.max(0,...s.pts)))*1.08;
+  const x=i=>W-R-(n<=1?0:i*(W-L-R)/(n-1)),y=v=>T+(H-T-B)*(1-v/max);
+  let g='';[0.5,1].forEach(f=>{const yy=y(max*f/1.08);g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${L}" y="${yy-3}" font-size="9" fill="var(--muted)" font-family="${FONT}">${shortNum(max*f/1.08)}</text>`});
+  if(budget>0){const yy=y(budget);g+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${W-R}" y="${yy-4}" text-anchor="end" direction="ltr" font-size="9.5" fill="var(--gold)" font-family="${FONT}">الميزانية</text>`}
+  series.forEach(s=>{if(!s.pts.length)return;const d=s.pts.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+    if(s.fill)g+=`<path d="${d} L${x(s.pts.length-1).toFixed(1)} ${y(0)} L${x(0)} ${y(0)} Z" fill="${s.color}" opacity=".12"/>`;
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w||2.2}" ${s.dash?'stroke-dasharray="4 4"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(s.dot){const i=s.pts.length-1;g+=`<circle cx="${x(i)}" cy="${y(s.pts[i])}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`}});
+  (labels||[]).forEach(([i,t])=>g+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--muted)" font-family="${FONT}">${t}</text>`);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" direction="ltr">${g}</svg>`;
+}
+function donutHtml(by,total,scopeAttr){
+  const arr=Object.entries(by).sort((a,b)=>b[1]-a[1]);const R=62,C=2*Math.PI*R;let off=0;
+  const segs=arr.map(([id,v])=>{const len=v/total*C;const s=`<circle cx="90" cy="90" r="${R}" fill="none" stroke="${esc(catById(id).color)}" stroke-width="24" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"/>`;off+=len;return s}).join('');
+  return `<div class="chart"><svg viewBox="0 0 180 180" width="180" height="180" style="display:block;margin:0 auto" role="img" aria-label="توزيع المصروف">${segs}<text x="90" y="86" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="${FONT}">المصروف</text><text x="90" y="106" text-anchor="middle" font-size="16" font-weight="600" fill="var(--ink)" font-family="${FONT}">${fmt(total)}</text></svg>
+    <div class="legend">${arr.map(([id,v])=>{const c=catById(id);return `<button class="lg" data-rcat="${esc(id)}" ${scopeAttr}><i style="background:${esc(c.color)}"></i><span class="grow">${esc(c.icon)} ${esc(c.name)}</span><span class="num t2">${Math.round(v/total*100)}%</span><span class="amt">${money(v)}</span></button>`}).join('')}</div></div>`;
+}
+function hbars(rows,scopeAttr){ // rows: {id,label,icon,color,val,ref,sub}
+  const max=Math.max(1,...rows.map(r=>Math.max(r.val,r.ref||0)));
+  return `<div class="list">${rows.map(r=>`<button class="cat-row" ${r.id?`data-rcat="${esc(r.id)}" ${scopeAttr}`:''}${r.acc?`data-racc="${esc(r.acc)}"`:''}><span class="ic" style="background:color-mix(in srgb,${esc(r.color||'#7F8C8D')} 18%,var(--surface))">${esc(r.icon||'•')}</span><span class="grow"><span class="t1">${esc(r.label)}</span>${r.sub?`<span class="t2">${r.sub}</span>`:''}</span><span class="amt">${money(r.val)}</span><span class="bar"><i style="width:${r.val/max*100}%;background:${esc(r.color||'var(--accent)')}"></i>${r.ref?`<b class="avg" style="inset-inline-start:${r.ref/max*100}%"></b>`:''}</span></button>`).join('')}</div>`;
+}
+function statCards(inc,exp){const net=inc-exp,sr=inc>0?Math.round(net/inc*100):0;
+  return `<div class="strip four"><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><div><div class="l">الصافي</div><div class="v">${money(net,net<0?'neg':'')}</div></div><div><div class="l">الادخار</div><div class="v ${sr<0?'neg':'pos'}">${inc>0?sr+'٪':'—'}</div></div></div>`}
+function trendBars(ms,k,clickAttr){
+  const data=ms.map(m=>{const l=txIn(m);const inc=sum(l.filter(t=>t.type==='income')),exp=sum(l.filter(t=>t.type==='expense'));return{m,inc,exp}});
+  const max=Math.max(1,...data.map(d=>Math.max(d.inc,d.exp)));const W=320,H=190,base=150,n=data.length,gw=W/n,bw=Math.max(4,Math.min(12,gw/2-3));
+  const bars=data.map((d,i)=>{const x=W-(i+1)*gw+gw/2,hi=d.inc/max*125,he=d.exp/max*125,cur=d.m===k;
+    return `<g ${clickAttr}="${d.m}" style="cursor:pointer"><rect x="${x-gw/2}" y="0" width="${gw}" height="${H}" fill="${cur?'var(--chip)':'transparent'}" rx="6"/><rect x="${x+1}" y="${base-hi}" width="${bw}" height="${hi}" rx="2" fill="var(--pos)"/><rect x="${x-bw-1}" y="${base-he}" width="${bw}" height="${he}" rx="2" fill="${d.exp>d.inc?'var(--neg)':'var(--accent)'}"/><text x="${x}" y="${base+16}" text-anchor="middle" font-size="${n>8?8.5:10}" fill="${cur?'var(--ink)':'var(--muted)'}" font-weight="${cur?600:400}" font-family="${FONT}">${periodShort(d.m).slice(0,n>8?3:10)}</text></g>`}).join('');
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H-18}" width="100%" role="img" aria-label="الدخل والمصروف">${`<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>`+bars}</svg><div class="keys"><span><i style="background:var(--pos)"></i>الدخل</span><span><i style="background:var(--accent)"></i>المصروف</span><span><i style="background:var(--neg)"></i>مصروف أعلى من الدخل</span></div></div>`;
 }
 function viewStats(){
-  const k=S.period,list=txIn(k).filter(t=>t.type==='expense'),total=sum(list);
-  let donut;
-  if(total>0){
-    const by={}; list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);
-    const arr=Object.entries(by).sort((a,b)=>b[1]-a[1]);
-    const R=62,C=2*Math.PI*R; let off=0;
-    const segs=arr.map(([id,v])=>{const len=v/total*C;const s=`<circle cx="90" cy="90" r="${R}" fill="none" stroke="${esc(catById(id).color)}" stroke-width="24" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"/>`;off+=len;return s}).join('');
-    donut=`<div class="chart"><svg viewBox="0 0 180 180" width="190" height="190" style="display:block;margin:0 auto" role="img" aria-label="توزيع المصروفات">${segs}<text x="90" y="86" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans Arabic, sans-serif">المصروف</text><text x="90" y="106" text-anchor="middle" font-size="17" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans Arabic, sans-serif">${fmt(total)}</text></svg>
-      <div class="legend">${arr.map(([id,v])=>{const c=catById(id);return `<div><i style="background:${esc(c.color)}"></i><span class="grow">${esc(c.icon)} ${esc(c.name)}</span><span class="num t2">${Math.round(v/total*100)}%</span><span class="amt">${money(v)}</span></div>`}).join('')}</div></div>`;
-  }else donut=`<div class="empty"><b>لا مصروفات في هذه الفترة</b>سيظهر هنا توزيع المصروف على البنود</div>`;
-  const ms=[];for(let i=5;i>=0;i--) ms.push(shiftMonth(k,-i));
-  const data=ms.map(m=>{const l=txIn(m);return{m,inc:sum(l.filter(t=>t.type==='income')),exp:sum(l.filter(t=>t.type==='expense'))}});
-  const max=Math.max(1,...data.map(d=>Math.max(d.inc,d.exp)));
-  const W=320,H=170,base=140,gw=W/6;
-  const bars=data.map((d,i)=>{const x=W-(i+1)*gw+gw/2;const hi=d.inc/max*110,he=d.exp/max*110;
-    return `<rect x="${x+1}" y="${base-hi}" width="14" height="${hi}" rx="3" fill="var(--pos)"/><rect x="${x-15}" y="${base-he}" width="14" height="${he}" rx="3" fill="var(--accent)"/><text x="${x}" y="${base+18}" text-anchor="middle" font-size="10.5" fill="${d.m===k?'var(--ink)':'var(--muted)'}" font-weight="${d.m===k?600:400}" font-family="IBM Plex Sans Arabic, sans-serif">${periodShort(d.m)}</text>`}).join('');
-  return `${donut}<h2>آخر ست فترات</h2><div class="chart"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="الدخل والمصروف لآخر ست فترات"><line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg><div class="keys"><span><i style="background:var(--pos)"></i>الدخل</span><span><i style="background:var(--accent)"></i>المصروف</span></div></div>`;
+  const seg=`<div class="seg"><button data-action="rep" data-v="period" aria-pressed="${S.rep!=='year'}">هذه الفترة</button><button data-action="rep" data-v="year" aria-pressed="${S.rep==='year'}">السنة</button></div>`;
+  return seg+(S.rep==='year'?yearReport():periodReport());
+}
+function periodReport(){
+  const k=S.period,list=txIn(k),inc=sum(list.filter(t=>t.type==='income')),expL=list.filter(t=>t.type==='expense'),exp=sum(expL);
+  let h=statCards(inc,exp);
+  const cur=cumDaily(k),prev=cumDaily(shiftMonth(k,-1)),n=periodDays(k),isCur=k===curPeriod();
+  const upto=isCur?Math.min(n,Math.floor((Date.parse(todayStr())-Date.parse(range(k).from))/864e5)+1):n;
+  const tb=totalBudget(k);
+  const r=range(k),lab=[[0,+r.from.slice(8)],[Math.floor((n-1)/2),+new Date(Date.parse(r.from)+Math.floor((n-1)/2)*864e5).toISOString().slice(8,10)],[n-1,+new Date(Date.parse(r.to)-864e5).toISOString().slice(8,10)]];
+  let pace='';
+  if(isCur&&upto>2&&tb>0){const proj=cur[upto-1]/upto*n;pace=`<p class="note" style="margin:8px 2px 0">بهالمعدل بيوصل صرفك آخر الفترة إلى <b class="num">${fmt(proj)}</b>، ${proj>tb?'<span class="neg">أعلى من الميزانية بـ '+fmt(proj-tb)+'</span>':'<span class="pos">ضمن الميزانية</span>'}.</p>`}
+  h+=`<h2>منحنى الصرف خلال الفترة</h2><div class="chart">${lineChart([{pts:prev.slice(0,n),color:'var(--muted)',dash:1,w:1.5},{pts:cur.slice(0,upto),color:'var(--accent)',fill:1,dot:1}],tb,n,lab)}<div class="keys"><span><i style="background:var(--accent)"></i>هذه الفترة</span><span><i style="background:var(--muted)"></i>الفترة السابقة</span>${tb?'<span><i style="background:var(--gold)"></i>الميزانية</span>':''}</div>${pace}</div>`;
+  if(exp>0){h+=`<h2>توزيع المصروف</h2>`+donutHtml(spentBy(list),exp,'data-scope="period"')}
+  const avg=avgSpent(k,3),by=spentBy(list);
+  const ids=[...new Set(Object.keys(by).concat(Object.keys(avg)))].filter(id=>(by[id]||0)>0||(avg[id]||0)>1).sort((a,b)=>Math.max(by[b]||0,avg[b]||0)-Math.max(by[a]||0,avg[a]||0)).slice(0,8);
+  if(ids.length){h+=`<h2>مقارنة بمتوسط آخر 3 فترات</h2>`+hbars(ids.map(id=>{const c=catById(id),v=by[id]||0,a=avg[id]||0,d=a?Math.round((v-a)/a*100):0;
+    return{id,label:c.name,icon:c.icon,color:c.color,val:v,ref:a,sub:a?`المتوسط ${fmt(a)} · <span class="${d>10?'neg':d<-10?'pos':''}">${d>0?'+':''}${d}٪</span>`:'جديد هذه الفترة'}}),'data-scope="period"')+`<p class="note">الخط الأسود على كل شريط هو متوسطك.</p>`}
+  const byAcc={};expL.forEach(t=>byAcc[t.acc]=(byAcc[t.acc]||0)+ +t.amount);
+  const accRows=Object.entries(byAcc).sort((a,b)=>b[1]-a[1]).map(([id,v])=>{const a=accById(id);return{acc:id,label:a.name,icon:a.icon,color:a.color,val:v}});
+  if(accRows.length) h+=`<h2>المصروف حسب الحساب</h2>`+hbars(accRows);
+  const ms=[];for(let i=11;i>=0;i--)ms.push(shiftMonth(k,-i));
+  h+=`<h2>آخر 12 فترة</h2>`+trendBars(ms,k,'data-rper')+`<p class="note">اضغط على أي شهر لعرض تقريره.</p>`;
+  const top=expL.slice().sort((a,b)=>b.amount-a.amount).slice(0,10);
+  if(top.length) h+=`<h2>أكبر المصاريف</h2><div class="list">${top.map(txRow).join('')}</div>`;
+  return h;
+}
+function yearReport(){
+  const y=S.repYear||+S.period.slice(0,4);
+  const ms=[];for(let m=1;m<=12;m++)ms.push(y+'-'+pad(m));
+  const all=ms.reduce((a,m)=>a.concat(txIn(m)),[]),inc=sum(all.filter(t=>t.type==='income')),expL=all.filter(t=>t.type==='expense'),exp=sum(expL);
+  let h=`<div class="yearbar"><button data-action="yr" data-d="-1" aria-label="السنة السابقة">›</button><b class="num">${y}</b><button data-action="yr" data-d="1" aria-label="السنة التالية">‹</button></div>`+statCards(inc,exp);
+  if(!all.length) return h+`<div class="empty" style="margin-top:14px"><b>لا عمليات في ${y}</b></div>`;
+  const mExp=ms.map(m=>sum(txIn(m).filter(t=>t.type==='expense'))),active=mExp.filter(v=>v>0).length||1;
+  h+=`<p class="note">متوسط المصروف الشهري <b class="num">${fmt(exp/active)}</b>، وأعلى شهر ${periodShort(ms[mExp.indexOf(Math.max(...mExp))])} بـ <b class="num">${fmt(Math.max(...mExp))}</b>.</p>`;
+  h+=`<h2>الدخل والمصروف لكل شهر</h2>`+trendBars(ms,S.period,'data-rper');
+  let run=0;const cum=ms.map(m=>{const l=txIn(m);run+=sum(l.filter(t=>t.type==='income'))-sum(l.filter(t=>t.type==='expense'));return run});
+  h+=`<h2>الادخار التراكمي</h2><div class="chart">${lineChart([{pts:cum.map(v=>Math.max(0,v)),color:'var(--pos)',fill:1,dot:1}],0,12,[[0,periodShort(ms[0])],[5,periodShort(ms[5])],[11,periodShort(ms[11])]])}<p class="note" style="margin:6px 2px 0">صافي السنة: <b class="num ${inc-exp<0?'neg':'pos'}">${fmt(inc-exp)}</b></p></div>`;
+  h+=`<h2>توزيع المصروف في السنة</h2>`+donutHtml(spentBy(all),exp,'data-scope="all"');
+  const top=expL.slice().sort((a,b)=>b.amount-a.amount).slice(0,10);
+  h+=`<h2>أكبر 10 مصاريف في السنة</h2><div class="list">${top.map(txRow).join('')}</div>`;
+  return h;
+}
+/* ---------- budgets ---------- */
+function budgetHistory(k){
+  const tb=totalBudget(k);if(!tb)return'';const ms=[];for(let i=5;i>=0;i--)ms.push(shiftMonth(k,-i));
+  const vals=ms.map(m=>sum(txIn(m).filter(t=>t.type==='expense')));const max=Math.max(tb,...vals)*1.1;const W=320,H=150,base=120,gw=W/6;
+  const ok=vals.filter((v,i)=>v<=tb&&!(ms[i]===curPeriod()&&v<tb)).length;
+  const bars=vals.map((v,i)=>{const x=W-(i+1)*gw+gw/2,hh=v/max*105;return `<rect x="${x-11}" y="${base-hh}" width="22" height="${hh}" rx="3" fill="${v>tb?'var(--neg)':'var(--pos)'}" opacity="${ms[i]===curPeriod()?.55:1}"/><text x="${x}" y="${base+15}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="${FONT}">${periodShort(ms[i])}</text>`}).join('');
+  const yb=base-tb/max*105;
+  return `<h2>الالتزام بالميزانية</h2><div class="chart"><svg viewBox="0 0 ${W} ${H-10}" width="100%" role="img"><line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}<line x1="0" x2="${W}" y1="${yb}" y2="${yb}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="6 4"/></svg><p class="note" style="margin:4px 2px 0">مقارنة بميزانيتك الحالية: الأخضر ضمن الميزانية، والأحمر تجاوز.</p></div>`;
+}
+function suggestSheet(){
+  const k=S.period,avg=avgSpent(k,3);
+  const rows=expenseCats().map(c=>({c,a:avg[c.id]||0,s:Math.ceil((avg[c.id]||0)/5)*5})).filter(r=>r.a>0).sort((a,b)=>b.a-a.a);
+  if(!rows.length){toast('ما في بيانات كافية من الفترات السابقة');return}
+  openSheet(`<h3>اقتراح ميزانيات</h3><p class="note" style="margin:0 0 12px">محسوبة من متوسط صرفك في آخر 3 فترات، ومقرّبة لأقرب 5. عدّل أي رقم أو ألغِ تحديده.</p>
+    <div class="list">${rows.map(r=>`<label class="set-row"><input type="checkbox" class="sg-ck" data-id="${esc(r.c.id)}" checked style="width:20px;height:20px"><span class="ic">${esc(r.c.icon)}</span><span class="grow"><span class="t1">${esc(r.c.name)}</span><span class="t2">المتوسط ${fmt(r.a)}${+r.c.budget?' · الحالية '+fmt(+r.c.budget):''}</span></span><input class="sg-v" data-id="${esc(r.c.id)}" inputmode="decimal" value="${r.s}" style="width:86px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></label>`).join('')}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn" id="sgApply">تطبيق الميزانيات المحددة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>b.querySelector('#sgApply').addEventListener('click',()=>{let n=0;b.querySelectorAll('.sg-ck').forEach(ck=>{if(!ck.checked)return;const v=parseAmount(b.querySelector(`.sg-v[data-id="${ck.dataset.id}"]`).value);const c=S.settings.categories.find(x=>x.id===ck.dataset.id);if(c&&v>=0){c.budget=Math.abs(v);n++}});saveSettings();closeSheet();toast('تم تحديد ميزانية '+n+' بند');render()}));
+}
+function totalSheet(){
+  const sumCats=expenseCats().reduce((a,c)=>a+(+c.budget||0),0);
+  openSheet(`<h3>الميزانية الإجمالية للشهر</h3><p class="note" style="margin:0 0 12px">حد أعلى لكل المصروف. اتركها فاضية إذا تبيها تساوي مجموع ميزانيات البنود (${fmt(sumCats)}).</p>
+    <label class="amount-in"><input id="tbIn" inputmode="decimal" value="${+S.settings.totalBudget||''}" placeholder="${fmt(sumCats)}"><span>${esc(curInfo()[0])}</span></label>
+    <div class="actions"><button class="btn" id="tbSave">حفظ</button></div>`,
+  b=>b.querySelector('#tbSave').addEventListener('click',()=>{const v=parseAmount(b.querySelector('#tbIn').value);S.settings.totalBudget=isNaN(v)?0:Math.abs(v);saveSettings();closeSheet();toast('تم الحفظ');render()}));
+}
+function budgetAlert(rec){
+  if(rec.type!=='expense')return;const k=(()=>{const d=+rec.date.slice(8),m=rec.date.slice(0,7);return d>=ps()?m:shiftMonth(m,-1)})();
+  const c=catById(rec.cat),b=effBudget(c,k);
+  if(b>0){const s=spentBy(txIn(k))[c.id]||0,before=s-rec.amount;
+    if(s>b&&before<=b){toast('⚠️ تجاوزت ميزانية '+c.name+' بـ '+fmt(s-b));return}
+    if(s>=b*0.8&&before<b*0.8){toast('تنبيه: وصلت '+Math.round(s/b*100)+'٪ من ميزانية '+c.name);return}}
+  const tb=totalBudget(k);if(tb>0){const s=sum(txIn(k).filter(t=>t.type==='expense')),before=s-rec.amount;
+    if(s>tb&&before<=tb)toast('⚠️ تجاوزت الميزانية الإجمالية للشهر');else if(s>=tb*0.8&&before<tb*0.8)toast('تنبيه: وصلت '+Math.round(s/tb*100)+'٪ من ميزانية الشهر')}
 }
 function viewBudget(){
   const k=S.period,list=txIn(k);
   const exp=sum(list.filter(t=>t.type==='expense'));
-  const cats=expenseCats(),budget=cats.reduce((a,c)=>a+(+c.budget||0),0);
+  const cats=expenseCats(),budget=totalBudget(k),by=spentBy(list);
   let hero;
   if(budget>0){
     const left=budget-exp,sp=exp/budget,tp=timePct(k),over=left<0;
     const cp=over?`تجاوزت الميزانية بـ ${fmt(-left)}`:`صرفت ${Math.round(sp*100)}٪ من الميزانية، ومضى ${Math.round(tp*100)}٪ من الفترة`;
+    const daysLeft=k===curPeriod()?Math.max(1,periodDays(k)-Math.floor((Date.parse(todayStr())-Date.parse(range(k).from))/864e5)):0;
     hero=`<section class="hero${over?' over':''}"><div class="lbl">${over?'تجاوز الميزانية':'المتبقي من الميزانية'}</div>
       <div class="big"><span class="num">${fmt(Math.abs(left))}</span><small>${esc(curInfo()[0])}</small></div>
       <div class="gauge" role="img" aria-label="${esc(cp)}"><div class="fill" style="width:${Math.min(sp,1)*100}%"></div>${tp>0&&tp<1?`<div class="mark" style="inset-inline-start:${tp*100}%"></div>`:''}</div>
-      <div class="cap">${esc(cp)}</div><div class="pair"><div>الميزانية<b>${money(budget)}</b></div><div>المصروف<b>${money(exp)}</b></div></div></section>`;
-  }else hero=`<section class="hero"><div class="lbl">لم تحدد ميزانية بعد</div><div class="cap" style="margin-top:8px">اضغط على أي بند تحت وحدد له مبلغاً شهرياً، وبيظهر لك هنا كم باقي لك.</div></section>`;
-  const rows=cats.map(c=>({c,spent:sum(list.filter(t=>t.type==='expense'&&t.cat===c.id))})).sort((a,b)=>(+b.c.budget>0)-(+a.c.budget>0)||b.spent-a.spent);
+      <div class="cap">${esc(cp)}${!over&&daysLeft?` · تقدر تصرف ${fmt(left/daysLeft)} يومياً`:''}</div><div class="pair"><div>الميزانية${+S.settings.totalBudget?' الإجمالية':''}<b>${money(budget)}</b></div><div>المصروف<b>${money(exp)}</b></div></div></section>`;
+  }else hero=`<section class="hero"><div class="lbl">لم تحدد ميزانية بعد</div><div class="cap" style="margin-top:8px">اضغط "اقترح ميزانيات" وخلّ التطبيق يحسبها من صرفك، أو اضغط على أي بند وحدد له مبلغ.</div></section>`;
+  const actions=`<div class="row2" style="margin-top:12px"><button class="btn ghost slim" style="margin:0" data-action="suggest">✨ اقترح ميزانيات</button><button class="btn ghost slim" style="margin:0" data-action="totalb">الميزانية الإجمالية</button></div>`;
+  const rows=cats.map(c=>({c,b:effBudget(c,k),spent:by[c.id]||0})).sort((a,b)=>(b.b>0)-(a.b>0)||(b.b?b.spent/b.b:0)-(a.b?a.spent/a.b:0)||b.spent-a.spent);
   const up=k===curPeriod()?upcomingIn(k):0;
-  return hero+(up?`<p class="note">مصروفات متكررة باقية في هذه الفترة: ${money(up)}</p>`:'')+`<h2>البنود</h2><div class="list">${rows.map(r=>{const b=+r.c.budget||0,p=b?Math.min(r.spent/b,1):0,over=b&&r.spent>b;
-    return `<button class="cat-row" data-cat="${esc(r.c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(r.c.color)} 18%,var(--surface))">${esc(r.c.icon)}</span><span class="grow t1">${esc(r.c.name)}</span><span class="amt">${money(r.spent,over?'neg':'')}<span class="t2">${b?'من '+fmt(b):'بدون ميزانية'}</span></span>${b?`<span class="bar"><i class="${over?'over':''}" style="width:${p*100}%"></i></span>`:''}</button>`}).join('')}</div>`;
+  return hero+actions+(up?`<p class="note">مصروفات متكررة باقية في هذه الفترة: ${money(up)}</p>`:'')+`<h2>البنود</h2><div class="list">${rows.map(r=>{const b=r.b,p=b?Math.min(r.spent/b,1):0,over=b&&r.spent>b,warn=b&&!over&&r.spent>=b*0.8,roll=r.c.rollover&&b>(+r.c.budget||0);
+    return `<button class="cat-row" data-cat="${esc(r.c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(r.c.color)} 18%,var(--surface))">${esc(r.c.icon)}</span><span class="grow"><span class="t1">${esc(r.c.name)}</span>${b?`<span class="t2">${over?'<span class="neg">تجاوز بـ '+fmt(r.spent-b)+'</span>':'باقي '+fmt(b-r.spent)}${roll?' · شامل مرحّل '+fmt(b-(+r.c.budget)):''}</span>`:''}</span><span class="amt">${money(r.spent,over?'neg':'')}<span class="t2">${b?'من '+fmt(b):'بدون ميزانية'}</span></span>${b?`<span class="bar"><i class="${over?'over':warn?'warn':''}" style="width:${p*100}%"></i></span>`:''}</button>`}).join('')}</div>`+budgetHistory(k);
 }
 function viewSettings(){
   const cats=k=>S.settings.categories.filter(c=>c.kind===k).map(c=>`<button class="set-row" data-cat="${esc(c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(c.color)} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow t1">${esc(c.name)}</span>${k==='expense'?`<span class="t2">${+c.budget?fmt(+c.budget):''}</span>`:''}</button>`).join('');
@@ -477,6 +601,7 @@ function viewSettings(){
   return `<h2 style="margin-top:4px">عام</h2><div class="list">
     <div class="set-row"><span class="grow">العملة</span><select class="pill" id="curSel">${Object.keys(CUR).map(c=>`<option value="${c}"${c===S.settings.currency?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></div>
     ${[...new Set(S.settings.accounts.map(accCur))].filter(c=>c!==baseCur()).map(c=>`<div class="set-row"><span class="grow"><span class="t1">سعر ${esc(c)}</span><span class="t2">كم ${esc(curInfo()[0])} يساوي 1 ${esc(curSym(c))}</span></span><input class="rate-in" data-cur="${esc(c)}" inputmode="decimal" value="${+rateOf(c).toFixed(6)}" style="width:110px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></div>`).join('')}
+    <div class="set-row"><span class="grow">المظهر</span><select class="pill" id="themeSel"><option value="auto"${(S.settings.theme||'auto')==='auto'?' selected':''}>تلقائي مع الجوال</option><option value="light"${S.settings.theme==='light'?' selected':''}>فاتح</option><option value="dark"${S.settings.theme==='dark'?' selected':''}>داكن</option></select></div>
     <div class="set-row"><span class="grow"><span class="t1">بداية الشهر المالي</span><span class="t2">مثلاً 21 إذا راتبك ينزل يوم 21</span></span><select class="pill" id="psSel">${days}</select></div></div>
   <h2>بنود المصروف <button data-action="newcat" data-kind="expense">إضافة بند</button></h2><div class="list">${cats('expense')}</div>
   <h2>بنود الدخل <button data-action="newcat" data-kind="income">إضافة بند</button></h2><div class="list">${cats('income')}</div>
@@ -489,16 +614,23 @@ function viewSettings(){
   </div>
   <p class="note">بياناتك محفوظة على هذا الجهاز فقط، ولا تُرسل لأي مكان. خذ نسخة احتياطية كل فترة واحفظها في Google Drive. عدد العمليات: <span class="num">${nTx}</span></p>`;
 }
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>applyTheme())}catch(e){}
+function applyTheme(){const t=S.settings&&S.settings.theme;const r=document.documentElement;if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else r.removeAttribute('data-theme');
+  const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',dark?'#0B181B':'#0F3F45')}
+const THEME_ICON={auto:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',dark:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',light:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'};
 function render(){
   if(!S.settings) return;
   $('#monthLbl').textContent=periodLabel(S.period);
-  $('#monthBox').style.visibility=(S.tab==='settings'||S.tab==='accounts')?'hidden':'visible';
+  $('#monthBox').style.visibility=(S.tab==='settings'||S.tab==='accounts'||(S.tab==='tx'&&S.txView==='stats'&&S.rep==='year'))?'hidden':'visible';
+  $('#themeBtn').innerHTML=THEME_ICON[S.settings.theme||'auto']||THEME_ICON.auto;
+  const canBack=S.tab!=='home'||!!(S.accFilter||S.catFilter||S.typeFilter); $('#backBtn').hidden=!canBack; $('#brand').hidden=canBack;
   document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===S.tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   const v=$('#view');
   v.innerHTML=S.tab==='home'?viewHome():S.tab==='accounts'?viewAccounts():S.tab==='tx'?viewTx():S.tab==='budget'?viewBudget():viewSettings();
   const si=$('#searchIn'); if(si) si.addEventListener('input',e=>{S.search=e.target.value;$('#txList').innerHTML=txListHtml()});
   const cs=$('#curSel'); if(cs) cs.addEventListener('change',e=>{S.settings.currency=e.target.value;saveSettings();render()});
   document.querySelectorAll('.rate-in').forEach(el=>el.addEventListener('change',()=>{const v=parseAmount(el.value);if(v>0){S.settings.rates=S.settings.rates||{};S.settings.rates[el.dataset.cur]=v;saveSettings();toast('تم تحديث سعر الصرف')}}));
+  const ths=$('#themeSel'); if(ths) ths.addEventListener('change',e=>{S.settings.theme=e.target.value;saveSettings();applyTheme()});
   const pss=$('#psSel'); if(pss) pss.addEventListener('change',e=>{S.settings.periodStart=+e.target.value;S.period=curPeriod();saveSettings();render();toast('تم تغيير بداية الشهر المالي')});
 }
 
@@ -512,7 +644,7 @@ function txSheet(existing,preset){
   preset=preset||{};
   const first=(S.settings.accounts[0]||{}).id||'';
   const defAcc=S.settings.accounts.some(a=>a.id===S.settings.lastAcc)?S.settings.lastAcc:first;
-  const t=existing?Object.assign({...existing,acc:existing.acc===undefined?first:existing.acc},{amount:+fromAmt(existing).toFixed(3),recv:existing.type==='transfer'&&existing.to?+toAmt(existing).toFixed(3):''}):{id:newId(),type:preset.type||'expense',amount:'',cat:preset.cat||'',acc:preset.acc||defAcc,to:'',date:S.period===curPeriod()?todayStr():range(S.period).from,note:''};
+  const t=existing?Object.assign({...existing,acc:existing.acc===undefined?first:existing.acc},{amount:+fromAmt(existing).toFixed(3),recv:existing.type==='transfer'&&existing.to?+toAmt(existing).toFixed(3):'',recvTouched:existing.toamt!=null}):{id:newId(),type:preset.type||'expense',amount:'',cat:preset.cat||'',acc:preset.acc||defAcc,to:'',date:S.period===curPeriod()?todayStr():range(S.period).from,note:''};
   const oldMonth=existing?existing.date.slice(0,7):null;
   const draw=()=>{
     const isTr=t.type==='transfer';
@@ -525,7 +657,7 @@ function txSheet(existing,preset){
       <label class="amount-in"><input id="amtIn" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(t.amount)}" aria-label="المبلغ"><span>${esc(curSym(fc))}</span></label>
       ${fc!==baseCur()?`<p class="note" id="eqv" style="margin:-10px 2px 12px"></p>`:''}
       <div class="err" id="amtErr" hidden>اكتب المبلغ بالأرقام</div>
-      ${isTr?`<div class="row2"><label class="field"><span>من حساب</span><select id="accIn">${accOptions(t.acc)}</select></label><label class="field"><span>إلى حساب</span><select id="toIn">${accOptions(t.to)}</select></label></div>${tc!==fc?`<label class="field"><span>المبلغ اللي وصل للحساب الثاني (${esc(curSym(tc))})</span><input id="recvIn" inputmode="decimal" value="${esc(t.recv||'')}" placeholder="حسب سعر الصرف" style="direction:ltr;text-align:right"></label>`:''}<div class="err" id="trErr" hidden>اختر حسابين مختلفين</div>`
+      ${isTr?`<div class="row2"><label class="field"><span>من حساب</span><select id="accIn">${accOptions(t.acc)}</select></label><label class="field"><span>إلى حساب</span><select id="toIn">${accOptions(t.to)}</select></label></div>${tc!==fc?`<label class="field"><span>المبلغ اللي وصل للحساب الثاني (${esc(curSym(tc))})</span><input id="recvIn" inputmode="decimal" value="${esc(t.recv||'')}" placeholder="يُحسب تلقائياً" style="direction:ltr;text-align:right"></label><p class="note" id="rateLn" style="margin:-8px 2px 10px"></p>${fc===baseCur()||tc===baseCur()?`<label class="set-row" style="padding:0 2px 12px;border:0"><input type="checkbox" id="updRate" style="width:20px;height:20px"><span class="grow t2" style="white-space:normal">حدّث سعر الصرف في الإعدادات بسعر هالتحويل</span></label>`:''}`:''}<div class="err" id="trErr" hidden>اختر حسابين مختلفين</div>`
       :`<div class="chips">${cats.map(c=>`<button class="chip" data-k="cat" data-v="${esc(c.id)}" aria-pressed="${c.id===t.cat}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
       <label class="field"><span>${t.type==='income'?'إلى حساب':'من حساب'}</span><select id="accIn">${accOptions(t.acc)}</select></label>`}
       <label class="field"><span>الوصف</span><input id="noteIn" value="${esc(t.note)}" placeholder="مثلاً: غداء مع الفريق، فاتورة الكهرباء…"></label>
@@ -534,8 +666,12 @@ function txSheet(existing,preset){
       <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
     b=>{
       const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value};
-      ['#accIn','#toIn'].forEach(s=>{const el=b.querySelector(s);if(el)el.addEventListener('change',()=>{grab();t.recv='';draw()})});
-      const eq=b.querySelector('#eqv'),ain=b.querySelector('#amtIn');
+      ['#accIn','#toIn'].forEach(s=>{const el=b.querySelector(s);if(el)el.addEventListener('change',()=>{grab();t.recv='';t.recvTouched=false;draw()})});
+      const eq=b.querySelector('#eqv'),ain=b.querySelector('#amtIn'),rin=b.querySelector('#recvIn'),rl=b.querySelector('#rateLn');
+      if(rin){const tdec=(CUR[tc]||[0,2])[1];
+        const upR=()=>{const a=Math.abs(parseAmount(ain.value));if(!t.recvTouched){rin.value=a?(a*rateOf(fc)/rateOf(tc)).toFixed(tdec):''}
+          const r=Math.abs(parseAmount(rin.value));rl.textContent=a&&r?`السعر: 1 ${curSym(tc)} = ${(a/r).toFixed(4)} ${curSym(fc)}  ·  1 ${curSym(fc)} = ${(r/a).toFixed(4)} ${curSym(tc)}`:'اكتب المبلغ ويُحسب المبلغ الواصل حسب سعر الصرف'};
+        ain.addEventListener('input',upR);rin.addEventListener('input',()=>{t.recvTouched=true;upR()});upR()}
       const upEq=()=>{if(!eq)return;const v=Math.abs(parseAmount(ain.value));eq.textContent=v?'≈ '+fmt(v*rateOf(fc))+' '+curInfo()[0]:'يُحسب بالدينار حسب سعر الصرف في الإعدادات'};
       if(eq){upEq();ain.addEventListener('input',upEq)}
       b.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('click',()=>{grab();t[el.dataset.k]=el.dataset.v;draw()}));
@@ -547,7 +683,8 @@ function txSheet(existing,preset){
         const bdec=curInfo()[1];
         const rec={id:t.id,type:t.type,amount:fc===baseCur()?a:+(a*rateOf(fc)).toFixed(bdec),cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
         if(fc!==baseCur()) rec.oamt=a;
-        if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3)}
+        if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3);
+          const ur=b.querySelector('#updRate');if(ur&&ur.checked&&rec.toamt>0){S.settings.rates=S.settings.rates||{};if(fc===baseCur())S.settings.rates[tc]=+(a/rec.toamt).toFixed(6);else S.settings.rates[fc]=+(rec.toamt/a).toFixed(6);saveSettings()}}
         if(!existing&&t.rep){
           S.settings.recurring.push({id:newId(),type:rec.type,amount:rec.amount,oamt:rec.oamt,toamt:rec.toamt,cat:rec.cat,acc:rec.acc,to:rec.to,note:rec.note,freq:t.rep,day:+rec.date.slice(8),next:rec.date,paused:false});
           if(rec.type!=='transfer') S.settings.lastAcc=rec.acc;
@@ -557,7 +694,7 @@ function txSheet(existing,preset){
         if(oldMonth){S.months[oldMonth]=txOf(oldMonth).filter(x=>x.id!==rec.id); if(oldMonth!==nm) saveMonth(oldMonth);}
         S.months[nm]=txOf(nm).concat(rec); sortMonth(nm); saveMonth(nm);
         if(S.settings.lastAcc!==rec.acc&&rec.type!=='transfer'){S.settings.lastAcc=rec.acc;saveSettings()}
-        closeSheet(); toast(existing?'تم حفظ التعديل':'تمت الإضافة'); render();
+        closeSheet(); toast(existing?'تم حفظ التعديل':'تمت الإضافة'); if(!existing) budgetAlert(rec); render();
       });
       const d=b.querySelector('#delTx'); if(d) d.addEventListener('click',()=>{
         if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='اضغط مرة أخرى للتأكيد';return}
@@ -573,6 +710,7 @@ function catSheet(cat,kind){
     <div class="row2" style="grid-template-columns:80px 1fr"><label class="field"><span>رمز</span><input id="cIcon" value="${esc(c.icon)}" maxlength="4" style="text-align:center"></label>
     <label class="field"><span>اسم البند</span><input id="cName" value="${esc(c.name)}"></label></div>
     ${c.kind==='expense'?`<label class="field"><span>الميزانية الشهرية (${esc(curInfo()[0])})</span><input id="cBud" inputmode="decimal" value="${+c.budget?esc(c.budget):''}" placeholder="بدون ميزانية" style="direction:ltr;text-align:right"></label>`:''}
+    ${c.kind==='expense'?`<label class="set-row" style="padding:4px 2px 14px;border:0"><input type="checkbox" id="cRoll" ${c.rollover?'checked':''} style="width:20px;height:20px"><span class="grow"><span class="t1">ترحيل المتبقي</span><span class="t2">اللي ما تصرفه من ميزانية البند ينضاف للشهر اللي بعده</span></span></label>`:''}
     <div class="err" id="cErr" hidden>اكتب اسم البند</div>
     <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="cTx">عرض كل عمليات البند</button><button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
   b=>{
@@ -583,10 +721,11 @@ function catSheet(cat,kind){
       const name=ni.value.trim(); if(!name){b.querySelector('#cErr').hidden=false;return}
       c.name=name; c.icon=ii.value.trim()||'•';
       const bi=b.querySelector('#cBud'); if(bi){const v=parseAmount(bi.value);c.budget=isNaN(v)?0:Math.abs(v)}
+      const rl=b.querySelector('#cRoll'); if(rl) c.rollover=rl.checked;
       if(isNew) S.settings.categories.push(c); else S.settings.categories=S.settings.categories.map(x=>x.id===c.id?c:x);
       saveSettings(); closeSheet(); toast('تم حفظ البند'); render();
     });
-    const ct=b.querySelector('#cTx'); if(ct) ct.addEventListener('click',()=>{S.catFilter=c.id;S.search='';S.tab='tx';S.txView='list';closeSheet();window.scrollTo(0,0);render()});
+    const ct=b.querySelector('#cTx'); if(ct) ct.addEventListener('click',()=>{S.prevTab=S.tab;S.catScope='all';S.catFilter=c.id;S.search='';S.tab='tx';S.txView='list';closeSheet();window.scrollTo(0,0);render()});
     const d=b.querySelector('#cDel'); if(d) d.addEventListener('click',()=>{
       if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات السابقة تبقى، اضغط للتأكيد';return}
       S.settings.categories=S.settings.categories.filter(x=>x.id!==c.id); saveSettings(); closeSheet(); toast('تم حذف البند'); render();
@@ -626,7 +765,7 @@ function accSheet(acc,type){
         if(isNew) S.settings.accounts.push(a); else S.settings.accounts=S.settings.accounts.map(x=>x.id===a.id?a:x);
         saveSettings(); closeSheet(); toast('تم حفظ الحساب'); render();
       });
-      const tb=b.querySelector('#aTx'); if(tb) tb.addEventListener('click',()=>{S.accFilter=a.id;S.tab='tx';S.txView='list';closeSheet();render()});
+      const tb=b.querySelector('#aTx'); if(tb) tb.addEventListener('click',()=>{S.prevTab=S.tab;S.accFilter=a.id;S.tab='tx';S.txView='list';closeSheet();render()});
       const d=b.querySelector('#aDel'); if(d) d.addEventListener('click',()=>{
         if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات تبقى، اضغط للتأكيد';return}
         S.settings.accounts=S.settings.accounts.filter(x=>x.id!==a.id); saveSettings(); closeSheet(); toast('تم حذف الحساب'); render();
@@ -897,22 +1036,40 @@ document.addEventListener('click',e=>{
     else if(act==='txview'){S.txView=a.dataset.v;render()}
     else if(act==='clearacc'){S.accFilter=null;render()}
     else if(act==='clearcat'){S.catFilter=null;render()}
+    else if(act==='back'){goBack()}
+    else if(act==='theme'){const order=['auto','dark','light'];S.settings.theme=order[(order.indexOf(S.settings.theme||'auto')+1)%3];saveSettings();applyTheme();render();toast(S.settings.theme==='dark'?'الوضع الداكن':S.settings.theme==='light'?'الوضع الفاتح':'المظهر تلقائي مع الجوال')}
+    else if(act==='showtype'){S.prevTab=S.tab===('tx')?'tx':S.tab;S.typeFilter=a.dataset.v;S.catFilter=null;S.accFilter=null;S.search='';S.txView='list';S.tab='tx';window.scrollTo(0,0);render()}
+    else if(act==='cleartype'){S.typeFilter=null;render()}
+    else if(act==='rep'){S.rep=a.dataset.v;if(S.rep==='year')S.repYear=+S.period.slice(0,4);window.scrollTo(0,0);render()}
+    else if(act==='yr'){S.repYear=(S.repYear||+S.period.slice(0,4))+(+a.dataset.d);render()}
+    else if(act==='suggest'){suggestSheet()}
+    else if(act==='totalb'){totalSheet()}
+    else if(act==='gobudget'){S.tab='budget';render()}
     else if(act==='import') $('#fileIn').click();
     else if(act==='export') exportCSV();
     else if(act==='backup') backup();
     return;
   }
   if(e.target.closest('#sheetBody')) return;
-  const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;if(S.tab!=='tx'){S.accFilter=null;S.catFilter=null}window.scrollTo(0,0);render();return}
+  const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;S.accFilter=null;S.catFilter=null;S.typeFilter=null;S.prevTab=null;window.scrollTo(0,0);render();return}
   const q=e.target.closest('[data-quick]'); if(q){const c=catById(q.dataset.quick);txSheet(null,{type:c.kind,cat:c.id});return}
   const tx=e.target.closest('[data-tx]'); if(tx){const t=txOf(tx.dataset.m).find(x=>x.id===tx.dataset.tx); if(t) txSheet(t); return}
+  const rp=e.target.closest('[data-rper]'); if(rp){S.period=rp.getAttribute('data-rper');S.rep='period';window.scrollTo(0,0);render();return}
+  const rcat=e.target.closest('[data-rcat]'); if(rcat){S.prevTab=S.tab;S.typeFilter=null;S.catFilter=rcat.dataset.rcat;S.catScope=rcat.dataset.scope||'period';S.search='';S.txView='list';S.tab='tx';window.scrollTo(0,0);render();return}
+  const racc=e.target.closest('[data-racc]'); if(racc){S.prevTab=S.tab;S.accFilter=racc.dataset.racc;S.txView='list';S.tab='tx';window.scrollTo(0,0);render();return}
   const rc=e.target.closest('[data-rec]'); if(rc){const r=(S.settings.recurring||[]).find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return}
   const ac=e.target.closest('[data-acc]'); if(ac){accSheet(S.settings.accounts.find(x=>x.id===ac.dataset.acc)||null,'debit');return}
   const c=e.target.closest('[data-cat]'); if(c){catSheet(S.settings.categories.find(x=>x.id===c.dataset.cat)||null,'expense')}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheetWrap').hidden) closeSheet()});
 window.__toast=toast;
-window.__onBack=()=>{if(!$('#sheetWrap').hidden){closeSheet();return true} if(S.tab!=='home'){S.tab='home';S.accFilter=null;render();return true} return false};
+function goBack(){
+  if(!$('#sheetWrap').hidden){closeSheet();return true}
+  if(S.accFilter||S.catFilter||S.typeFilter){const back=S.prevTab;S.accFilter=null;S.catFilter=null;S.typeFilter=null;S.catScope=null;S.prevTab=null;if(back==='tx'){S.tab='tx';S.txView='stats'}else if(back){S.tab=back}window.scrollTo(0,0);render();return true}
+  if(S.tab!=='home'){S.tab='home';window.scrollTo(0,0);render();return true}
+  return false;
+}
+window.__onBack=goBack;
 init();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.settings){const n=runRecurring();if(n){render();toast('تمت إضافة '+n+' عملية متكررة')}}});
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
