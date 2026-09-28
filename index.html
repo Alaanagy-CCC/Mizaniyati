@@ -399,26 +399,26 @@ function txRow(t){
     return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic">⇄</span><span class="grow"><span class="t1">تحويل</span><span class="t2">${esc(fa.name)} ← ${esc(t.to?accById(t.to).name:'—')}${t.note?' · '+esc(t.note):''}</span></span><span class="amt"><span class="num">${fmtC(fromAmt(t),fc)}${fc!==baseCur()?' <small>'+esc(curSym(fc))+'</small>':''}</span></span></button>`;
   }
   const c=catById(t.cat), inc=t.type==='income';
-  const main=t.note||c.name, sub=(t.note?c.name+' · ':'')+(fa.name||'');
+  const main=t.note||c.name, sub=(t.ex?'استثنائي · ':'')+(t.note?c.name+' · ':'')+(fa.name||'');
   const orig=fc!==baseCur()&&t.acc?`<span class="t2 num">${fmtC(fromAmt(t),fc)} ${esc(curSym(fc))}</span>`:'';
   return `<button class="tx" data-tx="${esc(t.id)}" data-m="${esc(m)}"><span class="ic" style="background:color-mix(in srgb,${c.color||'#7F8C8D'} 18%,var(--surface))">${esc(c.icon)}</span><span class="grow"><span class="t1 wrap">${esc(main)}</span><span class="t2">${esc(sub)}</span></span><span class="amt">${money(inc?t.amount:-t.amount,inc?'pos':'')}${orig}</span></button>`;
 }
-function tile(c,val,budget){
-  let cls='ring',p=0;
-  if(budget>0){p=Math.min(val/budget,1)*100; if(val>budget) cls+=' over'}
+function tile(c,val,budget,uval){
+  let cls='ring',p=0;if(uval==null)uval=val;
+  if(budget>0){p=Math.min(uval/budget,1)*100; if(uval>budget) cls+=' over'}
   else cls+=' full';
   return `<button class="tile" data-quick="${esc(c.id)}" style="--c:${esc(c.color||'#7F8C8D')}"><span class="tn">${esc(c.name)}</span><span class="${cls}" style="--p:${p.toFixed(1)}"><span>${esc(c.icon)}</span></span><span class="ta">${money(val,budget>0&&val>budget?'neg':'')}</span>${budget>0?`<span class="tb">من ${fmt(budget)}</span>`:''}</button>`;
 }
 function viewHome(){
   const list=txIn(S.period);
-  const byCat={}; list.forEach(t=>{if(t.type!=='transfer') byCat[t.cat]=(byCat[t.cat]||0)+ +t.amount});
+  const byCat={},byU={}; list.forEach(t=>{if(t.type!=='transfer'){byCat[t.cat]=(byCat[t.cat]||0)+ +t.amount;if(!isEx(t))byU[t.cat]=(byU[t.cat]||0)+ +t.amount}});
   const inc=sum(list.filter(t=>t.type==='income')),exp=sum(list.filter(t=>t.type==='expense'));
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
-  const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byCat[c.id]||0)>b}).length:0;
+  const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
   return warn+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
-  <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
+  <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
   <div class="tiles">${ic.map(c=>tile(c,byCat[c.id]||0,0)).join('')}<button class="tile add" data-action="newcat" data-kind="income">＋ بند جديد</button></div>
   <p class="note">اضغط على أي بند لتسجيل عملية فيه مباشرة.</p>`;
@@ -468,12 +468,14 @@ function viewTx(){
 }
 /* ---------- analytics helpers ---------- */
 const FONT='IBM Plex Sans Arabic, sans-serif';
+const isEx=t=>t.type==='expense'&&(!!t.ex||!!catById(t.cat).noBudget);
+const usual=l=>l.filter(t=>!isEx(t));
 const spentBy=list=>{const m={};list.forEach(t=>{if(t.type==='expense')m[t.cat]=(m[t.cat]||0)+ +t.amount});return m};
-function effBudget(c,k){const b=+c.budget||0;if(!b||!c.rollover)return b;const prev=spentBy(txIn(shiftMonth(k,-1)))[c.id]||0;return b+Math.max(0,b-prev)}
+function effBudget(c,k){const b=+c.budget||0;if(!b||!c.rollover)return b;const prev=spentBy(usual(txIn(shiftMonth(k,-1))))[c.id]||0;return b+Math.max(0,b-prev)}
 function totalBudget(k){const t=+S.settings.totalBudget||0;return t>0?t:expenseCats().reduce((a,c)=>a+effBudget(c,k),0)}
-function avgSpent(k,n){const acc={};for(let i=1;i<=n;i++){const m=spentBy(txIn(shiftMonth(k,-i)));Object.keys(m).forEach(c=>acc[c]=(acc[c]||0)+m[c])}Object.keys(acc).forEach(c=>acc[c]/=n);return acc}
+function avgSpent(k,n){const acc={};for(let i=1;i<=n;i++){const m=spentBy(usual(txIn(shiftMonth(k,-i))));Object.keys(m).forEach(c=>acc[c]=(acc[c]||0)+m[c])}Object.keys(acc).forEach(c=>acc[c]/=n);return acc}
 function periodDays(k){const r=range(k);return Math.round((Date.parse(r.to)-Date.parse(r.from))/864e5)}
-function cumDaily(k){const r=range(k),n=periodDays(k),arr=new Array(n).fill(0);txIn(k).forEach(t=>{if(t.type!=='expense')return;const i=Math.round((Date.parse(t.date)-Date.parse(r.from))/864e5);if(i>=0&&i<n)arr[i]+= +t.amount});for(let i=1;i<n;i++)arr[i]+=arr[i-1];return arr}
+function cumDaily(k){const r=range(k),n=periodDays(k),arr=new Array(n).fill(0);usual(txIn(k)).forEach(t=>{if(t.type!=='expense')return;const i=Math.round((Date.parse(t.date)-Date.parse(r.from))/864e5);if(i>=0&&i<n)arr[i]+= +t.amount});for(let i=1;i<n;i++)arr[i]+=arr[i-1];return arr}
 function shortNum(v){const a=Math.abs(v);return a>=1000?(v/1000).toFixed(a>=10000?0:1)+'k':Math.round(v)+''}
 function lineChart(series,budget,n,labels){
   const W=320,H=180,L=8,R=8,T=12,B=24,max=Math.max(1,budget||0,...series.map(s=>Math.max(0,...s.pts)))*1.08;
@@ -521,7 +523,7 @@ function periodReport(){
   if(isCur&&upto>2&&tb>0){const proj=cur[upto-1]/upto*n;pace=`<p class="note" style="margin:8px 2px 0">بهذا المعدل سيبلغ صرفك في نهاية الفترة <b class="num">${fmt(proj)}</b>، ${proj>tb?'<span class="neg">أعلى من الميزانية بـ '+fmt(proj-tb)+'</span>':'<span class="pos">ضمن الميزانية</span>'}.</p>`}
   h+=`<h2>منحنى الصرف خلال الفترة</h2><div class="chart">${lineChart([{pts:prev.slice(0,n),color:'var(--muted)',dash:1,w:1.5},{pts:cur.slice(0,upto),color:'var(--accent)',fill:1,dot:1}],tb,n,lab)}<div class="keys"><span><i style="background:var(--accent)"></i>هذه الفترة</span><span><i style="background:var(--muted)"></i>الفترة السابقة</span>${tb?'<span><i style="background:var(--gold)"></i>الميزانية</span>':''}</div>${pace}</div>`;
   if(exp>0){h+=`<h2>توزيع المصروف</h2>`+donutHtml(spentBy(list),exp,'data-scope="period"')}
-  const avg=avgSpent(k,3),by=spentBy(list);
+  const avg=avgSpent(k,3),by=spentBy(usual(list));
   const ids=[...new Set(Object.keys(by).concat(Object.keys(avg)))].filter(id=>(by[id]||0)>0||(avg[id]||0)>1).sort((a,b)=>Math.max(by[b]||0,avg[b]||0)-Math.max(by[a]||0,avg[a]||0)).slice(0,8);
   if(ids.length){h+=`<h2>مقارنة بمتوسط آخر 3 فترات</h2>`+hbars(ids.map(id=>{const c=catById(id),v=by[id]||0,a=avg[id]||0,d=a?Math.round((v-a)/a*100):0;
     return{id,label:c.name,icon:c.icon,color:c.color,val:v,ref:a,sub:a?`المتوسط ${fmt(a)} · <span class="${d>10?'neg':d<-10?'pos':''}">${d>0?'+':''}${d}٪</span>`:'جديد هذه الفترة'}}),'data-scope="period"')+`<p class="note">الخط الأسود على كل شريط هو متوسطك.</p>`}
@@ -553,7 +555,7 @@ function yearReport(){
 /* ---------- budgets ---------- */
 function budgetHistory(k){
   const tb=totalBudget(k);if(!tb)return'';const ms=[];for(let i=5;i>=0;i--)ms.push(shiftMonth(k,-i));
-  const vals=ms.map(m=>sum(txIn(m).filter(t=>t.type==='expense')));const max=Math.max(tb,...vals)*1.1;const W=320,H=150,base=120,gw=W/6;
+  const vals=ms.map(m=>sum(usual(txIn(m)).filter(t=>t.type==='expense')));const max=Math.max(tb,...vals)*1.1;const W=320,H=150,base=120,gw=W/6;
   const ok=vals.filter((v,i)=>v<=tb&&!(ms[i]===curPeriod()&&v<tb)).length;
   const bars=vals.map((v,i)=>{const x=W-(i+1)*gw+gw/2,hh=v/max*105;return `<rect x="${x-11}" y="${base-hh}" width="22" height="${hh}" rx="3" fill="${v>tb?'var(--neg)':'var(--pos)'}" opacity="${ms[i]===curPeriod()?.55:1}"/><text x="${x}" y="${base+15}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="${FONT}">${periodShort(ms[i])}</text>`}).join('');
   const yb=base-tb/max*105;
@@ -564,11 +566,11 @@ function smartSuggest(k,method,cut){
   let first=null;Object.keys(S.months).forEach(m=>{if(S.months[m].length&&(!first||m<first))first=m});
   const ps_=[];for(let i=1;i<=12;i++){const m=shiftMonth(k,-i);if(first&&shiftMonth(m,1)>=first)ps_.push(m)}
   const N=ps_.length;if(N<2)return null;
-  const per=ps_.map(m=>spentBy(txIn(m)));
+  const per=ps_.map(m=>spentBy(usual(txIn(m))));
   const incs=ps_.map(m=>sum(txIn(m).filter(t=>t.type==='income')));
   const rnd=v=>v<=0?0:v<20?Math.ceil(v):Math.ceil(v/5)*5;
   const f=1-(cut||0)/100;
-  const rows=expenseCats().map(c=>{
+  const rows=expenseCats().filter(c=>!c.noBudget).map(c=>{
     const vals=per.map(p=>p[c.id]||0),nz=vals.filter(v=>v>0),active=nz.length;if(!active)return null;
     const tot=vals.reduce((a,b)=>a+b,0),mx=Math.max(...vals),mn=Math.min(...vals);
     const avg=tot/N,med=median(vals),srt=vals.slice().sort((a,b)=>a-b),trm=N>=5?srt.slice(1,-1).reduce((a,b)=>a+b,0)/(N-2):avg;
@@ -620,18 +622,18 @@ function totalSheet(){
   b=>b.querySelector('#tbSave').addEventListener('click',()=>{const v=parseAmount(b.querySelector('#tbIn').value);S.settings.totalBudget=isNaN(v)?0:Math.abs(v);saveSettings();closeSheet();toast('تم الحفظ');render()}));
 }
 function budgetAlert(rec){
-  if(rec.type!=='expense')return;const k=(()=>{const d=+rec.date.slice(8),m=rec.date.slice(0,7);return d>=ps()?m:shiftMonth(m,-1)})();
+  if(rec.type!=='expense'||isEx(rec))return;const k=(()=>{const d=+rec.date.slice(8),m=rec.date.slice(0,7);return d>=ps()?m:shiftMonth(m,-1)})();
   const c=catById(rec.cat),b=effBudget(c,k);
-  if(b>0){const s=spentBy(txIn(k))[c.id]||0,before=s-rec.amount;
+  if(b>0){const s=spentBy(usual(txIn(k)))[c.id]||0,before=s-rec.amount;
     if(s>b&&before<=b){toast('⚠️ تجاوزت ميزانية '+c.name+' بـ '+fmt(s-b));return}
     if(s>=b*0.8&&before<b*0.8){toast('تنبيه: وصلت '+Math.round(s/b*100)+'٪ من ميزانية '+c.name);return}}
-  const tb=totalBudget(k);if(tb>0){const s=sum(txIn(k).filter(t=>t.type==='expense')),before=s-rec.amount;
+  const tb=totalBudget(k);if(tb>0){const s=sum(usual(txIn(k)).filter(t=>t.type==='expense')),before=s-rec.amount;
     if(s>tb&&before<=tb)toast('⚠️ تجاوزت الميزانية الإجمالية للشهر');else if(s>=tb*0.8&&before<tb*0.8)toast('تنبيه: وصلت '+Math.round(s/tb*100)+'٪ من ميزانية الشهر')}
 }
 function budgetMain(){
   const k=S.period,list=txIn(k);
-  const exp=sum(list.filter(t=>t.type==='expense'));
-  const cats=expenseCats(),budget=totalBudget(k),by=spentBy(list);
+  const expAll=sum(list.filter(t=>t.type==='expense')),exp=sum(usual(list).filter(t=>t.type==='expense')),exOut=expAll-exp;
+  const cats=expenseCats().filter(c=>!c.noBudget),budget=totalBudget(k),by=spentBy(usual(list));
   let hero;
   if(budget>0){
     const left=budget-exp,sp=exp/budget,tp=timePct(k),over=left<0;
@@ -645,13 +647,14 @@ function budgetMain(){
   const actions=`<div class="row2" style="margin-top:12px"><button class="btn ghost slim" style="margin:0" data-action="suggest">✨ اقترح الميزانيات</button><button class="btn ghost slim" style="margin:0" data-action="totalb">الميزانية الإجمالية</button></div><button class="btn danger slim" style="margin-top:8px;padding:9px" data-action="resetb">إعادة ضبط الميزانيات</button>`;
   const rows=cats.map(c=>({c,b:effBudget(c,k),spent:by[c.id]||0})).sort((a,b)=>(b.b>0)-(a.b>0)||(b.b?b.spent/b.b:0)-(a.b?a.spent/a.b:0)||b.spent-a.spent);
   const up=k===curPeriod()?upcomingIn(k):0;
-  return hero+actions+(up?`<p class="note">مصروفات متكررة متبقية في هذه الفترة: ${money(up)}</p>`:'')+`<h2>البنود</h2><div class="list">${rows.map(r=>{const b=r.b,p=b?Math.min(r.spent/b,1):0,over=b&&r.spent>b,warn=b&&!over&&r.spent>=b*0.8,roll=r.c.rollover&&b>(+r.c.budget||0);
+  const exNote=exOut>0?`<p class="note">لا يشمل المصروف أعلاه <b class="num">${fmt(exOut)}</b> مصروفات استثنائية أو غير استهلاكية.</p>`:'';
+  return hero+actions+`<button class="btn ghost slim" style="margin-top:8px;padding:9px" data-action="exreview">🔎 مراجعة المصروفات الاستثنائية</button>`+exNote+(up?`<p class="note">مصروفات متكررة متبقية في هذه الفترة: ${money(up)}</p>`:'')+`<h2>البنود</h2><div class="list">${rows.map(r=>{const b=r.b,p=b?Math.min(r.spent/b,1):0,over=b&&r.spent>b,warn=b&&!over&&r.spent>=b*0.8,roll=r.c.rollover&&b>(+r.c.budget||0);
     return `<button class="cat-row" data-cat="${esc(r.c.id)}"><span class="ic" style="background:color-mix(in srgb,${esc(r.c.color)} 18%,var(--surface))">${esc(r.c.icon)}</span><span class="grow"><span class="t1">${esc(r.c.name)}</span>${b?`<span class="t2">${over?'<span class="neg">تجاوز بـ '+fmt(r.spent-b)+'</span>':'المتبقي '+fmt(b-r.spent)}${roll?' · شامل مرحّل '+fmt(b-(+r.c.budget)):''}</span>`:''}</span><span class="amt">${money(r.spent,over?'neg':'')}<span class="t2">${b?'من '+fmt(b):'بدون ميزانية'}</span></span>${b?`<span class="bar"><i class="${over?'over':warn?'warn':''}" style="width:${p*100}%"></i></span>`:''}</button>`}).join('')}</div>`+budgetHistory(k);
 }
 /* ---------- goals ---------- */
 function monthlyExpenseMedian(){
   let first=null;Object.keys(S.months).forEach(m=>{if(S.months[m].length&&(!first||m<first))first=m});
-  const cp=curPeriod(),vals=[];for(let i=1;i<=12;i++){const m=shiftMonth(cp,-i);if(first&&shiftMonth(m,1)>=first)vals.push(sum(txIn(m).filter(t=>t.type==='expense')))}
+  const cp=curPeriod(),vals=[];for(let i=1;i<=12;i++){const m=shiftMonth(cp,-i);if(first&&shiftMonth(m,1)>=first)vals.push(sum(usual(txIn(m)).filter(t=>t.type==='expense')))}
   return median(vals);
 }
 function accBalBase(id){const a=S.settings.accounts.find(x=>x.id===id);if(!a)return 0;const f=flows();return((+a.opening||0)+(f[id]||0))*rateOf(accCur(a))}
@@ -674,7 +677,7 @@ function goalState(g){
 const monthYear=d=>{const [y,m]=d.split('-').map(Number);return MONTHS[m-1]+' '+y};
 function viewGoals(){
   const gs=S.settings.goals||[];
-  let h='';
+  let h=saveRateCard();
   if(!gs.length){
     const med=monthlyExpenseMedian();
     h+=`<div class="empty" style="margin-top:4px"><b>لا توجد أهداف بعد</b>ابدأ بصندوق الطوارئ؛ يُوصى بأن يغطي 3 إلى 6 أشهر من مصروفك المعتاد${med?` (نحو ${fmt(med*3)} إلى ${fmt(med*6)})`:''}.</div>`;
@@ -728,6 +731,73 @@ function goalSheet(g,kind){
 function resetGoalsSheet(){
   openSheet(`<h3>إعادة ضبط الأهداف</h3><p class="note" style="margin:0 0 14px">ستُحذف جميع الأهداف وإيداعاتها اليدوية. لا تتأثر الحسابات والعمليات.</p><div class="actions"><button class="btn danger" id="rgGo">حذف جميع الأهداف</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
   b=>{const g=b.querySelector('#rgGo');g.addEventListener('click',()=>{if(g.dataset.c!=='1'){g.dataset.c='1';g.textContent='اضغط مرة أخرى للتأكيد';return}S.settings.goals=[];saveSettings();closeSheet();toast('تم حذف الأهداف');render()})});
+}
+/* ---------- exceptional review ---------- */
+function exCandidates(){
+  const cp=curPeriod(),ps_=[];for(let i=0;i<=12;i++)ps_.push(shiftMonth(cp,-i));
+  const all=ps_.reduce((a,m)=>a.concat(txIn(m)),[]).filter(t=>t.type==='expense'&&!catById(t.cat).noBudget);
+  const byC={};all.forEach(t=>{(byC[t.cat]=byC[t.cat]||[]).push(+t.amount)});
+  const med={};Object.keys(byC).forEach(c=>med[c]=median(byC[c]));
+  const cand=all.filter(t=>!t.ex&&byC[t.cat].length>=3&&+t.amount>=Math.max(3*med[t.cat],100)).sort((a,b)=>b.amount-a.amount).slice(0,40);
+  const marked=all.filter(t=>t.ex).sort((a,b)=>a.date<b.date?1:-1);
+  return{cand,marked,med};
+}
+function setEx(ids,val){const set=new Set(ids),touched=new Set();Object.keys(S.months).forEach(k=>S.months[k].forEach(t=>{if(set.has(t.id)){if(val)t.ex=true;else delete t.ex;touched.add(k)}}));touched.forEach(saveMonth)}
+function exSheet(){
+  const {cand,marked,med}=exCandidates();
+  const row=(t,ck,extra)=>{const c=catById(t.cat);return `<label class="set-row"><input type="checkbox" class="ex-ck" data-id="${esc(t.id)}" ${ck?'checked':''} style="width:20px;height:20px;flex:none"><span class="ic">${esc(c.icon)}</span><span class="grow"><span class="t1 wrap">${esc(t.note||c.name)}</span><span class="t2">${esc(c.name)} · ${esc(t.date)}${extra?' · '+extra:''}</span></span><span class="amt">${money(-t.amount)}</span></label>`};
+  openSheet(`<h3>المصروفات الاستثنائية</h3>
+    <p class="note" style="margin:0 0 12px">المصروف الاستثنائي يبقى في السجل والتقارير، لكنه لا يدخل في حساب الميزانيات والمصروف المعتاد وأهداف الادخار.</p>
+    ${cand.length?`<h2 style="margin-top:0">مرشّحة (${cand.length})</h2><p class="note" style="margin:-4px 2px 10px">عمليات تزيد على ثلاثة أضعاف المعتاد في بندها. حدّد ما تراه استثنائياً.</p><div class="list">${cand.map(t=>row(t,false,'أكبر من المعتاد بنحو '+Math.round(t.amount/med[t.cat])+' مرة')).join('')}</div>`:'<div class="empty">لا توجد عمليات مرشّحة حالياً</div>'}
+    ${marked.length?`<h2>المعلّمة حالياً (${marked.length})</h2><p class="note" style="margin:-4px 2px 10px">أزل التحديد لإعادة العملية إلى الحساب المعتاد.</p><div class="list">${marked.map(t=>row(t,true)).join('')}</div>`:''}
+    <div class="actions" style="margin-top:14px"><button class="btn" id="exApply">حفظ</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>b.querySelector('#exApply').addEventListener('click',()=>{const on=[],off=[];b.querySelectorAll('.ex-ck').forEach(ck=>(ck.checked?on:off).push(ck.dataset.id));setEx(on,true);setEx(off,false);closeSheet();toast('تم تحديث المصروفات الاستثنائية');render()}));
+}
+/* ---------- savings rate goal ---------- */
+function savePlan(rate){
+  const cp=curPeriod(),r=smartSuggest(cp,'med',0);if(!r)return null;
+  const inc=r.inc,F=r.rows.filter(x=>x.type==='ثابت').reduce((a,x)=>a+x.s,0),O=r.rows.filter(x=>x.type==='موسمي').reduce((a,x)=>a+x.s,0),V=r.rows.filter(x=>x.type==='متغير').reduce((a,x)=>a+x.s,0);
+  const allowed=inc*(1-rate/100),cur=F+O+V,need=Math.max(0,cur-allowed),cutPct=V>0?Math.min(1,need/V):1;
+  const rnd=v=>v<=0?0:v<20?Math.ceil(v):Math.round(v/5)*5;
+  const rows=r.rows.map(x=>({...x,p:x.type==='متغير'?rnd(x.s*(1-cutPct)):x.s}));
+  const last=[1,2,3].map(i=>{const l=txIn(shiftMonth(cp,-i)),ii=sum(l.filter(t=>t.type==='income')),e=sum(usual(l).filter(t=>t.type==='expense'));return ii>0?(ii-e)/ii:0});
+  const actual=last.reduce((a,b)=>a+b,0)/3;
+  return{inc,F,O,V,allowed,cur,need,cutPct,rows,actual,feasible:need<=V*0.6};
+}
+function saveRateCard(){
+  const rate=+S.settings.saveRate||0;
+  if(!rate) return `<button class="goal" data-action="saverate" style="--c:var(--gold)"><div class="g-top"><span class="ic">📈</span><span class="grow"><span class="t1">هدف نسبة الادخار</span><span class="t2" style="white-space:normal">حدّد النسبة التي تريد ادخارها من دخلك، وسيقترح التطبيق ميزانيات تحققها.</span></span></div></button>`;
+  const pl=savePlan(rate);if(!pl)return '';
+  const k=curPeriod(),l=txIn(k),ii=sum(l.filter(t=>t.type==='income')),ee=sum(usual(l).filter(t=>t.type==='expense')),now=ii>0?(ii-ee)/ii:0;
+  return `<button class="goal" data-action="saverate" style="--c:var(--gold)"><div class="g-top"><span class="ic">📈</span><span class="grow"><span class="t1">هدف نسبة الادخار: ${rate}٪</span><span class="t2">ما يعادل ${fmt(pl.inc*rate/100)} شهرياً من دخل معتاد ${fmt(pl.inc)}</span></span><span class="g-pct num">${Math.round(now*100)}٪</span></div>
+    <div class="g-bar"><i style="width:${Math.max(0,Math.min(1,now/(rate/100)))*100}%"></i></div>
+    <div class="t2" style="white-space:normal">نسبتك هذا الشهر حتى الآن ${Math.round(now*100)}٪ · متوسط آخر 3 أشهر ${Math.round(pl.actual*100)}٪</div>
+    <div class="t2" style="white-space:normal;margin-top:4px">${pl.need>0?`لبلوغ الهدف يلزم خفض البنود المتغيرة ${Math.round(pl.cutPct*100)}٪ عن معتادها`:'ميزانياتك المعتادة تسمح بهذه النسبة'}</div>
+    <span class="g-st ${now>=rate/100?'pos':'neg'}">${now>=rate/100?'محقق هذا الشهر':'دون الهدف هذا الشهر'}</span></button>`;
+}
+function saveRateSheet(rate){
+  rate=rate==null?(+S.settings.saveRate||20):rate;
+  const pl=savePlan(rate);if(!pl){toast('لا تتوفر بيانات كافية');return}
+  openSheet(`<h3>هدف نسبة الادخار</h3>
+    <div class="seg">${[10,15,20,25,30].map(v=>`<button data-sr="${v}" aria-pressed="${v===rate}">${v}٪</button>`).join('')}</div>
+    <div class="chart" style="padding:12px 14px;margin-bottom:12px">
+      <div class="mrow"><span class="grow">الدخل المعتاد</span><b class="num">${fmt(pl.inc)}</b></div>
+      <div class="mrow"><span class="grow">الادخار المستهدف (${rate}٪)</span><b class="num pos">${fmt(pl.inc*rate/100)}</b></div>
+      <div class="mrow"><span class="grow">الحد الأعلى للمصروف</span><b class="num">${fmt(pl.allowed)}</b></div>
+      <div class="mrow"><span class="grow">مصروفك المعتاد (الوسيط)</span><b class="num ${pl.need>0?'neg':''}">${fmt(pl.cur)}</b></div>
+      <div class="mrow t2"><span class="grow">منه ثابت ${fmt(pl.F)} · موسمي ${fmt(pl.O)} · متغير ${fmt(pl.V)}</span></div>
+      <div class="mrow"><span class="grow">نسبتك الفعلية (متوسط آخر 3 أشهر)</span><b class="num">${Math.round(pl.actual*100)}٪</b></div>
+    </div>
+    ${pl.need>0?`<p class="note" style="margin:0 2px 10px">لتحقيق ${rate}٪ يلزم خفض المصروف ${fmt(pl.need)} شهرياً، أي خفض البنود المتغيرة <b>${Math.round(pl.cutPct*100)}٪</b> مع إبقاء الثابتة والموسمية كما هي.${pl.feasible?'':' <span class="neg">هذا خفض كبير؛ قد يكون الأنسب البدء بنسبة أقل ثم رفعها تدريجياً.</span>'}</p>`:`<p class="note pos" style="margin:0 2px 10px">مصروفك المعتاد يسمح بهذه النسبة دون تخفيض.</p>`}
+    <h2 style="margin-top:4px">الميزانيات المقترحة</h2>
+    <div class="list">${pl.rows.map(x=>`<div class="set-row"><span class="ic">${esc(x.c.icon)}</span><span class="grow"><span class="t1">${esc(x.c.name)}</span><span class="t2">${x.type}${x.p!==x.s?' · المعتاد '+fmt(x.s):''}</span></span><span class="amt num">${fmt(x.p)}</span></div>`).join('')}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn" id="srApply">اعتماد الهدف وتطبيق الميزانيات</button><button class="btn ghost" id="srOnly">اعتماد الهدف فقط</button>${S.settings.saveRate?'<button class="btn danger" id="srDel">إلغاء الهدف</button>':''}</div>`,
+  b=>{
+    b.querySelectorAll('[data-sr]').forEach(x=>x.addEventListener('click',()=>saveRateSheet(+x.dataset.sr)));
+    b.querySelector('#srApply').addEventListener('click',()=>{S.settings.saveRate=rate;pl.rows.forEach(x=>{const c=S.settings.categories.find(y=>y.id===x.c.id);if(c)c.budget=x.p});S.settings.totalBudget=0;saveSettings();closeSheet();toast('تم اعتماد هدف '+rate+'٪ وتطبيق الميزانيات');render()});
+    b.querySelector('#srOnly').addEventListener('click',()=>{S.settings.saveRate=rate;saveSettings();closeSheet();toast('تم اعتماد الهدف');render()});
+    const d=b.querySelector('#srDel');if(d)d.addEventListener('click',()=>{S.settings.saveRate=0;saveSettings();closeSheet();toast('تم إلغاء الهدف');render()});
+  });
 }
 function viewBudget(){
   const seg=`<div class="seg"><button data-action="bview" data-v="budget" aria-pressed="${S.bview!=='goals'}">الميزانيات</button><button data-action="bview" data-v="goals" aria-pressed="${S.bview==='goals'}">الأهداف</button></div>`;
@@ -803,9 +873,10 @@ function txSheet(existing,preset){
       <label class="field"><span>الوصف</span><input id="noteIn" value="${esc(t.note)}" placeholder="مثلاً: غداء مع الفريق، فاتورة الكهرباء…"></label>
       <label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
       ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
+      ${t.type==='expense'?`<label class="set-row" style="padding:0 2px 12px;border:0"><input type="checkbox" id="exIn" ${t.ex?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">مصروف استثنائي</span><span class="t2" style="white-space:normal">لا يدخل في حساب الميزانيات والمصروف المعتاد</span></span></label>`:''}
       <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
     b=>{
-      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value};
+      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value;const xe=b.querySelector('#exIn');if(xe)t.ex=xe.checked};
       ['#accIn','#toIn'].forEach(s=>{const el=b.querySelector(s);if(el)el.addEventListener('change',()=>{grab();t.recv='';t.recvTouched=false;draw()})});
       const eq=b.querySelector('#eqv'),ain=b.querySelector('#amtIn'),rin=b.querySelector('#recvIn'),rl=b.querySelector('#rateLn');
       if(rin){const tdec=(CUR[tc]||[0,2])[1];
@@ -823,6 +894,7 @@ function txSheet(existing,preset){
         const bdec=curInfo()[1];
         const rec={id:t.id,type:t.type,amount:fc===baseCur()?a:+(a*rateOf(fc)).toFixed(bdec),cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
         if(fc!==baseCur()) rec.oamt=a;
+        if(t.type==='expense'&&t.ex) rec.ex=true;
         if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3);
           const ur=b.querySelector('#updRate');if(ur&&ur.checked&&rec.toamt>0){S.settings.rates=S.settings.rates||{};if(fc===baseCur())S.settings.rates[tc]=+(a/rec.toamt).toFixed(6);else S.settings.rates[fc]=+(rec.toamt/a).toFixed(6);saveSettings()}}
         if(!existing&&t.rep){
@@ -850,6 +922,7 @@ function catSheet(cat,kind){
     <div class="row2" style="grid-template-columns:80px 1fr"><label class="field"><span>رمز</span><input id="cIcon" value="${esc(c.icon)}" maxlength="4" style="text-align:center"></label>
     <label class="field"><span>اسم البند</span><input id="cName" value="${esc(c.name)}"></label></div>
     ${c.kind==='expense'?`<label class="field"><span>الميزانية الشهرية (${esc(curInfo()[0])})</span><input id="cBud" inputmode="decimal" value="${+c.budget?esc(c.budget):''}" placeholder="بدون ميزانية" style="direction:ltr;text-align:right"></label>`:''}
+    ${c.kind==='expense'?`<label class="set-row" style="padding:4px 2px 8px;border:0"><input type="checkbox" id="cNob" ${c.noBudget?'checked':''} style="width:20px;height:20px"><span class="grow"><span class="t1">بند غير استهلاكي</span><span class="t2">مثل تسديد الديون: لا يدخل في الميزانيات والمصروف المعتاد</span></span></label>`:''}
     ${c.kind==='expense'?`<label class="set-row" style="padding:4px 2px 14px;border:0"><input type="checkbox" id="cRoll" ${c.rollover?'checked':''} style="width:20px;height:20px"><span class="grow"><span class="t1">ترحيل المتبقي</span><span class="t2">يُضاف ما لم يُصرف من ميزانية البند إلى الشهر التالي</span></span></label>`:''}
     <div class="err" id="cErr" hidden>اكتب اسم البند</div>
     <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="cTx">عرض كل عمليات البند</button><button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
@@ -862,6 +935,7 @@ function catSheet(cat,kind){
       c.name=name; c.icon=ii.value.trim()||'•';
       const bi=b.querySelector('#cBud'); if(bi){const v=parseAmount(bi.value);c.budget=isNaN(v)?0:Math.abs(v)}
       const rl=b.querySelector('#cRoll'); if(rl) c.rollover=rl.checked;
+      const nb=b.querySelector('#cNob'); if(nb){c.noBudget=nb.checked;if(c.noBudget)c.budget=0}
       if(isNew) S.settings.categories.push(c); else S.settings.categories=S.settings.categories.map(x=>x.id===c.id?c:x);
       saveSettings(); closeSheet(); toast('تم حفظ البند'); render();
     });
@@ -1187,6 +1261,8 @@ document.addEventListener('click',e=>{
     else if(act==='bview'){S.bview=a.dataset.v;window.scrollTo(0,0);render()}
     else if(act==='newgoal'){goalSheet(null,a.dataset.kind)}
     else if(act==='resetgoals'){resetGoalsSheet()}
+    else if(act==='exreview'){exSheet()}
+    else if(act==='saverate'){saveRateSheet()}
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
     else if(act==='import') $('#fileIn').click();
