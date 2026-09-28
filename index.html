@@ -113,6 +113,10 @@ h2 button{font-family:var(--body);font-size:.85rem;color:var(--accent);font-weig
 .yearbar{display:flex;align-items:center;justify-content:center;gap:18px;margin:0 0 12px;font-size:1.2rem}
 .yearbar button{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--line);font-size:1.2rem}
 .hgroup{display:flex;gap:6px;flex:none}
+.report{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 18px 8px;margin-top:14px;line-height:1.85}
+.report h1{font-family:var(--display);font-weight:600;font-size:1.25rem;margin:0}
+.report h2{font-size:1.02rem;margin:18px 0 6px;color:var(--accent)}
+.report p{margin:0 0 8px}.report ul{margin:0 0 8px;padding-inline-start:20px}.report li{margin-bottom:6px}
 .goal{display:block;width:100%;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:10px;position:relative}
 .g-top{display:flex;align-items:center;gap:12px}.g-top .ic{background:color-mix(in srgb,var(--c) 18%,var(--surface))}
 .g-pct{font-family:var(--display);font-weight:600;font-size:1.3rem;color:var(--c)}
@@ -508,9 +512,182 @@ function trendBars(ms,k,clickAttr){
     return `<g ${clickAttr}="${d.m}" style="cursor:pointer"><rect x="${x-gw/2}" y="0" width="${gw}" height="${H}" fill="${cur?'var(--chip)':'transparent'}" rx="6"/><rect x="${x+1}" y="${base-hi}" width="${bw}" height="${hi}" rx="2" fill="var(--pos)"/><rect x="${x-bw-1}" y="${base-he}" width="${bw}" height="${he}" rx="2" fill="${d.exp>d.inc?'var(--neg)':'var(--accent)'}"/><text x="${x}" y="${base+16}" text-anchor="middle" font-size="${n>8?8.5:10}" fill="${cur?'var(--ink)':'var(--muted)'}" font-weight="${cur?600:400}" font-family="${FONT}">${periodShort(d.m).slice(0,n>8?3:10)}</text></g>`}).join('');
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H-18}" width="100%" role="img" aria-label="الدخل والمصروف">${`<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>`+bars}</svg><div class="keys"><span><i style="background:var(--pos)"></i>الدخل</span><span><i style="background:var(--accent)"></i>المصروف</span><span><i style="background:var(--neg)"></i>مصروف أعلى من الدخل</span></div></div>`;
 }
+/* ---------- written report ---------- */
+const WDAYS=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const CAR_RE=/\bcars?\b|سيار|\bgas\b|fuel|بنزين|وقود|taxi|تاكسي/i;
+const nOp=n=>n===1?'عملية واحدة':n===2?'عمليتين':n<=10?n+' عمليات':n+' عملية';
+const nTm=n=>n===1?'مرة':n===2?'مرتين':n<=10?n+' مرات':n+' مرة';
+const nMo=n=>n===1?'شهر واحد':n===2?'شهرين':n<=10?n+' أشهر':n+' شهراً';
+function firstDataMonth(){let f=null;Object.keys(S.months).forEach(m=>{if(S.months[m].length&&(!f||m<f))f=m});return f}
+const covered=ps_=>{const f=firstDataMonth();return f&&shiftMonth(ps_[0],1)>f};
+const pct=v=>Math.round(v*100)+'٪';
+function winPeriods(k,n){const a=[];for(let i=n-1;i>=0;i--)a.push(shiftMonth(k,-i));return a}
+function winStats(ps_){
+  const all=ps_.reduce((a,m)=>a.concat(txIn(m)),[]);
+  const inc=sum(all.filter(t=>t.type==='income')),exp=sum(all.filter(t=>t.type==='expense')),expU=sum(usual(all).filter(t=>t.type==='expense'));
+  const months=ps_.map(m=>{const l=txIn(m);const i=sum(l.filter(t=>t.type==='income')),e=sum(l.filter(t=>t.type==='expense')),eu=sum(usual(l).filter(t=>t.type==='expense'));return{m,inc:i,exp:e,expU:eu,rate:i>0?(i-eu)/i:null}});
+  return{all,inc,exp,expU,ex:exp-expU,net:inc-exp,rate:inc>0?(inc-expU)/inc:0,months};
+}
+function baseMedians(k,n){ // per-category monthly median over 12 periods before window
+  const per=[];for(let i=n;i<n+12;i++)per.push(spentBy(usual(txIn(shiftMonth(k,-i)))));
+  const has=per.filter(p=>Object.keys(p).length);const out={};
+  expenseCats().forEach(c=>{const v=has.map(p=>p[c.id]||0);if(v.some(x=>x>0))out[c.id]=median(v)||v.reduce((a,b)=>a+b,0)/v.length});return{med:out,n:has.length};
+}
+function behavior(txs){
+  const e=txs.filter(t=>t.type==='expense');const n=e.length;if(!n)return null;
+  const tot=sum(e),avg=tot/n,small=e.filter(t=>+t.amount<5),smallT=sum(small);
+  const wd=[0,0,0,0,0,0,0];e.forEach(t=>{wd[new Date(t.date+'T00:00:00').getDay()]+= +t.amount});
+  const topWd=wd.indexOf(Math.max(...wd));
+  let early=0;e.forEach(t=>{const d=+t.date.slice(8),s=ps();const off=(d-s+31)%31;if(off<10)early+= +t.amount});
+  const byC=spentBy(e),top=Object.entries(byC).sort((a,b)=>b[1]-a[1]).slice(0,3),topShare=top.reduce((a,x)=>a+x[1],0)/tot;
+  const notes={};e.forEach(t=>{const k=(t.note||'').trim();if(k.length>1){notes[k]=notes[k]||{n:0,s:0};notes[k].n++;notes[k].s+= +t.amount}});
+  const freq=Object.entries(notes).filter(x=>x[1].n>=3).sort((a,b)=>b[1].s-a[1].s).slice(0,5);
+  const days=new Set(e.map(t=>t.date)).size;
+  return{n,tot,avg,small:small.length,smallT,topWd,wdShare:wd[topWd]/tot,early:early/tot,top,topShare,freq,days};
+}
+function buildReport(k,n,focus){
+  const ps_=winPeriods(k,n),prev=winPeriods(shiftMonth(k,-n),n),W=winStats(ps_),P=winStats(prev),partial=k===curPeriod();
+  const title=n===1?'التقرير الشهري':n===12?'التقرير السنوي':`تقرير ${n===3?'ثلاثة أشهر':'ستة أشهر'}`;
+  const range_=`${periodLabel(ps_[0])}${n>1?' إلى '+periodLabel(ps_[n-1]):''}`;
+  const S_=[];const cur=curInfo()[0];const F=v=>fmt(v)+' '+cur;
+  const chg=(a,b)=>b>0?Math.round((a-b)/b*100):null;
+  if(focus&&focus.length) return buildFocusReport(k,n,focus,ps_,prev,title,range_,partial);
+  // 1 summary
+  const ci=chg(W.inc,P.inc),ce=chg(W.expU,P.expU);
+  S_.push({h:'الملخص',p:[`بلغ الدخل ${F(W.inc)}، والمصروف ${F(W.exp)}${W.ex>0?`، منه ${F(W.ex)} مصروفات استثنائية أو غير استهلاكية`:''}. وعليه فالصافي ${W.net>=0?'فائض':'عجز'} قدره ${F(Math.abs(W.net))}.`,
+    `نسبة الادخار الفعلية (بعد استبعاد الاستثنائي) ${pct(W.rate)}${n>1?`، بمتوسط شهري للدخل ${F(W.inc/n)} وللمصروف المعتاد ${F(W.expU/n)}`:''}.`,
+    !covered(prev)?'لا تتوفر بيانات كاملة للمدة السابقة المماثلة للمقارنة.':P.inc>0?`مقارنةً بالمدة السابقة المماثلة: ${ci>=0?'ارتفع':'انخفض'} الدخل ${Math.abs(ci)}٪، و${ce>=0?'ارتفع':'انخفض'} المصروف المعتاد ${Math.abs(ce)}٪.`:'',
+    partial?'تنبيه: الفترة الحالية لم تكتمل بعد، فأرقامها جزئية.':''].filter(Boolean)});
+  // 2 savings
+  const tgt=+S.settings.saveRate||0;const hit=W.months.filter(m=>m.rate!=null&&m.rate>=tgt/100).length,deficit=W.months.filter(m=>m.inc>0&&m.expU>m.inc);
+  S_.push({h:'الادخار',p:[tgt?`هدف الادخار ${tgt}٪ من الدخل. تحقق الهدف في ${hit} من ${nMo(n)}، والنسبة الفعلية للمدة ${pct(W.rate)}، ${W.rate>=tgt/100?'أي أن الهدف محقق إجمالاً.':`أي دون الهدف بـ ${Math.round((tgt/100-W.rate)*100)} نقطة مئوية، وهو ما يعادل نحو ${F((tgt/100-W.rate)*W.inc/n)} شهرياً.`}`:'لم يُحدَّد هدف لنسبة الادخار بعد؛ يُنصح بتحديده من تبويب الأهداف.',
+    deficit.length?`شهدت ${deficit.length} ${deficit.length===1?'فترة':'فترات'} عجزاً تجاوز فيه المصروف المعتاد الدخل: ${deficit.map(m=>periodShort(m.m)).join('، ')}.`:'لم تشهد المدة أي فترة تجاوز فيها المصروف المعتاد الدخل.']});
+  // 3 goals
+  const gs=S.settings.goals||[];
+  if(gs.length){const lines=gs.map(g=>{const s=goalState(g);let l=`${g.name}: أُنجز ${pct(s.pct)} (${F(s.cur)} من ${F(s.target)}).`;
+      if(s.target&&s.cur<s.target){if(g.date)l+=` المطلوب شهرياً ${F(s.need)} حتى ${monthYear(g.date)}`;l+=s.pace>0?`، ومعدلك الحالي ${F(s.pace)} شهرياً${s.proj?` فيُتوقع بلوغه في ${monthYear(s.proj)}`:''}.`:'، ولم يُرصد ادخار منتظم له.';if(s.status==='متأخر عن الموعد')l+=` الهدف متأخر عن موعده، ويحتاج زيادة الادخار بنحو ${F(Math.max(0,s.need-s.pace))} شهرياً.`}
+      else if(s.target) l+=' تحقق الهدف.';return l});
+    S_.push({h:'الأهداف',b:lines});}
+  else S_.push({h:'الأهداف',p:['لا توجد أهداف مسجلة. يُنصح بالبدء بصندوق طوارئ يغطي ثلاثة أشهر من المصروف المعتاد.']});
+  // 4 budgets
+  const cats=expenseCats().filter(c=>!c.noBudget&&+c.budget>0);
+  if(cats.length){const over={};let overT=0;ps_.forEach(m=>{const by=spentBy(usual(txIn(m)));cats.forEach(c=>{const b=effBudget(c,m),v=by[c.id]||0;if(v>b){over[c.id]=(over[c.id]||{n:0,s:0});over[c.id].n++;over[c.id].s+=v-b;overT+=v-b}})});
+    const ol=Object.entries(over).sort((a,b)=>b[1].s-a[1].s);
+    S_.push({h:'الالتزام بالميزانيات',p:[ol.length?`تجاوزت ${ol.length} ${ol.length<11&&ol.length>2?'بنود':'بنداً'} ميزانياتها، بإجمالي تجاوز ${F(overT)}.`:'التزمت جميع البنود بميزانياتها خلال المدة.'],b:ol.slice(0,6).map(([id,o])=>`${catById(id).name}: تجاوز في ${o.n} من ${nMo(n)} بمجموع ${F(o.s)}.`)});}
+  // 5 imbalance
+  const B=baseMedians(k,n),byW=spentBy(usual(W.all));const imb=[];
+  Object.keys(byW).forEach(id=>{const m=B.med[id]||0,avgW=byW[id]/n;if(m>0&&avgW>m*1.2&&avgW-m>15)imb.push({id,avgW,m,d:(avgW-m)/m});else if(!m&&avgW>50)imb.push({id,avgW,m:0,d:null})});
+  imb.sort((a,b)=>(b.avgW-b.m)-(a.avgW-a.m));
+  const exL=W.all.filter(t=>isEx(t)).sort((a,b)=>b.amount-a.amount).slice(0,5);
+  S_.push({h:'مواطن الخلل في الإنفاق',p:[B.n?`قورن متوسط الإنفاق الشهري لكل بند في هذه المدة بمعدله المعتاد في ${nMo(B.n)} سابقة لها.`:'لا تتوفر بيانات سابقة كافية للمقارنة.'],
+    b:imb.slice(0,6).map(x=>x.d==null?`${catById(x.id).name}: لم يظهر في الأشهر السابقة، وبلغ متوسطه ${F(x.avgW)} شهرياً.`:`${catById(x.id).name}: ${F(x.avgW)} شهرياً مقابل ${F(x.m)} معتاداً، بزيادة ${Math.round(x.d*100)}٪.`).concat(exL.length?[`أكبر المصروفات الاستثنائية: ${exL.map(t=>(t.note||catById(t.cat).name)+' ('+fmt(t.amount)+')').join('، ')}.`]:[])});
+  // 6 behaviour
+  const bh=behavior(W.all);
+  if(bh){S_.push({h:'السلوك الاستهلاكي',b:[
+    `سُجلت ${nOp(bh.n)} صرف في ${bh.days} يوماً، بمتوسط ${F(bh.avg)} للعملية.`,
+    `تستحوذ ثلاثة بنود على ${pct(bh.topShare)} من الإنفاق: ${bh.top.map(x=>catById(x[0]).name).join('، ')}.`,
+    `يتركز الإنفاق في يوم ${WDAYS[bh.topWd]} (${pct(bh.wdShare)} من الإجمالي).`,
+    `${pct(bh.early)} من الإنفاق يقع في الأيام العشرة الأولى من الفترة${bh.early>0.5?'، أي أن الصرف يتسارع بعد نزول الراتب':''}.`,
+    bh.small>=10?`العمليات الصغيرة (أقل من 5 ${cur}) بلغت ${nOp(bh.small)} بمجموع ${F(bh.smallT)}؛ وتراكمها يستحق الانتباه.`:'',
+    bh.freq.length?`أكثر الأوصاف تكراراً: ${bh.freq.map(([k,v])=>`${k} (${nTm(v.n)}، ${fmt(v.s)})`).join('، ')}.`:''].filter(Boolean)});}
+  // 6b per-category detail
+  const byAll=spentBy(W.all.filter(t=>t.type==='expense'));const cnt={},topd={};W.all.forEach(t=>{if(t.type!=='expense')return;cnt[t.cat]=(cnt[t.cat]||0)+1;const d=descKey(t);topd[t.cat]=topd[t.cat]||{};topd[t.cat][d]=(topd[t.cat][d]||0)+ +t.amount});
+  const det=Object.entries(byAll).sort((a,b)=>b[1]-a[1]).map(([id,v])=>{const c=catById(id),m=B.med[id]||0,av=v/n,td=Object.entries(topd[id]||{}).sort((a,b)=>b[1]-a[1])[0];
+    return `${c.name}: ${F(v)} في ${nOp(cnt[id])}${n>1?`، بمتوسط ${F(av)} شهرياً`:''}${m?`، ${av>m*1.1?'أعلى من':av<m*0.9?'أدنى من':'قريب من'} معتاده (${F(m)})`:''}${td&&td[0]!=='دون وصف'?`، وأكبره «${td[0]}» ${fmt(td[1])}`:''}${c.noBudget?' (غير استهلاكي)':''}.`});
+  S_.push({h:'تفصيل البنود',p:['لتحليل مفصّل لأي بند، اختره من خيارات نوع التقرير.'],b:det});
+  // 7 guidance
+  const g=[];
+  if(tgt&&W.rate<tgt/100){const top=imb.slice(0,2).map(x=>catById(x.id).name);g.push(`لبلوغ هدف الادخار ${tgt}٪ يلزم خفض المصروف نحو ${F((tgt/100-W.rate)*W.inc/n)} شهرياً${top.length?`، ويُبدأ بـ ${top.join(' و')} لأنها الأعلى ارتفاعاً عن معتادها`:''}.`)}
+  if(!tgt)g.push('حدّد هدفاً لنسبة الادخار، ولتكن 10٪ في البداية ثم ارفعها تدريجياً.');
+  if(deficit.length>=Math.ceil(n/2))g.push('تكرار العجز في أكثر من نصف المدة مؤشر يستوجب مراجعة البنود المتغيرة ووضع حدود لها.');
+  if(bh&&bh.early>0.5)g.push('خصّص مبلغاً أسبوعياً للمصروف المتغير بدل الصرف المفتوح بعد الراتب، فهذا يوزع الإنفاق على الشهر.');
+  if(bh&&bh.small>=15)g.push('راجع المشتريات الصغيرة المتكررة؛ فتقليلها إلى النصف يوفر نحو '+F(bh.smallT/2/n)+' شهرياً.');
+  const debt=S.settings.accounts.filter(a=>a.type!=='debit');if(debt.length)g.push('قدّم سداد البطاقات والديون ذات التكلفة على الادخار الاختياري، وحدّد لها هدف سداد بتاريخ.');
+  if(!gs.some(x=>x.kind==='emergency'))g.push('أنشئ صندوق طوارئ يغطي ثلاثة أشهر من المصروف المعتاد قبل أي ادخار طويل الأجل.');
+  const seas=expenseCats().filter(c=>!c.noBudget).map(c=>({c,v:W.months.filter(m=>(spentBy(usual(txIn(m.m)))[c.id]||0)>0).length})).filter(x=>n>=3&&x.v>0&&x.v<n/2);
+  if(seas.length)g.push(`بنود موسمية مثل ${seas.slice(0,3).map(x=>x.c.name).join('، ')} يُستحسن أن يُجنَّب لها مبلغ شهري ثابت حتى لا تُحدث عجزاً عند حلولها.`);
+  S_.push({h:'الإرشادات',b:g});
+  return{title,range:range_,sections:S_};
+}
+function subGroup(t){const s=(t.note||'')+' '+catById(t.cat).name;
+  if(/بنزين|وقود|fuel|gas|petrol|محطة/i.test(s))return'الوقود';if(/صيان|تصليح|ورشة|زيت|فحص|كفر|إطار|بطاري|service|oil|tyre|tire|repair|قطع/i.test(s))return'الصيانة والقطع';
+  if(/تأمين|insurance/i.test(s))return'التأمين';if(/مخالف|غرام|ترخيص|تجديد|دفتر|رسوم|fine/i.test(s))return'الرسوم والمخالفات';if(/غسيل|wash|تلميع/i.test(s))return'الغسيل والعناية';if(/موقف|parking|باركنج/i.test(s))return'المواقف';if(/taxi|تاكسي|uber|careem|أوبر|كريم/i.test(s))return'المواصلات';return'أخرى'}
+const descKey=t=>{const s=String(t.note||'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[0-9٠-٩.,،؛:()\-–_/\\]+/g,' ').replace(/\s+/g,' ').trim();if(!s)return'دون وصف';return s.split(' ').slice(0,2).join(' ')};
+function buildFocusReport(k,n,focus,ps_,prev,title,range_,partial){
+  const cur=curInfo()[0],F=v=>fmt(v)+' '+cur,set=new Set(focus),names=focus.map(id=>catById(id).name).join('، ');
+  const isCar=focus.every(id=>CAR_RE.test(catById(id).name));
+  const pick=list=>list.filter(t=>t.type==='expense'&&set.has(t.cat));
+  const W=ps_.reduce((a,m)=>a.concat(pick(txIn(m))),[]),P=prev.reduce((a,m)=>a.concat(pick(txIn(m))),[]);
+  const tot=sum(W),ptot=sum(P),allExp=sum(ps_.reduce((a,m)=>a.concat(txIn(m)),[]).filter(t=>t.type==='expense')),S_=[],cov=covered(prev);
+  const monthly=ps_.map(m=>sum(pick(txIn(m)))),active=monthly.filter(v=>v>0).length;
+  const B=baseMedians(k,n);const usualM=focus.reduce((a,id)=>a+(B.med[id]||0),0);
+  if(!W.length) return{title:title+' – '+names,range:range_,sections:[{h:'الملخص',p:[`لا توجد عمليات على ${names} خلال هذه المدة.`]}]};
+  // summary
+  const sum1=[`بلغ الإنفاق على ${names} ${F(tot)} خلال المدة في ${nOp(W.length)}، بمتوسط شهري ${F(tot/n)}، أي ${allExp?pct(tot/allExp):'0٪'} من إجمالي المصروف.`];
+  if(usualM>0)sum1.push(`المعدل الشهري المعتاد لهذا الإنفاق في الأشهر السابقة ${F(usualM)}، فالمدة الحالية ${tot/n>usualM?'أعلى':'أدنى'} منه بـ ${Math.abs(Math.round((tot/n-usualM)/usualM*100))}٪.`);
+  if(cov&&ptot>0)sum1.push(`وقد بلغ في المدة السابقة المماثلة ${F(ptot)}، أي أنه ${tot>=ptot?'ارتفع':'انخفض'} بنسبة ${Math.abs(Math.round((tot-ptot)/ptot*100))}٪.`);
+  if(n>1)sum1.push(`ظهر هذا الإنفاق في ${active} من ${nMo(n)}${active<n/2?'، فهو إنفاق موسمي غير منتظم':''}.`);
+  const carAcc=isCar?S.settings.accounts.filter(a=>/car|سيار/i.test(a.name)):[];
+  const inst=ps_.reduce((a,m)=>a.concat(txIn(m)),[]).filter(t=>t.type==='transfer'&&carAcc.some(a=>a.id===t.to));
+  if(inst.length)sum1.push(`إضافة إلى ذلك سُدد ${F(sum(inst))} أقساطاً إلى ${carAcc.map(a=>a.name).join('، ')}، وهي غير محتسبة أعلاه.`);
+  if(partial)sum1.push('تنبيه: الفترة الحالية لم تكتمل بعد.');
+  S_.push({h:'الملخص',p:sum1});
+  if(focus.length>1){const bc=spentBy(W);S_.push({h:'التوزيع حسب البند',b:Object.entries(bc).sort((a,b)=>b[1]-a[1]).map(([id,v])=>`${catById(id).name}: ${F(v)} (${pct(v/tot)})${B.med[id]?`، ومعدله الشهري المعتاد ${F(B.med[id])}`:''}`)})}
+  // by description
+  const dW={},dP={};W.forEach(t=>{const g=descKey(t);dW[g]=dW[g]||{s:0,n:0};dW[g].s+= +t.amount;dW[g].n++});P.forEach(t=>{const g=descKey(t);dP[g]=(dP[g]||0)+ +t.amount});
+  const dl=Object.entries(dW).sort((a,b)=>b[1].s-a[1].s),topD=dl.slice(0,8),restD=dl.slice(8).reduce((a,x)=>({s:a.s+x[1].s,n:a.n+x[1].n}),{s:0,n:0});
+  S_.push({h:'التوزيع حسب الوصف',p:['جُمعت العمليات حسب أوصافها المتشابهة.'],b:topD.map(([g,v])=>`${g}: ${F(v.s)} (${pct(v.s/tot)}) في ${nOp(v.n)}`).concat(restD.n?[`أوصاف أخرى: ${F(restD.s)} في ${nOp(restD.n)}`]:[])});
+  let gW={},gP={};
+  if(isCar){W.forEach(t=>{const g=subGroup(t);gW[g]=gW[g]||{s:0,n:0};gW[g].s+= +t.amount;gW[g].n++});P.forEach(t=>{const g=subGroup(t);gP[g]=(gP[g]||0)+ +t.amount});
+    S_.push({h:'التوزيع حسب النوع',b:Object.entries(gW).sort((a,b)=>b[1].s-a[1].s).map(([g,v])=>`${g}: ${F(v.s)} (${pct(v.s/tot)}) في ${nOp(v.n)}، بمتوسط ${F(v.s/v.n)} للعملية`)})}
+  if(n>1)S_.push({h:'الإنفاق شهراً بشهر',b:ps_.map((m,i)=>`${periodLabel(m)}: ${F(monthly[i])}`)});
+  // reasons
+  const reasons=[];const big=W.slice().sort((a,b)=>b.amount-a.amount),top3=big.slice(0,3),top3s=sum(top3);
+  if(cov)dl.forEach(([g,v])=>{const pv=dP[g]||0;if(v.s-pv>Math.max(20,pv*0.25))reasons.push(`${g}: ${pv?`ارتفع من ${F(pv)} إلى ${F(v.s)}`:`إنفاق جديد بمبلغ ${F(v.s)}`}.`)});
+  if(top3s>tot*0.5&&W.length>3)reasons.push(`ثلاث عمليات فقط تمثل ${pct(top3s/tot)} من الإنفاق، فالارتفاع مدفوع بمصروفات كبيرة قليلة لا بالإنفاق اليومي.`);
+  const hiM=monthly.indexOf(Math.max(...monthly));if(n>1&&monthly[hiM]>0)reasons.push(`أعلى شهر كان ${periodLabel(ps_[hiM])} بمبلغ ${F(monthly[hiM])}.`);
+  S_.push({h:usualM&&tot/n>usualM?'أسباب الارتفاع':'أبرز المحركات',b:reasons.slice(0,8).concat([`أكبر العمليات: ${big.slice(0,5).map(t=>(t.note||catById(t.cat).name)+' '+fmt(t.amount)+' ('+t.date+')').join('؛ ')}.`])});
+  // behaviour
+  const bh=behavior(W),bl=[];
+  bl.push(`معدل التكرار ${(W.length/n).toFixed(1)} عملية شهرياً، بمتوسط ${F(tot/W.length)} للعملية، ووسيط ${F(median(W.map(t=>+t.amount)))}.`);
+  if(bh){bl.push(`يتركز الإنفاق في يوم ${WDAYS[bh.topWd]} (${pct(bh.wdShare)}).`);bl.push(`${pct(bh.early)} منه في الأيام العشرة الأولى بعد الراتب.`);
+    if(bh.small>=5)bl.push(`${nOp(bh.small)} صغيرة (أقل من 5 ${cur}) بمجموع ${F(bh.smallT)}.`);
+    if(bh.freq.length)bl.push(`الأوصاف الأكثر تكراراً: ${bh.freq.map(([k,v])=>`${k} (${nTm(v.n)}، ${fmt(v.s)})`).join('، ')}.`)}
+  const fuel=isCar?W.filter(t=>subGroup(t)==='الوقود').sort((a,b)=>a.date<b.date?-1:1):[];
+  if(fuel.length>=2){const gaps=[];for(let i=1;i<fuel.length;i++)gaps.push((Date.parse(fuel[i].date)-Date.parse(fuel[i-1].date))/864e5);bl.push(`تعبئة الوقود ${nTm(fuel.length)}، بمتوسط ${F(sum(fuel)/fuel.length)}، وكل ${Math.round(median(gaps))} أيام تقريباً.`)}
+  S_.push({h:'السلوك الاستهلاكي',b:bl});
+  // guidance
+  const g=[],medM=median(monthly);
+  if(active<n/2&&n>=3)g.push(`بما أن الإنفاق موسمي، جنّب له ${F(Math.ceil(tot/n/5)*5)} شهرياً (المجموع موزعاً على الأشهر) حتى لا يُحدث عجزاً عند حلوله.`);
+  else if(usualM&&(medM||tot/n)>usualM*1.2)g.push(`ميزانية شهرية مقترحة: نحو ${F(Math.ceil(usualM/5)*5)}، وهي المعدل المعتاد قبل هذه المدة، علماً بأن الوسيط الشهري للمدة ${F(medM||tot/n)}؛ فإن كان الارتفاع لسبب دائم فاعتمد رقماً بينهما.`);
+  else g.push(`ميزانية شهرية مقترحة: نحو ${F(Math.ceil((medM||tot/n)/5)*5)}، وهي الوسيط الشهري للمدة.`);
+  if(usualM&&tot/n>usualM*1.2)g.push(`الإنفاق أعلى من معتاده بوضوح؛ العودة إلى المعدل المعتاد توفر نحو ${F(tot/n-usualM)} شهرياً.`);
+  if(top3s>tot*0.5&&W.length>3)g.push('المصروفات الكبيرة هي المؤثر الأكبر؛ خطّط لها مسبقاً، واطلب أكثر من عرض سعر، وقرّر هل هي ضرورية أم يمكن تأجيلها.');
+  if(bh&&bh.small>=10)g.push(`تقليل العمليات الصغيرة إلى النصف يوفر نحو ${F(bh.smallT/2/n)} شهرياً.`);
+  if(bh&&bh.early>0.5)g.push('يتركز الصرف بعد الراتب؛ جرّب حداً أسبوعياً لهذا البند.');
+  if(isCar&&gW['الصيانة والقطع']&&gW['الصيانة والقطع'].s>tot*0.4)g.push('الصيانة تستحوذ على نسبة كبيرة؛ يُنصح بصيانة وقائية دورية ومقارنة أسعار الورش.');
+  if(isCar&&gW['الرسوم والمخالفات'])g.push('تجنّب الرسوم والمخالفات بتذكيرات لمواعيد التجديد والتأمين.');
+  S_.push({h:'الإرشادات',b:g});
+  S_.push({h:'جميع العمليات',b:W.slice().sort((a,b)=>a.date<b.date?1:-1).map(t=>`${t.date} · ${catById(t.cat).name} · ${t.note||'—'} · ${fmt(t.amount)}`)});
+  return{title:title+' – '+names,range:range_,sections:S_};
+}
+function reportText(r){return r.title+'\n'+r.range+'\n\n'+r.sections.map(s=>s.h+'\n'+(s.p||[]).join('\n')+((s.b||[]).length?'\n'+s.b.map(x=>'• '+x).join('\n'):'')).join('\n\n')}
+function viewWritten(){
+  const n=S.wrN||1,focus=S.wrFocus||[];
+  const cats=expenseCats().filter(c=>allTx().some(t=>t.cat===c.id));
+  const carIds=cats.filter(c=>CAR_RE.test(c.name)).map(c=>c.id);
+  let h=`<div class="chart" style="padding:14px"><div class="t1" style="margin-bottom:8px">مدة التقرير (تنتهي بالفترة المعروضة)</div>
+    <div class="seg">${[[1,'شهر'],[3,'3 أشهر'],[6,'6 أشهر'],[12,'سنة']].map(([v,l])=>`<button data-wrn="${v}" aria-pressed="${n===v}">${l}</button>`).join('')}</div>
+    <div class="t1" style="margin:4px 0 4px">نوع التقرير</div><div class="t2" style="white-space:normal;margin-bottom:8px">شامل لكل البنود، أو تقرير مفصّل لبند واحد أو أكثر تختاره.</div>
+    <div class="chips" style="max-height:none"><button class="chip" data-wrf="" aria-pressed="${!focus.length}">📋 تقرير شامل</button>${carIds.length?`<button class="chip" data-wrf="${carIds.join(',')}" aria-pressed="${focus.length&&focus.join(',')===carIds.join(',')}">🚗 السيارة</button>`:''}${cats.map(c=>`<button class="chip" data-wrc="${esc(c.id)}" aria-pressed="${focus.includes(c.id)&&!(focus.join(',')===carIds.join(','))}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}</div>
+    <button class="btn" data-action="wrgo">📝 إنشاء التقرير</button></div>`;
+  if(S.wrOut){const r=S.wrOut;h+=`<article class="report"><h1>${esc(r.title)}</h1><div class="t2">${esc(r.range)}</div>${r.sections.map(s=>`<h2>${esc(s.h)}</h2>${(s.p||[]).map(x=>`<p>${esc(x)}</p>`).join('')}${(s.b||[]).length?`<ul>${s.b.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}`).join('')}</article>
+    <div class="row2" style="margin-top:12px"><button class="btn ghost slim" style="margin:0" data-action="wrcopy">نسخ النص</button><button class="btn ghost slim" style="margin:0" data-action="wrsave">حفظ كملف</button></div>${navigator.share?'<button class="btn ghost slim" style="margin-top:8px" data-action="wrshare">مشاركة</button>':''}`}
+  return h;
+}
 function viewStats(){
-  const seg=`<div class="seg"><button data-action="rep" data-v="period" aria-pressed="${S.rep!=='year'}">هذه الفترة</button><button data-action="rep" data-v="year" aria-pressed="${S.rep==='year'}">السنة</button></div>`;
-  return seg+(S.rep==='year'?yearReport():periodReport());
+  const seg=`<div class="seg"><button data-action="rep" data-v="period" aria-pressed="${!S.rep||S.rep==='period'}">هذه الفترة</button><button data-action="rep" data-v="year" aria-pressed="${S.rep==='year'}">السنة</button><button data-action="rep" data-v="written" aria-pressed="${S.rep==='written'}">تقرير مكتوب</button></div>`;
+  return seg+(S.rep==='year'?yearReport():S.rep==='written'?viewWritten():periodReport());
 }
 function periodReport(){
   const k=S.period,list=txIn(k),inc=sum(list.filter(t=>t.type==='income')),expL=list.filter(t=>t.type==='expense'),exp=sum(expL);
@@ -1262,6 +1439,10 @@ document.addEventListener('click',e=>{
     else if(act==='newgoal'){goalSheet(null,a.dataset.kind)}
     else if(act==='resetgoals'){resetGoalsSheet()}
     else if(act==='exreview'){exSheet()}
+    else if(act==='wrgo'){S.wrOut=buildReport(S.period,S.wrN||1,S.wrFocus||[]);render();setTimeout(()=>{const r=document.querySelector('.report');if(r)r.scrollIntoView({behavior:'smooth'})},50)}
+    else if(act==='wrcopy'){const t=reportText(S.wrOut);(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('تم نسخ التقرير')).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('تم نسخ التقرير')}catch(e){toast('تعذّر النسخ')}ta.remove()})}
+    else if(act==='wrsave'){const r=S.wrOut;const html='<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>'+esc(r.title)+'</title><body style="font-family:Tahoma,sans-serif;max-width:720px;margin:24px auto;line-height:1.8;padding:0 16px">'+document.querySelector('.report').outerHTML+'</body></html>';if(!saveFile('mizaniyati-report-'+todayStr()+'.html',html,'text/html'))toast('تم حفظ التقرير في التنزيلات')}
+    else if(act==='wrshare'){navigator.share({title:S.wrOut.title,text:reportText(S.wrOut)}).catch(()=>{})}
     else if(act==='saverate'){saveRateSheet()}
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
@@ -1274,6 +1455,9 @@ document.addEventListener('click',e=>{
   const tab=e.target.closest('[data-tab]'); if(tab){S.tab=tab.dataset.tab;S.accFilter=null;S.catFilter=null;S.typeFilter=null;S.prevTab=null;window.scrollTo(0,0);render();return}
   const q=e.target.closest('[data-quick]'); if(q){const c=catById(q.dataset.quick);txSheet(null,{type:c.kind,cat:c.id});return}
   const tx=e.target.closest('[data-tx]'); if(tx){const t=txOf(tx.dataset.m).find(x=>x.id===tx.dataset.tx); if(t) txSheet(t); return}
+  const wn=e.target.closest('[data-wrn]'); if(wn){S.wrN=+wn.dataset.wrn;S.wrOut=null;render();return}
+  const wf=e.target.closest('[data-wrf]'); if(wf){S.wrFocus=wf.dataset.wrf?wf.dataset.wrf.split(','):[];S.wrOut=null;render();return}
+  const wc=e.target.closest('[data-wrc]'); if(wc){const id=wc.dataset.wrc;let f=(S.wrFocus||[]).slice();const cars=expenseCats().filter(c=>CAR_RE.test(c.name)).map(c=>c.id);if(f.join(',')===cars.join(','))f=[];f=f.includes(id)?f.filter(x=>x!==id):f.concat(id);S.wrFocus=f;S.wrOut=null;render();return}
   const rp=e.target.closest('[data-rper]'); if(rp){S.period=rp.getAttribute('data-rper');S.rep='period';window.scrollTo(0,0);render();return}
   const rcat=e.target.closest('[data-rcat]'); if(rcat){S.prevTab=S.tab;S.typeFilter=null;S.catFilter=rcat.dataset.rcat;S.catScope=rcat.dataset.scope||'period';S.search='';S.txView='list';S.tab='tx';window.scrollTo(0,0);render();return}
   const racc=e.target.closest('[data-racc]'); if(racc){S.prevTab=S.tab;S.accFilter=racc.dataset.racc;S.txView='list';S.tab='tx';window.scrollTo(0,0);render();return}
