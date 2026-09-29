@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#EDF2F0; --surface:#FFFFFF; --ink:#0F2A30; --muted:#5B7074; --line:#D3DEDB;
@@ -115,13 +115,41 @@ h2 button{font-family:var(--body);font-size:.85rem;color:var(--accent);font-weig
 .hgroup{display:flex;gap:6px;flex:none}
 .lockscreen{display:none}
 body.locked #app,body.locked .nav,body.locked #sheetWrap{display:none!important}
-body.locked .lockscreen{display:flex;position:fixed;inset:0;z-index:60;background:var(--hero);color:var(--hero-ink);align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 20px env(safe-area-inset-bottom,0px)}
-.lk-in{width:100%;max-width:320px;text-align:center}.lk-ic{width:64px;height:64px;border-radius:18px;margin-bottom:10px}
-.lk-t{font-family:var(--display);font-size:1.5rem;font-weight:600}.lk-s{opacity:.8;margin:6px 0 16px;min-height:1.5em}
-.lk-dots{display:flex;gap:14px;justify-content:center;margin-bottom:28px}.lk-dots i{width:13px;height:13px;border-radius:50%;border:2px solid var(--hero-ink);opacity:.7}.lk-dots i.on{background:var(--gold);border-color:var(--gold);opacity:1}
-.lk-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 22px;direction:ltr}
-.lk-pad button{height:66px;border-radius:50%;font-size:1.6rem;font-weight:500;color:var(--hero-ink);background:rgba(255,255,255,.08);display:grid;place-items:center;width:66px;justify-self:center}
+body.locked .lockscreen{display:block;position:fixed;inset:0;z-index:60;color:#F3EEE2;overflow:auto;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%23D9B25C' stroke-opacity='.09' stroke-width='1'%3E%3Cpath d='M44 10l10 24 24 10-24 10-10 24-10-24-24-10 24-10z'/%3E%3Crect x='24' y='24' width='40' height='40' transform='rotate(45 44 44)'/%3E%3Ccircle cx='44' cy='44' r='9'/%3E%3C/g%3E%3C/svg%3E"),radial-gradient(120% 70% at 50% 0%,#1B5A60 0%,#0E3438 55%,#081E21 100%)}
+.cv{min-height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:calc(22px + env(safe-area-inset-top,0px)) 24px calc(26px + env(safe-area-inset-bottom,0px));max-width:520px;margin:0 auto;box-sizing:border-box}
+.cv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.cv-brand{font-family:var(--display);font-size:1.35rem;font-weight:600;color:#E7C874}
+.cv-date{font-size:.8rem;opacity:.75;text-align:end;line-height:1.6}.cv-date span{opacity:.8}
+.cv-ayah{text-align:center;padding:28px 4px;animation:cvIn 1s ease both}
+.cv-orn{color:#D9B25C;font-size:1.6rem;opacity:.8;margin-bottom:14px}
+.cv-q{font-family:"Amiri Quran","Amiri","Scheherazade New","Traditional Arabic",serif;font-size:clamp(1.5rem,6.4vw,2.05rem);line-height:2.25;margin:0;color:#FBF6EA;text-shadow:0 2px 24px rgba(0,0,0,.35)}
+.cv-ayah.small .cv-q{font-size:clamp(1.15rem,4.8vw,1.5rem);line-height:2.05}
+.cv-ref{margin-top:14px;font-size:.85rem;color:#D9B25C;letter-spacing:.02em}
+.cv-bottom{text-align:center}
+.cv-enter{width:100%;max-width:320px;padding:16px;border-radius:18px;background:linear-gradient(135deg,#E7C874,#C79A3A);color:#1A1405;font-weight:700;font-size:1.05rem;box-shadow:0 10px 30px rgba(199,154,58,.25)}
+.cv-fp{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;color:#E7C874;background:rgba(255,255,255,.07);border:1px solid rgba(231,200,116,.35);box-shadow:0 0 0 10px rgba(231,200,116,.05)}
+.cv-link{margin-top:10px;color:#F3EEE2;opacity:.75;font-size:.9rem;text-decoration:underline;text-underline-offset:4px}
+@keyframes cvIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.lk-s{opacity:.8;margin:6px 0 14px;min-height:1.5em}
+.lk-dots{display:flex;gap:14px;justify-content:center;margin-bottom:22px}.lk-dots i{width:12px;height:12px;border-radius:50%;border:2px solid #F3EEE2;opacity:.6}.lk-dots i.on{background:#E7C874;border-color:#E7C874;opacity:1}
+.lk-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px;direction:ltr;max-width:300px;margin:0 auto}
+.lk-pad button{height:64px;width:64px;border-radius:50%;font-size:1.55rem;color:#F3EEE2;background:rgba(255,255,255,.08);display:grid;place-items:center;justify-self:center}
 .lk-pad button:active{background:rgba(255,255,255,.2)}
+body.on-summary .top,body.on-summary .nav{display:none}
+.sm{min-height:calc(100vh - 40px);display:flex;flex-direction:column;gap:16px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.sm-head{padding:10px 4px 6px}.sm-greet{font-family:var(--display);font-size:1.5rem;font-weight:600}.sm-per{color:var(--muted);font-size:.9rem;margin-top:2px}
+.sm-card{border-radius:28px;padding:26px 24px;background:var(--surface);border:1px solid var(--line);box-shadow:0 12px 40px rgba(15,42,48,.06)}
+.sm-card.alt{background:linear-gradient(150deg,#0F3F45,#0B2E33);color:#F2F6F4;border:0}
+.sm-card.alt.neg{background:linear-gradient(150deg,#6B2A20,#3E1712)}
+.sm-l{font-size:.95rem;opacity:.75}
+.sm-v{font-family:var(--display);font-weight:600;font-size:clamp(2.6rem,13vw,3.6rem);line-height:1.15;margin:8px 0 12px;display:flex;align-items:baseline;gap:8px}
+.sm-v small{font-family:var(--body);font-size:1rem;font-weight:500;opacity:.6}
+.sm-bar{height:8px;border-radius:5px;background:var(--track);overflow:hidden;position:relative;margin-bottom:10px}.sm-bar i{position:absolute;inset-block:0;inset-inline-start:0;border-radius:5px;background:var(--gold)}
+.sm-c{font-size:.88rem;opacity:.8}
+.sm-go{margin-top:auto;align-self:stretch;padding:16px;border-radius:18px;background:var(--accent);color:#fff;font-weight:600;font-size:1.05rem;display:flex;justify-content:center;gap:10px}
+:root[data-theme="dark"] .sm-go{color:#0B181B}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sm-go{color:#0B181B}}
+button.brand{font:inherit;font-family:var(--display);font-weight:600;font-size:1.3rem}
 .warnbar.info{background:color-mix(in srgb,var(--gold) 16%,var(--surface));color:var(--ink)}
 .hl .t1.neg{color:var(--neg)}
 .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--neg);color:#fff;font-size:.75rem;text-align:center}
@@ -217,7 +245,7 @@ select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;
 <div id="app">
   <header class="top">
     <button class="back" id="backBtn" data-action="back" aria-label="رجوع" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <div class="brand" id="brand">ميزانيتي</div>
+    <button class="brand" id="brand" data-action="summary">ميزانيتي</button>
     <div class="month" id="monthBox">
       <button data-action="prev" aria-label="الفترة السابقة"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
       <span id="monthLbl"></span>
@@ -303,7 +331,8 @@ function init(){
   if(dirty) saveSettings();
   const n=runRecurring();
   render();
-  if(S.settings.lock&&S.settings.lock.on) showLock();
+  S.tab='summary';render();
+  showCover(!!(S.settings.lock&&S.settings.lock.on));
   if(n) toast('تمت إضافة '+n+' عملية متكررة');
 }
 const writeQ=new Map(); let writing=false;
@@ -1005,19 +1034,37 @@ async function hashPin(pin){
 const lockCfg=()=>S.settings.lock||{};
 let lockEntry='',lockTries=0,lockUntil=0;
 function isLocked(){return document.body.classList.contains('locked')}
-function showLock(){
-  if(!lockCfg().on)return;
+const AYAT=[
+ {t:'وَلَا تَجْعَلْ يَدَكَ مَغْلُولَةً إِلَىٰ عُنُقِكَ وَلَا تَبْسُطْهَا كُلَّ الْبَسْطِ فَتَقْعُدَ مَلُومًا مَّحْسُورًا',r:'سورة الإسراء، الآية ٢٩'},
+ {t:'وَالَّذِينَ إِذَا أَنفَقُوا لَمْ يُسْرِفُوا وَلَمْ يَقْتُرُوا وَكَانَ بَيْنَ ذَٰلِكَ قَوَامًا',r:'سورة الفرقان، الآية ٦٧'},
+ {t:'وَآتِ ذَا الْقُرْبَىٰ حَقَّهُ وَالْمِسْكِينَ وَابْنَ السَّبِيلِ وَلَا تُبَذِّرْ تَبْذِيرًا',r:'سورة الإسراء، الآية ٢٦'},
+ {t:'لِيُنفِقْ ذُو سَعَةٍ مِّن سَعَتِهِ ۖ وَمَن قُدِرَ عَلَيْهِ رِزْقُهُ فَلْيُنفِقْ مِمَّا آتَاهُ اللَّهُ ۚ لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا مَا آتَاهَا ۚ سَيَجْعَلُ اللَّهُ بَعْدَ عُسْرٍ يُسْرًا',r:'سورة الطلاق، الآية ٧'},
+ {t:'قُلْ إِنَّ رَبِّي يَبْسُطُ الرِّزْقَ لِمَن يَشَاءُ مِنْ عِبَادِهِ وَيَقْدِرُ لَهُ ۚ وَمَا أَنفَقْتُم مِّن شَيْءٍ فَهُوَ يُخْلِفُهُ ۖ وَهُوَ خَيْرُ الرَّازِقِينَ',r:'سورة سبأ، الآية ٣٩'}];
+function coverAyah(){if(S.settings.ayahMode!=='daily')return AYAT[0];return AYAT[Math.floor(Date.parse(todayStr())/864e5)%AYAT.length]}
+function coverDates(){const d=new Date();let hj='',gr='';try{hj=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn',{day:'numeric',month:'long',year:'numeric'}).format(d)}catch(e){}
+  try{gr=new Intl.DateTimeFormat('ar-KW-u-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d)}catch(e){gr=todayStr()}return{hj,gr}}
+let showPad=false;
+function showCover(withLock){
+  S.coverLock=!!withLock;showPad=false;
   document.body.classList.add('locked');lockEntry='';closeSheet();drawLock();
-  if(lockCfg().bio&&canBio())setTimeout(bioAuth,250);
+  if(withLock&&lockCfg().bio&&canBio())setTimeout(bioAuth,350);
 }
+function showLock(){if(!lockCfg().on)return;showCover(true)}
 function drawLock(msg){
-  const el=$('#lockScreen');const bio=lockCfg().bio&&canBio();
+  const el=$('#lockScreen'),a=coverAyah(),dt=coverDates(),bio=S.coverLock&&lockCfg().bio&&canBio(),pad=S.coverLock&&(showPad||!bio||msg);
   const keys=['1','2','3','4','5','6','7','8','9',bio?'bio':'','0','del'];
-  el.innerHTML=`<div class="lk-in"><img src="icon-192.png" alt="" class="lk-ic" onerror="this.style.display='none'"><div class="lk-t">ميزانيتي</div><div class="lk-s">${msg||'أدخل الرمز السري'}</div>
-    <div class="lk-dots">${[0,1,2,3,4,5].slice(0,Math.max(4,lockCfg().len||4)).map(i=>`<i class="${i<lockEntry.length?'on':''}"></i>`).join('')}</div>
-    <div class="lk-pad">${keys.map(k=>k===''?'<span></span>':`<button data-lk="${k}" aria-label="${k==='del'?'حذف':k==='bio'?'البصمة':k}">${k==='del'?'⌫':k==='bio'?'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 11v3M8.5 8.5a5 5 0 0 1 8.2 3.8c0 3-.6 5-1.7 7M7 12a5 5 0 0 1 .5-2.2M12 7a5 5 0 0 0-5 5c0 2.2-.5 4-1.5 5.5M16 15.5c-.3 1.5-.8 2.8-1.5 4M9.5 20c.9-1.6 1.5-3.6 1.5-6"/></svg>':k}</button>`).join('')}</div></div>`;
+  const fp='<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 11v3M8.5 8.5a5 5 0 0 1 8.2 3.8c0 3-.6 5-1.7 7M7 12a5 5 0 0 1 .5-2.2M12 7a5 5 0 0 0-5 5c0 2.2-.5 4-1.5 5.5M16 15.5c-.3 1.5-.8 2.8-1.5 4M9.5 20c.9-1.6 1.5-3.6 1.5-6M5.5 8.5A8 8 0 0 1 19.8 11"/></svg>';
+  el.innerHTML=`<div class="cv">
+    <div class="cv-top"><div class="cv-brand">ميزانيتي</div><div class="cv-date">${esc(dt.gr)}${dt.hj?'<br><span>'+esc(dt.hj)+'</span>':''}</div></div>
+    <div class="cv-ayah${pad?' small':''}"><div class="cv-orn">۞</div><p class="cv-q">﴿ ${a.t} ﴾</p><div class="cv-ref">${a.r}</div></div>
+    <div class="cv-bottom">${!S.coverLock?`<button class="cv-enter" data-lk="enter">الدخول</button>`
+      :pad?`<div class="lk-s">${msg||'أدخل الرمز السري'}</div><div class="lk-dots">${[0,1,2,3,4,5].slice(0,Math.max(4,lockCfg().len||4)).map(i=>`<i class="${i<lockEntry.length?'on':''}"></i>`).join('')}</div>
+        <div class="lk-pad">${keys.map(k=>k===''?'<span></span>':`<button data-lk="${k}" aria-label="${k==='del'?'حذف':k==='bio'?'البصمة':k}">${k==='del'?'⌫':k==='bio'?fp.replace('34','26').replace('34','26'):k}</button>`).join('')}</div>`
+      :`<button class="cv-fp" data-lk="bio" aria-label="افتح بالبصمة">${fp}</button><div class="lk-s">المس للفتح بالبصمة</div><button class="cv-link" data-lk="pad">استخدام الرمز السري</button>`}</div></div>`;
 }
 async function lockKey(k){
+  if(k==='enter'){unlock();return}
+  if(k==='pad'){showPad=true;drawLock();return}
   if(k==='bio'){bioAuth();return}
   if(Date.now()<lockUntil){drawLock('محاولات كثيرة، انتظر '+Math.ceil((lockUntil-Date.now())/1000)+' ثانية');return}
   if(k==='del'){lockEntry=lockEntry.slice(0,-1);drawLock();return}
@@ -1028,7 +1075,7 @@ async function lockKey(k){
     if(ok){unlock()}else{lockTries++;lockEntry='';if(lockTries>=5){lockUntil=Date.now()+30000;lockTries=0;drawLock('محاولات كثيرة، انتظر 30 ثانية')}else drawLock('رمز غير صحيح')}
   }
 }
-function unlock(){document.body.classList.remove('locked');lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render()}
+function unlock(){document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render()}
 function bioAuth(){if(!canBio())return;S.noLockUntil=Date.now()+60000;try{window.AndroidBridge.authenticate()}catch(e){}}
 window.__authOk=()=>{unlock()};
 window.__authFail=()=>{if(isLocked())drawLock('استخدم الرمز السري')};
@@ -1154,6 +1201,7 @@ function viewSettings(){
   return `<h2 style="margin-top:4px">عام</h2><div class="list">
     <div class="set-row"><span class="grow">العملة</span><select class="pill" id="curSel">${Object.keys(CUR).map(c=>`<option value="${c}"${c===S.settings.currency?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></div>
     ${[...new Set(S.settings.accounts.map(accCur))].filter(c=>c!==baseCur()).map(c=>`<div class="set-row"><span class="grow"><span class="t1">سعر ${esc(c)}</span><span class="t2">كم ${esc(curInfo()[0])} يساوي 1 ${esc(curSym(c))}</span></span><input class="rate-in" data-cur="${esc(c)}" inputmode="decimal" value="${+rateOf(c).toFixed(6)}" style="width:110px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:center"></div>`).join('')}
+    <div class="set-row"><span class="grow">آية الغلاف</span><select class="pill" id="ayahSel"><option value="fixed"${S.settings.ayahMode!=='daily'?' selected':''}>الإسراء ٢٩ دائماً</option><option value="daily"${S.settings.ayahMode==='daily'?' selected':''}>آية متجددة كل يوم</option></select></div>
     <div class="set-row"><span class="grow">المظهر</span><select class="pill" id="themeSel"><option value="auto"${(S.settings.theme||'auto')==='auto'?' selected':''}>تلقائي مع الجوال</option><option value="light"${S.settings.theme==='light'?' selected':''}>فاتح</option><option value="dark"${S.settings.theme==='dark'?' selected':''}>داكن</option></select></div>
     <div class="set-row"><span class="grow"><span class="t1">بداية الشهر المالي</span><span class="t2">مثلاً 21 إذا كان راتبك يُصرف في اليوم 21</span></span><select class="pill" id="psSel">${days}</select></div></div>
   <h2>بنود المصروف <button data-action="newcat" data-kind="expense">إضافة بند</button></h2><div class="list">${cats('expense')}</div>
@@ -1179,20 +1227,37 @@ try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>app
 function applyTheme(){const t=S.settings&&S.settings.theme;const r=document.documentElement;if(t==='light'||t==='dark')r.setAttribute('data-theme',t);else r.removeAttribute('data-theme');
   const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',dark?'#0B181B':'#0F3F45')}
 const THEME_ICON={auto:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',dark:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',light:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'};
+function viewSummary(){
+  const k=S.period,list=txIn(k),exp=sum(list.filter(t=>t.type==='expense')),expU=sum(usual(list).filter(t=>t.type==='expense')),inc=sum(list.filter(t=>t.type==='income'));
+  const tb=totalBudget(k),hasB=tb>0,left=hasB?tb-expU:inc-exp,cur=curInfo()[0];
+  const isCur=k===curPeriod(),daysLeft=isCur?Math.max(1,periodDays(k)-Math.floor((Date.parse(todayStr())-Date.parse(range(k).from))/864e5)):0;
+  const pctUsed=hasB?Math.min(1,expU/tb):(inc>0?Math.min(1,exp/inc):0);
+  const h=new Date().getHours(),greet=h<12?'صباح الخير':h<18?'نهارك سعيد':'مساء الخير';
+  return `<section class="sm">
+    <div class="sm-head"><div class="sm-greet">${greet}</div><div class="sm-per">${esc(periodLabel(k))}</div></div>
+    <div class="sm-card"><div class="sm-l">المصروف</div><div class="sm-v num">${fmt(exp)}<small>${esc(cur)}</small></div>
+      <div class="sm-bar"><i style="width:${pctUsed*100}%"></i></div><div class="sm-c">${hasB?`${Math.round(expU/tb*100)}٪ من ميزانية ${fmt(tb)}`:inc>0?`${Math.round(exp/inc*100)}٪ من دخل الفترة`:'لا دخل مسجّل بعد في هذه الفترة'}</div></div>
+    <div class="sm-card alt${left<0?' neg':''}"><div class="sm-l">${left<0?'تجاوزتَ بمقدار':'الباقي'}</div><div class="sm-v num">${fmt(Math.abs(left))}<small>${esc(cur)}</small></div>
+      <div class="sm-c">${left<0?(hasB?'فوق الميزانية':'فوق دخل الفترة'):(hasB?'من الميزانية':'من دخل الفترة')}${left>0&&daysLeft?` · نحو ${fmt(left/daysLeft)} يومياً لـ ${daysLeft} ${daysLeft<=10&&daysLeft>2?'أيام':'يوماً'}`:''}</div></div>
+    <button class="sm-go" data-action="gohome">متابعة <span>←</span></button>
+  </section>`;
+}
 function render(){
   if(!S.settings) return;
+  document.body.classList.toggle('on-summary',S.tab==='summary');
   $('#monthLbl').textContent=periodLabel(S.period);
   $('#monthBox').style.visibility=(S.tab==='settings'||S.tab==='accounts'||(S.tab==='tx'&&S.txView==='stats'&&S.rep==='year'))?'hidden':'visible';
   $('#themeBtn').innerHTML=THEME_ICON[S.settings.theme||'auto']||THEME_ICON.auto;
   const canBack=S.tab!=='home'||!!(S.accFilter||S.catFilter||S.typeFilter); $('#backBtn').hidden=!canBack; $('#brand').hidden=canBack;
   document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===S.tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   const v=$('#view');
-  v.innerHTML=S.tab==='home'?viewHome():S.tab==='accounts'?viewAccounts():S.tab==='tx'?viewTx():S.tab==='budget'?viewBudget():viewSettings();
+  v.innerHTML=S.tab==='summary'?viewSummary():S.tab==='home'?viewHome():S.tab==='accounts'?viewAccounts():S.tab==='tx'?viewTx():S.tab==='budget'?viewBudget():viewSettings();
   const si=$('#searchIn'); if(si) si.addEventListener('input',e=>{S.search=e.target.value;$('#txList').innerHTML=txListHtml()});
   const cs=$('#curSel'); if(cs) cs.addEventListener('change',e=>{S.settings.currency=e.target.value;saveSettings();render()});
   document.querySelectorAll('.rate-in').forEach(el=>el.addEventListener('change',()=>{const v=parseAmount(el.value);if(v>0){S.settings.rates=S.settings.rates||{};S.settings.rates[el.dataset.cur]=v;S.settings.ratesUpdated=todayStr();saveSettings();toast('تم تحديث سعر الصرف')}}));
   const bs=$('#bioSel'); if(bs) bs.addEventListener('change',e=>{S.settings.lock.bio=e.target.value==='1';saveSettings();toast('تم الحفظ')});
   const la=$('#lockAfter'); if(la) la.addEventListener('change',e=>{S.settings.lock.after=+e.target.value;saveSettings();toast('تم الحفظ')});
+  const ays=$('#ayahSel'); if(ays) ays.addEventListener('change',e=>{S.settings.ayahMode=e.target.value;saveSettings();toast('تم الحفظ')});
   const ths=$('#themeSel'); if(ths) ths.addEventListener('change',e=>{S.settings.theme=e.target.value;saveSettings();applyTheme()});
   const pss=$('#psSel'); if(pss) pss.addEventListener('change',e=>{S.settings.periodStart=+e.target.value;S.period=curPeriod();saveSettings();render();toast('تم تغيير بداية الشهر المالي')});
 }
@@ -1608,6 +1673,8 @@ document.addEventListener('click',e=>{
     else if(act==='clearacc'){S.accFilter=null;render()}
     else if(act==='clearcat'){S.catFilter=null;render()}
     else if(act==='back'){goBack()}
+    else if(act==='summary'){S.tab='summary';window.scrollTo(0,0);render()}
+    else if(act==='gohome'){S.tab='home';window.scrollTo(0,0);render()}
     else if(act==='theme'){const order=['auto','dark','light'];S.settings.theme=order[(order.indexOf(S.settings.theme||'auto')+1)%3];saveSettings();applyTheme();render();toast(S.settings.theme==='dark'?'الوضع الداكن':S.settings.theme==='light'?'الوضع الفاتح':'المظهر تلقائي مع الجوال')}
     else if(act==='showtype'){S.prevTab=S.tab===('tx')?'tx':S.tab;S.typeFilter=a.dataset.v;S.catFilter=null;S.accFilter=null;S.search='';S.txView='list';S.tab='tx';window.scrollTo(0,0);render()}
     else if(act==='cleartype'){S.typeFilter=null;render()}
@@ -1656,7 +1723,8 @@ function goBack(){
   if(isLocked())return true;
   if(!$('#sheetWrap').hidden){closeSheet();return true}
   if(S.accFilter||S.catFilter||S.typeFilter){const back=S.prevTab;S.accFilter=null;S.catFilter=null;S.typeFilter=null;S.catScope=null;S.prevTab=null;if(back==='tx'){S.tab='tx';S.txView='stats'}else if(back){S.tab=back}window.scrollTo(0,0);render();return true}
-  if(S.tab!=='home'){S.tab='home';window.scrollTo(0,0);render();return true}
+  if(S.tab!=='home'&&S.tab!=='summary'){S.tab='home';window.scrollTo(0,0);render();return true}
+  if(S.tab==='home'){S.tab='summary';window.scrollTo(0,0);render();return true}
   return false;
 }
 window.__onBack=goBack;
