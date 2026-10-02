@@ -119,6 +119,11 @@ jobs:
             <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
             <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
             <uses-permission android:name="android.permission.health.READ_SLEEP" />
+            <uses-permission android:name="android.permission.health.READ_STEPS" />
+            <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+            <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+            <uses-permission android:name="android.permission.health.READ_NUTRITION" />
+            <uses-permission android:name="android.permission.INTERNET" />
             <queries>
               <intent>
                 <action android:name="android.intent.action.MAIN" />
@@ -219,12 +224,12 @@ jobs:
               if (ACT.equals(i.getAction())) {
                 long t = i.getLongExtra("t", 0);
                 String n = i.getStringExtra("n");
-                if (n != null && Math.abs(System.currentTimeMillis() - t) < 15 * 60000L) show(c, n, t, i.getStringExtra("k"), i.getStringExtra("d"));
+                if (n != null && Math.abs(System.currentTimeMillis() - t) < 15 * 60000L) show(c, n, t, i.getStringExtra("k"), i.getStringExtra("d"), i.getStringExtra("ti"));
               }
               scheduleNext(c);
             }
 
-            static void show(Context c, String n, long t, String k, String d) {
+            static void show(Context c, String n, long t, String k, String d, String ti) {
               if (Build.VERSION.SDK_INT >= 33 && c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
               NotificationManager nm = c.getSystemService(NotificationManager.class);
               NotificationChannel ch = new NotificationChannel("prayer", "مواقيت الصلاة", NotificationManager.IMPORTANCE_HIGH);
@@ -235,7 +240,7 @@ jobs:
               int nid = (int) (t / 60000L);
               Notification.Builder nb = new Notification.Builder(c, "prayer")
                   .setSmallIcon(R.drawable.ic_salah)
-                  .setContentTitle("حان الآن وقت صلاة " + n)
+                  .setContentTitle(ti != null && !ti.isEmpty() ? ti : "حان الآن وقت صلاة " + n)
                   .setContentText("ميزانيتي · مواقيت الصلاة")
                   .setWhen(t).setShowWhen(true)
                   .setAutoCancel(true)
@@ -252,16 +257,16 @@ jobs:
             static void scheduleNext(Context c) {
               AlarmManager am = c.getSystemService(AlarmManager.class);
               long now = System.currentTimeMillis(), t = 0;
-              String n = null, pk = "", pd = "";
+              String n = null, pk = "", pd = "", pt = "";
               try {
                 JSONArray a = new JSONArray(c.getSharedPreferences("salah", Context.MODE_PRIVATE).getString("list", "[]"));
                 for (int k = 0; k < a.length(); k++) {
                   JSONObject o = a.getJSONObject(k);
                   long x = o.getLong("t");
-                  if (x > now + 1000 && (t == 0 || x < t)) { t = x; n = o.getString("n"); pk = o.optString("k"); pd = o.optString("d"); }
+                  if (x > now + 1000 && (t == 0 || x < t)) { t = x; n = o.getString("n"); pk = o.optString("k"); pd = o.optString("d"); pt = o.optString("ti"); }
                 }
               } catch (Exception e) { }
-              Intent it = new Intent(c, PrayerReceiver.class).setAction(ACT).putExtra("t", t).putExtra("n", n).putExtra("k", pk).putExtra("d", pd);
+              Intent it = new Intent(c, PrayerReceiver.class).setAction(ACT).putExtra("t", t).putExtra("n", n).putExtra("k", pk).putExtra("d", pd).putExtra("ti", pt);
               PendingIntent pi = PendingIntent.getBroadcast(c, 7, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
               if (t == 0) { am.cancel(pi); return; }
               if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi);
@@ -283,12 +288,22 @@ jobs:
           import android.content.pm.PackageManager;
           import android.content.pm.ResolveInfo;
           import android.graphics.Color;
+          import android.health.connect.AggregateRecordsGroupedByPeriodResponse;
+          import android.health.connect.AggregateRecordsRequest;
           import android.health.connect.HealthConnectException;
           import android.health.connect.HealthConnectManager;
           import android.health.connect.ReadRecordsRequestUsingFilters;
           import android.health.connect.ReadRecordsResponse;
+          import android.health.connect.LocalTimeRangeFilter;
           import android.health.connect.TimeInstantRangeFilter;
+          import android.health.connect.datatypes.ActiveCaloriesBurnedRecord;
+          import android.health.connect.datatypes.AggregationType;
+          import android.health.connect.datatypes.ExerciseSessionRecord;
+          import android.health.connect.datatypes.ExerciseSessionType;
+          import android.health.connect.datatypes.NutritionRecord;
           import android.health.connect.datatypes.SleepSessionRecord;
+          import android.health.connect.datatypes.StepsRecord;
+          import android.health.connect.datatypes.units.Energy;
           import android.hardware.GeomagneticField;
           import android.hardware.Sensor;
           import android.hardware.SensorEvent;
@@ -320,6 +335,10 @@ jobs:
           import java.io.OutputStream;
           import java.nio.charset.StandardCharsets;
           import java.time.Instant;
+          import java.time.LocalDate;
+          import java.time.LocalDateTime;
+          import java.time.Period;
+          import java.time.ZoneId;
           import java.util.HashMap;
           import java.util.List;
           import java.util.Locale;
@@ -330,6 +349,7 @@ jobs:
           public class MainActivity extends Activity {
             private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5;
             private static final String SLEEP_PERM = "android.permission.health.READ_SLEEP";
+            private static final String[] HEALTH_PERMS = {SLEEP_PERM, "android.permission.health.READ_STEPS", "android.permission.health.READ_EXERCISE", "android.permission.health.READ_ACTIVE_CALORIES_BURNED", "android.permission.health.READ_NUTRITION"};
             private WebView web;
             private ValueCallback<Uri[]> fileCb;
             private String pendingText;
@@ -515,6 +535,28 @@ jobs:
               }
 
               @JavascriptInterface
+              public int healthState() {
+                if (Build.VERSION.SDK_INT < 34) return -1;
+                int n = 0;
+                for (String p : HEALTH_PERMS) if (checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED) n++;
+                return n;
+              }
+
+              @JavascriptInterface
+              public void requestHealth() {
+                runOnUiThread(() -> {
+                  if (Build.VERSION.SDK_INT < 34) { js("window.__chlSleepPerm&&__chlSleepPerm(false)"); return; }
+                  requestPermissions(HEALTH_PERMS, REQ_SLEEP);
+                });
+              }
+
+              @JavascriptInterface
+              public void readHealth(final int days) {
+                if (Build.VERSION.SDK_INT < 34) return;
+                runOnUiThread(() -> HealthReader.read(MainActivity.this, days));
+              }
+
+              @JavascriptInterface
               public String takeJam() {
                 android.content.SharedPreferences sp = getSharedPreferences("salah", MODE_PRIVATE);
                 String v = sp.getString("jam", "");
@@ -617,6 +659,83 @@ jobs:
                 return new JSONObject().put("total", total).put("apps", apps).toString();
               } catch (Exception x) {
                 return "null";
+              }
+            }
+
+            static class HealthReader {
+              static boolean ok(MainActivity a, String p) { return a.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED; }
+
+              static void read(final MainActivity a, int days) {
+                try {
+                  HealthConnectManager hc = a.getSystemService(HealthConnectManager.class);
+                  LocalDateTime st = LocalDate.now().minusDays(days).atStartOfDay(), en = LocalDate.now().plusDays(1).atStartOfDay();
+                  LocalTimeRangeFilter f = new LocalTimeRangeFilter.Builder().setStartTime(st).setEndTime(en).build();
+                  if (ok(a, "android.permission.health.READ_STEPS"))
+                    hc.aggregateGroupByPeriod(new AggregateRecordsRequest.Builder<Long>(f).addAggregationType(StepsRecord.STEPS_COUNT_TOTAL).build(), Period.ofDays(1), a.getMainExecutor(),
+                      new OutcomeReceiver<List<AggregateRecordsGroupedByPeriodResponse<Long>>, HealthConnectException>() {
+                        @Override public void onResult(List<AggregateRecordsGroupedByPeriodResponse<Long>> r) {
+                          JSONObject o = new JSONObject();
+                          for (AggregateRecordsGroupedByPeriodResponse<Long> g : r) { Long v = g.get(StepsRecord.STEPS_COUNT_TOTAL); if (v != null) try { o.put(g.getStartTime().toLocalDate().toString(), (long) v); } catch (Exception e) { } }
+                          a.js("window.__chlHealth&&__chlHealth('stp'," + o + ")");
+                        }
+                        @Override public void onError(HealthConnectException e) { }
+                      });
+                  if (ok(a, "android.permission.health.READ_EXERCISE"))
+                    hc.aggregateGroupByPeriod(new AggregateRecordsRequest.Builder<Long>(f).addAggregationType(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL).build(), Period.ofDays(1), a.getMainExecutor(),
+                      new OutcomeReceiver<List<AggregateRecordsGroupedByPeriodResponse<Long>>, HealthConnectException>() {
+                        @Override public void onResult(List<AggregateRecordsGroupedByPeriodResponse<Long>> r) {
+                          JSONObject o = new JSONObject();
+                          for (AggregateRecordsGroupedByPeriodResponse<Long> g : r) { Long v = g.get(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL); try { o.put(g.getStartTime().toLocalDate().toString(), v == null ? 0L : (long) v); } catch (Exception e) { } }
+                          a.js("window.__chlHealth&&__chlHealth('exm'," + o + ")");
+                        }
+                        @Override public void onError(HealthConnectException e) { }
+                      });
+                  if (ok(a, "android.permission.health.READ_ACTIVE_CALORIES_BURNED"))
+                    energy(a, hc, f, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, "cal");
+                  if (ok(a, "android.permission.health.READ_NUTRITION"))
+                    energy(a, hc, f, NutritionRecord.ENERGY_TOTAL, "kin");
+                  if (ok(a, "android.permission.health.READ_EXERCISE")) {
+                    ReadRecordsRequestUsingFilters<ExerciseSessionRecord> req = new ReadRecordsRequestUsingFilters.Builder<>(ExerciseSessionRecord.class).setTimeRangeFilter(f).setPageSize(1000).build();
+                    hc.readRecords(req, a.getMainExecutor(), new OutcomeReceiver<ReadRecordsResponse<ExerciseSessionRecord>, HealthConnectException>() {
+                      @Override public void onResult(ReadRecordsResponse<ExerciseSessionRecord> r) {
+                        JSONArray l = new JSONArray();
+                        for (ExerciseSessionRecord s : r.getRecords()) {
+                          long m = Math.round((s.getEndTime().toEpochMilli() - s.getStartTime().toEpochMilli()) / 60000.0);
+                          String d = s.getStartTime().atZone(ZoneId.systemDefault()).toLocalDate().toString();
+                          l.put(new JSONArray().put(d).put(typeName(s.getExerciseType())).put(m));
+                        }
+                        try { a.js("window.__chlHealth&&__chlHealth('exs'," + new JSONObject().put("list", l) + ")"); } catch (Exception e) { }
+                      }
+                      @Override public void onError(HealthConnectException e) { }
+                    });
+                  }
+                } catch (Exception e) { }
+              }
+
+              static void energy(final MainActivity a, HealthConnectManager hc, LocalTimeRangeFilter f, final AggregationType<Energy> t, final String key) {
+                hc.aggregateGroupByPeriod(new AggregateRecordsRequest.Builder<Energy>(f).addAggregationType(t).build(), Period.ofDays(1), a.getMainExecutor(),
+                  new OutcomeReceiver<List<AggregateRecordsGroupedByPeriodResponse<Energy>>, HealthConnectException>() {
+                    @Override public void onResult(List<AggregateRecordsGroupedByPeriodResponse<Energy>> r) {
+                      JSONObject o = new JSONObject();
+                      for (AggregateRecordsGroupedByPeriodResponse<Energy> g : r) { Energy v = g.get(t); if (v != null) try { o.put(g.getStartTime().toLocalDate().toString(), v.getInCalories()); } catch (Exception e) { } }
+                      a.js("window.__chlHealth&&__chlHealth('" + key + "'," + o + ")");
+                    }
+                    @Override public void onError(HealthConnectException e) { }
+                  });
+              }
+
+              static String typeName(int t) {
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING) return "المشي";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING) return "الجري";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_HIKING) return "المشي الجبلي";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_BIKING || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_BIKING_STATIONARY) return "الدراجة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_SWIMMING_POOL || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_SWIMMING_OPEN_WATER) return "السباحة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_STRENGTH_TRAINING || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_WEIGHTLIFTING || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_CALISTHENICS) return "تمارين القوة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_ELLIPTICAL || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_ROWING_MACHINE || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_STAIR_CLIMBING) return "أجهزة اللياقة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING) return "تمارين عالية الشدة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_YOGA || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_PILATES) return "تمارين المرونة";
+                if (t == ExerciseSessionType.EXERCISE_SESSION_TYPE_TENNIS || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_TABLE_TENNIS || t == ExerciseSessionType.EXERCISE_SESSION_TYPE_BADMINTON) return "رياضات المضرب";
+                return "تمرين آخر";
               }
             }
 
