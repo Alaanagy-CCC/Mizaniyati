@@ -1,4 +1,4 @@
-name: Build Android APK
+name: name: Build Android APK
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
       - name: Create Android project
         run: |
           A=android/app/src/main
-          mkdir -p $A/java/com/mizaniyati/app $A/assets $A/res/mipmap-xxxhdpi $A/res/values
+          mkdir -p $A/java/com/mizaniyati/app $A/assets $A/res/mipmap-xxxhdpi $A/res/values $A/res/drawable
           cp index.html manifest.json icon-192.png $A/assets/
           cp icon-512.png $A/res/mipmap-xxxhdpi/ic_launcher.png
 
@@ -111,6 +111,24 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+            <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+            <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+            <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+            <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+            <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+            <uses-permission android:name="android.permission.health.READ_SLEEP" />
+            <queries>
+              <intent>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+              </intent>
+              <intent>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+              </intent>
+            </queries>
             <application
                 android:label="ميزانيتي"
                 android:icon="@mipmap/ic_launcher"
@@ -127,6 +145,22 @@ jobs:
                   <category android:name="android.intent.category.LAUNCHER" />
                 </intent-filter>
               </activity>
+              <activity-alias
+                  android:name=".ViewPermissionUsageActivity"
+                  android:exported="true"
+                  android:targetActivity=".MainActivity"
+                  android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+                <intent-filter>
+                  <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                  <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+                </intent-filter>
+              </activity-alias>
+              <receiver android:name=".PrayerReceiver" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.intent.action.BOOT_COMPLETED" />
+                  <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                </intent-filter>
+              </receiver>
             </application>
           </manifest>
           X
@@ -141,19 +175,141 @@ jobs:
           </resources>
           X
 
+          cat > $A/res/drawable/ic_salah.xml <<'X'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+            <path android:fillColor="#FFFFFFFF" android:pathData="M14.5,2.5A9.5,9.5 0,1 0,21.5 18A7.5,7.5 0,1 1,14.5 2.5Z"/>
+          </vector>
+          X
+
+          cat > $A/java/com/mizaniyati/app/PrayerReceiver.java <<'X'
+          package com.mizaniyati.app;
+
+          import android.Manifest;
+          import android.app.AlarmManager;
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.graphics.drawable.Icon;
+          import android.os.Build;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          public class PrayerReceiver extends BroadcastReceiver {
+            static final String ACT = "com.mizaniyati.app.PRAYER";
+            static final String ACT_JAM = "com.mizaniyati.app.JAM";
+
+            @Override
+            public void onReceive(Context c, Intent i) {
+              if (ACT_JAM.equals(i.getAction())) {
+                String d = i.getStringExtra("d"), k = i.getStringExtra("k");
+                if (d != null && k != null) {
+                  SharedPreferences sp = c.getSharedPreferences("salah", Context.MODE_PRIVATE);
+                  String cur = sp.getString("jam", ""), add = d + "|" + k;
+                  if (!cur.contains(add)) sp.edit().putString("jam", cur.isEmpty() ? add : cur + "," + add).apply();
+                }
+                c.getSystemService(NotificationManager.class).cancel(i.getIntExtra("nid", 0));
+                return;
+              }
+              if (ACT.equals(i.getAction())) {
+                long t = i.getLongExtra("t", 0);
+                String n = i.getStringExtra("n");
+                if (n != null && Math.abs(System.currentTimeMillis() - t) < 15 * 60000L) show(c, n, t, i.getStringExtra("k"), i.getStringExtra("d"));
+              }
+              scheduleNext(c);
+            }
+
+            static void show(Context c, String n, long t, String k, String d) {
+              if (Build.VERSION.SDK_INT >= 33 && c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+              NotificationManager nm = c.getSystemService(NotificationManager.class);
+              NotificationChannel ch = new NotificationChannel("prayer", "مواقيت الصلاة", NotificationManager.IMPORTANCE_HIGH);
+              ch.setDescription("تنبيه عند دخول وقت الصلاة");
+              nm.createNotificationChannel(ch);
+              Intent open = new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+              PendingIntent pi = PendingIntent.getActivity(c, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+              int nid = (int) (t / 60000L);
+              Notification.Builder nb = new Notification.Builder(c, "prayer")
+                  .setSmallIcon(R.drawable.ic_salah)
+                  .setContentTitle("حان الآن وقت صلاة " + n)
+                  .setContentText("ميزانيتي · مواقيت الصلاة")
+                  .setWhen(t).setShowWhen(true)
+                  .setAutoCancel(true)
+                  .setCategory(Notification.CATEGORY_REMINDER)
+                  .setContentIntent(pi);
+              if (k != null && d != null && !k.isEmpty()) {
+                Intent ji = new Intent(c, PrayerReceiver.class).setAction(ACT_JAM).putExtra("k", k).putExtra("d", d).putExtra("nid", nid);
+                PendingIntent jp = PendingIntent.getBroadcast(c, nid, ji, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                nb.addAction(new Notification.Action.Builder(Icon.createWithResource(c, R.drawable.ic_salah), "صلّيت في جماعة ✓", jp).build());
+              }
+              nm.notify(nid, nb.build());
+            }
+
+            static void scheduleNext(Context c) {
+              AlarmManager am = c.getSystemService(AlarmManager.class);
+              long now = System.currentTimeMillis(), t = 0;
+              String n = null, pk = "", pd = "";
+              try {
+                JSONArray a = new JSONArray(c.getSharedPreferences("salah", Context.MODE_PRIVATE).getString("list", "[]"));
+                for (int k = 0; k < a.length(); k++) {
+                  JSONObject o = a.getJSONObject(k);
+                  long x = o.getLong("t");
+                  if (x > now + 1000 && (t == 0 || x < t)) { t = x; n = o.getString("n"); pk = o.optString("k"); pd = o.optString("d"); }
+                }
+              } catch (Exception e) { }
+              Intent it = new Intent(c, PrayerReceiver.class).setAction(ACT).putExtra("t", t).putExtra("n", n).putExtra("k", pk).putExtra("d", pd);
+              PendingIntent pi = PendingIntent.getBroadcast(c, 7, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+              if (t == 0) { am.cancel(pi); return; }
+              if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi);
+              else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi);
+            }
+          }
+          X
+
           cat > $A/java/com/mizaniyati/app/MainActivity.java <<'X'
           package com.mizaniyati.app;
 
+          import android.Manifest;
           import android.app.Activity;
+          import android.app.AppOpsManager;
+          import android.app.usage.UsageEvents;
+          import android.app.usage.UsageStatsManager;
           import android.app.KeyguardManager;
           import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.content.pm.ResolveInfo;
           import android.graphics.Color;
+          import android.health.connect.HealthConnectException;
+          import android.health.connect.HealthConnectManager;
+          import android.health.connect.ReadRecordsRequestUsingFilters;
+          import android.health.connect.ReadRecordsResponse;
+          import android.health.connect.TimeInstantRangeFilter;
+          import android.health.connect.datatypes.SleepSessionRecord;
+          import android.hardware.GeomagneticField;
+          import android.hardware.Sensor;
+          import android.hardware.SensorEvent;
+          import android.hardware.SensorEventListener;
+          import android.hardware.SensorManager;
           import android.hardware.biometrics.BiometricManager;
           import android.hardware.biometrics.BiometricPrompt;
+          import android.location.Address;
+          import android.location.Geocoder;
+          import android.location.Location;
+          import android.location.LocationListener;
+          import android.location.LocationManager;
           import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.CancellationSignal;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.os.OutcomeReceiver;
+          import android.provider.Settings;
+          import android.view.Surface;
           import android.webkit.JavascriptInterface;
           import android.webkit.ValueCallback;
           import android.webkit.WebChromeClient;
@@ -163,12 +319,50 @@ jobs:
           import android.webkit.WebViewClient;
           import java.io.OutputStream;
           import java.nio.charset.StandardCharsets;
+          import java.time.Instant;
+          import java.util.HashMap;
+          import java.util.List;
+          import java.util.Locale;
+          import java.util.Map;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
 
           public class MainActivity extends Activity {
-            private static final int REQ_OPEN = 1, REQ_SAVE = 2;
+            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5;
+            private static final String SLEEP_PERM = "android.permission.health.READ_SLEEP";
             private WebView web;
             private ValueCallback<Uri[]> fileCb;
             private String pendingText;
+            private SensorManager sm;
+            private boolean compassOn, locDone;
+            private float decl;
+            private long lastHead;
+            private final SensorEventListener sensL = new SensorEventListener() {
+              final float[] rm = new float[9], om = new float[9], ori = new float[3];
+
+              @Override
+              public void onSensorChanged(SensorEvent e) {
+                if (e.sensor.getType() != Sensor.TYPE_ROTATION_VECTOR) return;
+                long now = System.currentTimeMillis();
+                if (now - lastHead < 50) return;
+                lastHead = now;
+                SensorManager.getRotationMatrixFromVector(rm, e.values);
+                float[] m = rm;
+                int r = getWindowManager().getDefaultDisplay().getRotation();
+                if (r == Surface.ROTATION_90) { SensorManager.remapCoordinateSystem(rm, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, om); m = om; }
+                else if (r == Surface.ROTATION_180) { SensorManager.remapCoordinateSystem(rm, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y, om); m = om; }
+                else if (r == Surface.ROTATION_270) { SensorManager.remapCoordinateSystem(rm, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, om); m = om; }
+                SensorManager.getOrientation(m, ori);
+                double az = Math.toDegrees(ori[0]) + decl;
+                az = ((az % 360) + 360) % 360;
+                js(String.format(Locale.US, "window.__slhHead&&__slhHead(%.1f)", az));
+              }
+
+              @Override
+              public void onAccuracyChanged(Sensor s, int a) {
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) js("window.__slhAcc&&__slhAcc(" + a + ")");
+              }
+            };
 
             @Override
             protected void onCreate(Bundle state) {
@@ -208,10 +402,10 @@ jobs:
             }
 
             @Override
-            protected void onPause() { super.onPause(); if (web != null) web.onPause(); }
+            protected void onPause() { super.onPause(); unregCompass(); if (web != null) web.onPause(); }
 
             @Override
-            protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+            protected void onResume() { super.onResume(); if (compassOn) regCompass(); if (web != null) web.onResume(); }
 
             class Bridge {
               @JavascriptInterface
@@ -245,6 +439,90 @@ jobs:
               }
 
               @JavascriptInterface
+              public void startCompass(final double lat, final double lon) {
+                runOnUiThread(() -> {
+                  decl = new GeomagneticField((float) lat, (float) lon, 0f, System.currentTimeMillis()).getDeclination();
+                  compassOn = true;
+                  regCompass();
+                });
+              }
+
+              @JavascriptInterface
+              public void stopCompass() {
+                runOnUiThread(() -> { compassOn = false; unregCompass(); });
+              }
+
+              @JavascriptInterface
+              public boolean hasLocPerm() { return locOk(); }
+
+              @JavascriptInterface
+              public void getLocation() {
+                runOnUiThread(() -> {
+                  if (locOk()) fetchLocation();
+                  else requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOC);
+                });
+              }
+
+              @JavascriptInterface
+              public void requestNotify() {
+                runOnUiThread(() -> {
+                  if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF);
+                  else js("window.__slhNotif&&__slhNotif(true)");
+                });
+              }
+
+              @JavascriptInterface
+              public void setPrayerAlarms(String json) {
+                getSharedPreferences("salah", MODE_PRIVATE).edit().putString("list", json).apply();
+                PrayerReceiver.scheduleNext(getApplicationContext());
+              }
+
+              @JavascriptInterface
+              public boolean hasUsagePerm() { return usageOk(); }
+
+              @JavascriptInterface
+              public void openUsageSettings() {
+                runOnUiThread(() -> {
+                  try { startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:" + getPackageName()))); }
+                  catch (Exception e) {
+                    try { startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)); } catch (Exception e2) { }
+                  }
+                });
+              }
+
+              @JavascriptInterface
+              public String getUsage(long start, long end) { return usageJson(start, end); }
+
+              @JavascriptInterface
+              public int sleepState() {
+                if (Build.VERSION.SDK_INT < 34) return -1;
+                return checkSelfPermission(SLEEP_PERM) == PackageManager.PERMISSION_GRANTED ? 1 : 0;
+              }
+
+              @JavascriptInterface
+              public void requestSleep() {
+                runOnUiThread(() -> {
+                  if (Build.VERSION.SDK_INT < 34) { js("window.__chlSleepPerm&&__chlSleepPerm(false)"); return; }
+                  requestPermissions(new String[]{SLEEP_PERM}, REQ_SLEEP);
+                });
+              }
+
+              @JavascriptInterface
+              public void readSleep(final long start, final long end) {
+                if (Build.VERSION.SDK_INT < 34) return;
+                runOnUiThread(() -> SleepReader.read(MainActivity.this, start, end));
+              }
+
+              @JavascriptInterface
+              public String takeJam() {
+                android.content.SharedPreferences sp = getSharedPreferences("salah", MODE_PRIVATE);
+                String v = sp.getString("jam", "");
+                if (!v.isEmpty()) sp.edit().remove("jam").apply();
+                return v;
+              }
+
+              @JavascriptInterface
               public void saveFile(final String name, final String mime, final String text) {
                 runOnUiThread(() -> {
                   pendingText = text;
@@ -273,6 +551,210 @@ jobs:
                   }
                 }
                 pendingText = null;
+              }
+            }
+
+            private boolean usageOk() {
+              AppOpsManager ao = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
+              int m = ao.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), getPackageName());
+              if (m == AppOpsManager.MODE_DEFAULT) return checkSelfPermission(Manifest.permission.PACKAGE_USAGE_STATS) == PackageManager.PERMISSION_GRANTED;
+              return m == AppOpsManager.MODE_ALLOWED;
+            }
+
+            private String homePkg() {
+              try {
+                ResolveInfo r = getPackageManager().resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
+                if (r != null && r.activityInfo != null) return r.activityInfo.packageName;
+              } catch (Exception e) { }
+              return "";
+            }
+
+            private static void addSpan(HashMap<String, Long> tot, String p, long a, long b, long lo, long hi) {
+              long s = Math.max(a, lo), e = Math.min(b, hi);
+              if (e > s) tot.merge(p, e - s, Long::sum);
+            }
+
+            private String usageJson(long start, long end) {
+              if (!usageOk()) return "null";
+              try {
+                UsageStatsManager um = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
+                long until = Math.min(end, System.currentTimeMillis());
+                if (until <= start) return "{\"total\":0,\"apps\":{}}";
+                UsageEvents ev = um.queryEvents(start - 6 * 3600000L, until);
+                HashMap<String, Long> tot = new HashMap<>();
+                String fg = null;
+                long fs = 0;
+                UsageEvents.Event e = new UsageEvents.Event();
+                while (ev.hasNextEvent()) {
+                  ev.getNextEvent(e);
+                  int t = e.getEventType();
+                  long ts = e.getTimeStamp();
+                  String p = e.getPackageName();
+                  if (t == UsageEvents.Event.ACTIVITY_RESUMED) {
+                    if (fg != null) addSpan(tot, fg, fs, ts, start, until);
+                    fg = p; fs = ts;
+                  } else if (t == UsageEvents.Event.ACTIVITY_PAUSED) {
+                    if (fg != null && fg.equals(p)) { addSpan(tot, fg, fs, ts, start, until); fg = null; }
+                  } else if (t == UsageEvents.Event.SCREEN_NON_INTERACTIVE || t == UsageEvents.Event.DEVICE_SHUTDOWN) {
+                    if (fg != null) { addSpan(tot, fg, fs, ts, start, until); fg = null; }
+                  }
+                }
+                if (fg != null) addSpan(tot, fg, fs, until, start, until);
+                String home = homePkg();
+                PackageManager pm = getPackageManager();
+                JSONObject apps = new JSONObject();
+                long total = 0;
+                for (Map.Entry<String, Long> en : tot.entrySet()) {
+                  String p = en.getKey();
+                  long ms = en.getValue();
+                  if (p.equals(home) || p.equals("com.android.systemui")) continue;
+                  total += ms;
+                  if (ms < 60000) continue;
+                  String lbl = p;
+                  try { lbl = pm.getApplicationLabel(pm.getApplicationInfo(p, 0)).toString(); } catch (Exception x) { }
+                  apps.put(p, new JSONArray().put(lbl).put(ms));
+                }
+                return new JSONObject().put("total", total).put("apps", apps).toString();
+              } catch (Exception x) {
+                return "null";
+              }
+            }
+
+            static class SleepReader {
+              static void read(final MainActivity a, long start, long end) {
+                try {
+                  HealthConnectManager hc = a.getSystemService(HealthConnectManager.class);
+                  ReadRecordsRequestUsingFilters<SleepSessionRecord> req = new ReadRecordsRequestUsingFilters.Builder<>(SleepSessionRecord.class)
+                      .setTimeRangeFilter(new TimeInstantRangeFilter.Builder().setStartTime(Instant.ofEpochMilli(start)).setEndTime(Instant.ofEpochMilli(end)).build())
+                      .setPageSize(1000)
+                      .build();
+                  hc.readRecords(req, a.getMainExecutor(), new OutcomeReceiver<ReadRecordsResponse<SleepSessionRecord>, HealthConnectException>() {
+                    @Override
+                    public void onResult(ReadRecordsResponse<SleepSessionRecord> r) {
+                      JSONArray out = new JSONArray();
+                      for (SleepSessionRecord s : r.getRecords()) {
+                        long st = s.getStartTime().toEpochMilli(), en = s.getEndTime().toEpochMilli(), aw = 0;
+                        for (SleepSessionRecord.Stage g : s.getStages()) {
+                          int ty = g.getType();
+                          if (ty == SleepSessionRecord.StageType.STAGE_TYPE_AWAKE || ty == SleepSessionRecord.StageType.STAGE_TYPE_AWAKE_IN_BED || ty == SleepSessionRecord.StageType.STAGE_TYPE_AWAKE_OUT_OF_BED)
+                            aw += g.getEndTime().toEpochMilli() - g.getStartTime().toEpochMilli();
+                        }
+                        out.put(new JSONArray().put(st).put(en).put(aw));
+                      }
+                      a.js("window.__chlSleep&&__chlSleep(" + out + ")");
+                    }
+
+                    @Override
+                    public void onError(HealthConnectException e) {
+                      a.js("window.__chlSleep&&__chlSleep(null)");
+                    }
+                  });
+                } catch (Exception e) {
+                  a.js("window.__chlSleep&&__chlSleep(null)");
+                }
+              }
+            }
+
+            private boolean locOk() {
+              return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                  || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            }
+
+            private void regCompass() {
+              if (sm == null) sm = (SensorManager) getSystemService(SENSOR_SERVICE);
+              Sensor rv = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+              if (rv == null) { js("window.__slhAcc&&__slhAcc(-1)"); return; }
+              sm.unregisterListener(sensL);
+              sm.registerListener(sensL, rv, SensorManager.SENSOR_DELAY_GAME);
+              Sensor mg = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+              if (mg != null) sm.registerListener(sensL, mg, SensorManager.SENSOR_DELAY_UI);
+            }
+
+            private void unregCompass() { if (sm != null) sm.unregisterListener(sensL); }
+
+            private void fetchLocation() {
+              final LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+              if (lm == null || !lm.isLocationEnabled()) { js("window.__slhLocErr&&__slhLocErr('off')"); return; }
+              Location best = null;
+              for (String p : lm.getProviders(true)) {
+                try {
+                  Location l = lm.getLastKnownLocation(p);
+                  if (l != null && (best == null || l.getTime() > best.getTime())) best = l;
+                } catch (SecurityException e) { }
+              }
+              final boolean hadLast = best != null && System.currentTimeMillis() - best.getTime() < 3600000L;
+              if (hadLast) sendLoc(best);
+              String prov;
+              if (Build.VERSION.SDK_INT >= 31 && lm.hasProvider(LocationManager.FUSED_PROVIDER)) prov = LocationManager.FUSED_PROVIDER;
+              else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) prov = LocationManager.NETWORK_PROVIDER;
+              else prov = LocationManager.GPS_PROVIDER;
+              locDone = false;
+              final Handler h = new Handler(Looper.getMainLooper());
+              final Runnable timeout = () -> {
+                if (locDone) return;
+                locDone = true;
+                if (!hadLast) js("window.__slhLocErr&&__slhLocErr('none')");
+              };
+              h.postDelayed(timeout, 30000);
+              try {
+                if (Build.VERSION.SDK_INT >= 30) {
+                  lm.getCurrentLocation(prov, null, getMainExecutor(), l -> {
+                    if (locDone) return;
+                    locDone = true;
+                    h.removeCallbacks(timeout);
+                    if (l != null) sendLoc(l);
+                    else if (!hadLast) js("window.__slhLocErr&&__slhLocErr('none')");
+                  });
+                } else {
+                  lm.requestSingleUpdate(prov, new LocationListener() {
+                    @Override
+                    public void onLocationChanged(Location l) {
+                      if (locDone) return;
+                      locDone = true;
+                      h.removeCallbacks(timeout);
+                      sendLoc(l);
+                    }
+                    @Override public void onStatusChanged(String p, int s, Bundle b) { }
+                    @Override public void onProviderEnabled(String p) { }
+                    @Override public void onProviderDisabled(String p) { }
+                  }, Looper.getMainLooper());
+                }
+              } catch (SecurityException e) {
+                js("window.__slhLocErr&&__slhLocErr('denied')");
+              }
+            }
+
+            private void sendLoc(Location l) {
+              final double lat = l.getLatitude(), lon = l.getLongitude();
+              js(String.format(Locale.US, "window.__slhLoc&&__slhLoc(%.6f,%.6f,'','')", lat, lon));
+              new Thread(() -> {
+                String cc = "", city = "";
+                try {
+                  List<Address> a = new Geocoder(MainActivity.this, new Locale("ar")).getFromLocation(lat, lon, 1);
+                  if (a != null && !a.isEmpty()) {
+                    Address ad = a.get(0);
+                    if (ad.getCountryCode() != null) cc = ad.getCountryCode();
+                    city = ad.getLocality() != null ? ad.getLocality() : ad.getSubAdminArea() != null ? ad.getSubAdminArea() : ad.getAdminArea() != null ? ad.getAdminArea() : "";
+                  }
+                } catch (Exception e) { }
+                if (cc.isEmpty()) return;
+                final String code = String.format(Locale.US, "window.__slhLoc&&__slhLoc(%.6f,%.6f,%s,%s)", lat, lon, JSONObject.quote(cc), JSONObject.quote(city));
+                runOnUiThread(() -> js(code));
+              }).start();
+            }
+
+            @Override
+            public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+              super.onRequestPermissionsResult(req, perms, res);
+              boolean ok = false;
+              for (int x : res) if (x == PackageManager.PERMISSION_GRANTED) ok = true;
+              if (req == REQ_LOC) {
+                if (ok) fetchLocation();
+                else js("window.__slhLocErr&&__slhLocErr('denied')");
+              } else if (req == REQ_NOTIF) {
+                js("window.__slhNotif&&__slhNotif(" + ok + ")");
+              } else if (req == REQ_SLEEP) {
+                js("window.__chlSleepPerm&&__chlSleepPerm(" + ok + ")");
               }
             }
 
