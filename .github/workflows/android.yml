@@ -135,7 +135,7 @@ jobs:
               </intent>
             </queries>
             <application
-                android:label="ميزانيتي"
+                android:label="رُشد"
                 android:icon="@mipmap/ic_launcher"
                 android:allowBackup="true"
                 android:supportsRtl="true"
@@ -241,7 +241,7 @@ jobs:
               Notification.Builder nb = new Notification.Builder(c, "prayer")
                   .setSmallIcon(R.drawable.ic_salah)
                   .setContentTitle(ti != null && !ti.isEmpty() ? ti : "حان الآن وقت صلاة " + n)
-                  .setContentText("ميزانيتي · مواقيت الصلاة")
+                  .setContentText("رُشد · مواقيت الصلاة")
                   .setWhen(t).setShowWhen(true)
                   .setAutoCancel(true)
                   .setCategory(Notification.CATEGORY_REMINDER)
@@ -439,7 +439,7 @@ jobs:
                 runOnUiThread(() -> {
                   try {
                     BiometricPrompt.Builder pb = new BiometricPrompt.Builder(MainActivity.this)
-                        .setTitle("ميزانيتي")
+                        .setTitle("رُشد")
                         .setSubtitle("افتح التطبيق بالبصمة أو قفل الجهاز");
                     if (Build.VERSION.SDK_INT >= 30) {
                       pb.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
@@ -898,6 +898,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: ميزانيتي ${{ github.run_number }}
+          name: رُشد ${{ github.run_number }}
           files: Mizaniyati.apk
           make_latest: true
