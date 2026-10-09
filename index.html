@@ -96,6 +96,12 @@ h2 button{font-family:var(--body);font-size:.85rem;color:var(--accent);font-weig
 .ring.over{background:var(--neg)}
 .tile .ta{font-weight:600;font-size:.95rem}
 .tile .tb{font-size:.72rem;color:var(--muted);margin-top:-6px}
+.tile[data-acc]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y}
+.tile.drag-src{opacity:.25}
+.tile.drop-b{box-shadow:inset -4px 0 0 var(--gold)}
+.tile.drop-a{box-shadow:inset 4px 0 0 var(--gold)}
+.drag-ghost{position:fixed;z-index:40;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:.95;transition:none}
+.drag-hint{font-size:.78rem;color:var(--muted);margin:-4px 2px 10px}
 .tile.add{border:1.5px dashed var(--line);background:transparent;justify-content:center;color:var(--muted);font-size:.85rem}
 
 .list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
@@ -1313,7 +1319,7 @@ const toast=m=>{if(window.__toast)window.__toast(m)};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API=()=>(window.__mznApi||{}).audit;
 const BANK='aud:bank';
-const QUICK=['مصروفاتي من الراتب','أرصدة الحسابات قبل الراتب','تحويلات هذا الشهر','أكبر 10 مصروفات هذا الشهر','افحص حساباتي','متى آخر نسخة احتياطية','متى عدلنا الميزانيات','صلاة الجماعة هذا الشهر','عمليات Signature هذا الشهر'];
+const QUICK=['مصروفاتي من الراتب','أرصدة الحسابات قبل الراتب','رصيد الحساب الأساسي قبل الراتب كل الشهور','تحويلات هذا الشهر','أكبر 10 مصروفات هذا الشهر','افحص حساباتي','متى آخر نسخة احتياطية','متى عدلنا الميزانيات','صلاة الجماعة هذا الشهر','عمليات Signature هذا الشهر'];
 
 /* ---------- تطبيع النص ---------- */
 const AD='٠١٢٣٤٥٦٧٨٩',PD='۰۱۲۳۴۵۶۷۸۹';
@@ -1460,6 +1466,8 @@ function answer(raw){
   if(RX.audit.test(q))return runChecks();
   const T=parseTime(q),ents=findEntities(q),left=leftovers(q,ents);
   if(RX.worship.test(q)&&!RX.expense.test(q)&&!ents.accs.length)return worshipAns(q,T);
+  /* الأرصدة الشهرية */
+  if(RX.balance.test(q)&&/كل الشهور|كل شهر|لكل شهر|شهريا|كل الاشهر|جميع الشهور|في الشهور/.test(q))return monthlyBal(q,ents);
   /* الأرصدة */
   if(RX.balance.test(q)){
     const d=T.r?(T.r.before||dAdd(T.r.to,1)):null;const B=A.bals(d).filter(x=>!ents.accs.length||ents.accs.includes(x.a));
@@ -1512,6 +1520,37 @@ function answer(raw){
   let extra='';if(!top&&cats.length>1&&out>0)extra=`<div class="sub" style="margin-top:10px"><b>حسب البند:</b> ${cats.slice(0,6).map(c=>`${esc(c)} ${fmtB(byCat[c])}`).join(' · ')}</div>`;
   if(!top&&!accId&&Object.keys(byAcc).length>1)extra+=`<div class="sub"><b>حسب الحساب:</b> ${Object.keys(byAcc).sort((a,b)=>byAcc[b]-byAcc[a]).slice(0,6).map(a=>`<bdi>${esc(a)}</bdi> ${fmtB(byAcc[a])}`).join(' · ')}</div>`;
   return{hd,sub:scope,kv,list:L,accId,extra};
+}
+
+/* ---------- الأرصدة عبر الشهور ---------- */
+function salaryDates(){
+  const A=API(),inc=A.all().filter(t=>t.type==='income'&&!/قرض|سلف|bonus|مكافا/i.test(norm(t.note||''))).map(t=>({t,v:+A.from(t)*A.rate(A.accCur(A.accById(t.acc)))}));
+  if(!inc.length)return[];const vs=inc.map(x=>x.v).sort((a,b)=>b-a),thr=vs[Math.floor(vs.length/3)]*0.6;
+  return inc.filter(x=>x.v>=thr).map(x=>x.t).sort((a,b)=>a.date<b.date?-1:1);
+}
+function monthlyBal(q,ents){
+  const A=API(),t=A.today();
+  let accs=ents.accs.length?ents.accs:A.accounts().filter(a=>a.type==='debit'&&/main|اساسي|رئيسي/i.test(norm(a.name+' '+(a.alias||''))));
+  if(!accs.length&&/اساسي|رئيسي/.test(q))accs=[A.accounts().find(a=>a.type==='debit')].filter(Boolean);
+  if(!accs.length)accs=A.accounts().filter(a=>a.type==='debit').slice(0,1);
+  const a=accs[0],c=A.accCur(a),val=d=>{const x=A.bals(d).find(y=>y.a.id===a.id);return a.type==='debit'?x.v:-x.v};
+  const all=A.all().map(x=>x.date).sort(),first=all[0]||t;
+  let rows=[],title;
+  if(/قبل (نزول )?الراتب|قبل الرواتب|قبل كل راتب/.test(q)){
+    const S=salaryDates().filter(x=>x.acc===a.id||!ents.accs.length);
+    rows=S.map(x=>({d:x.date,lbl:x.date,extra:`راتب ${A.fmtC(+A.from(x),A.accCur(A.accById(x.acc)))}${x.note?' · '+esc(x.note):''}`,v:val(x.date)}));
+    title=`رصيد ${esc(a.name)} قبل نزول كل راتب`;
+  }else{
+    const m=q.match(/(?:يوم|في)\s*(\d{1,2})/)||q.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);const day=m?Math.min(31,Math.max(1,+m[1])):(A.ps()>1?A.ps()-1:28);
+    let y=+first.slice(0,4),mo=+first.slice(5,7);
+    while(true){const ld=lastDay(y,mo),dd=Math.min(day,ld),ds=`${y}-${pad(mo)}-${pad(dd)}`;if(ds>t)break;if(ds>=first)rows.push({d:dAdd(ds,1),lbl:ds,extra:'',v:val(dAdd(ds,1))});mo++;if(mo>12){mo=1;y++}}
+    title=`رصيد ${esc(a.name)} في نهاية يوم ${day} من كل شهر`;
+  }
+  if(!rows.length)return{empty:true,hd:'لا توجد بيانات كافية لهذا السؤال.'};
+  rows.forEach((r,i)=>{r.ch=i?r.v-rows[i-1].v:null});
+  const mx=rows.reduce((b,r)=>r.ch!=null&&Math.abs(r.ch)>Math.abs(b.ch||0)?r:b,{ch:0});
+  return{hd:title,sub:`${rows.length} شهراً · العملة ${esc(A.sym(c))}${mx.ch?` · أكبر تغيّر بين شهرين: ${mx.ch>0?'+':'−'}${A.fmtC(Math.abs(mx.ch),c)} عند ${mx.lbl}`:''}`,
+    html:`<table class="aud-tb"><tr><th>التاريخ</th><th>الرصيد</th><th style="text-align:end">التغيّر</th></tr>${rows.slice().reverse().map(r=>`<tr${r===mx?' style="background:color-mix(in srgb,var(--gold) 14%,transparent)"':''}><td style="white-space:normal">${r.lbl}${r.extra?`<br><span class="t2">${r.extra}</span>`:''}</td><td class="n ${r.v<0?'neg':''}">${A.fmtC(r.v,c)}</td><td class="n ${r.ch>0?'pos':r.ch<0?'neg':''}">${r.ch==null?'—':(r.ch>0?'+':'−')+A.fmtC(Math.abs(r.ch),c)}</td></tr>`).join('')}</table>`};
 }
 
 /* ---------- العبادة والصحة ---------- */
@@ -1709,7 +1748,7 @@ function logChanges(){
   if(_snap.sr!==n.sr)add('goal','هدف نسبة الادخار',_snap.sr,n.sr);
   if(_snap.ps!==n.ps)add('period','يوم بداية الشهر المالي',_snap.ps,n.ps);
   Object.keys(n.o).forEach(id=>{const o=_snap.o[id];if(!o)add('acc','حساب جديد: '+n.o[id][0],null,null);else if(Math.abs(o[1]-n.o[id][1])>0.0005)add('acc','تعديل رصيد '+n.o[id][0],null,null)});
-  Object.keys(_snap.o).forEach(id=>{if(!n.o[id])add('acc','حذف حساب: '+_snap.o[id][0],null,null)});
+  Object.keys(_snap.o).forEach(id=>{if(!n.o[id]){add('acc','حذف حساب: '+_snap.o[id][0],null,null);L[L.length-1].id=id;L[L.length-1].op=_snap.o[id][1]}});
   if(L.length>400)L.splice(0,L.length-400);_snap=n;
 }
 const saveSettings=()=>{try{logChanges()}catch(e){}queueWrite('settings',()=>S.settings)};
@@ -1845,6 +1884,65 @@ function viewHome(){
   <div class="tiles">${ic.map(c=>tile(c,byCat[c.id]||0,0)).join('')}<button class="tile add" data-action="newcat" data-kind="income">＋ بند جديد</button></div>
   <p class="note">اضغط على أي بند لتسجيل عملية فيه مباشرة.</p>`;
 }
+
+/* ---------- سحب أيقونات الحسابات لترتيبها ---------- */
+(function(){
+  let tm=null,src=null,ghost=null,sx=0,sy=0,drag=false,tgt=null,before=true,suppress=false;
+  const clear=()=>{document.querySelectorAll('.tile.drop-b,.tile.drop-a').forEach(e=>e.classList.remove('drop-b','drop-a'))};
+  const end=()=>{clearTimeout(tm);tm=null;if(ghost)ghost.remove();ghost=null;if(src)src.classList.remove('drag-src');clear();drag=false;src=null;tgt=null};
+  document.addEventListener('pointerdown',e=>{
+    const t=e.target.closest('.tile[data-acc]');if(!t||S.tab!=='accounts'||e.button>0)return;
+    src=t;sx=e.clientX;sy=e.clientY;
+    tm=setTimeout(()=>{if(!src)return;drag=true;if(navigator.vibrate)navigator.vibrate(30);
+      const r=src.getBoundingClientRect();ghost=src.cloneNode(true);ghost.classList.add('drag-ghost');ghost.style.width=r.width+'px';ghost.style.left=sx+'px';ghost.style.top=sy+'px';document.body.appendChild(ghost);src.classList.add('drag-src')},380);
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!src)return;
+    if(!drag){if(Math.abs(e.clientX-sx)>8||Math.abs(e.clientY-sy)>8){clearTimeout(tm);src=null}return}
+    e.preventDefault();ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';
+    const el=document.elementFromPoint(e.clientX,e.clientY),o=el&&el.closest('.tile[data-acc]');clear();tgt=null;
+    if(o&&o!==src&&o.parentNode===src.parentNode){const r=o.getBoundingClientRect(),rtl=getComputedStyle(o).direction==='rtl',right=e.clientX>r.left+r.width/2;before=rtl?right:!right;tgt=o;o.classList.add(before?'drop-b':'drop-a')}
+    if(e.clientY<80)window.scrollBy(0,-12);else if(e.clientY>innerHeight-110)window.scrollBy(0,12);
+  },{passive:false});
+  document.addEventListener('touchmove',e=>{if(drag)e.preventDefault()},{passive:false});
+  const up=()=>{
+    if(drag){suppress=true;setTimeout(()=>suppress=false,350);
+      if(tgt){const L=S.settings.accounts,from=L.findIndex(a=>a.id===src.dataset.acc);const [x]=L.splice(from,1);let to=L.findIndex(a=>a.id===tgt.dataset.acc);if(!before)to++;L.splice(to,0,x);saveSettings();end();render();toast('تم تغيير ترتيب الحسابات');return}}
+    end();
+  };
+  document.addEventListener('pointerup',up);document.addEventListener('pointercancel',end);
+  document.addEventListener('contextmenu',e=>{if(e.target.closest('.tile[data-acc]'))e.preventDefault()});
+  document.addEventListener('click',e=>{if(suppress&&e.target.closest('.tile[data-acc]')){e.preventDefault();e.stopPropagation()}},true);
+})();
+function orphanAccounts(){
+  const ids=new Set(S.settings.accounts.map(a=>a.id)),m={};
+  allTx().forEach(t=>{[t.acc,t.type==='transfer'?t.to:null].forEach((id,i)=>{if(!id||ids.has(id))return;const o=m[id]=m[id]||{id,n:0,from:t.date,to:t.date,flow:0,cats:{}};o.n++;if(t.type!=='transfer'){const cn=catById(t.cat).name;o.cats[cn]=(o.cats[cn]||0)+1}else{const other=i===1?t.acc:t.to,on=other?accById(other).name:'';if(on&&ids.has(other))o.cats['تحويلات مع '+on]=(o.cats['تحويلات مع '+on]||0)+1}if(t.date<o.from)o.from=t.date;if(t.date>o.to)o.to=t.date;
+    const v=+t.amount;o.flow+=i===1?v:(t.type==='income'?v:t.type==='adjust'?(t.sign||1)*v:-v)})});
+  const del=S.settings.deletedAccounts||[],log=(S.settings.chlog||[]).filter(x=>x.k==='acc'&&x.id);
+  return Object.values(m).map(o=>{const d=del.slice().reverse().find(x=>x.id===o.id),l=log.slice().reverse().find(x=>x.id===o.id);o.def=d||null;o.name=d?d.name:l?l.w.replace('حذف حساب: ',''):'';o.op=d?+d.opening||0:l&&l.op!=null?+l.op:null;return o}).sort((a,b)=>b.n-a.n);
+}
+function accRestoreSheet(id){
+  const o=orphanAccounts().find(x=>x.id===id);if(!o)return;
+  const names=[...new Set((S.settings.chlog||[]).filter(x=>x.k==='acc'&&/^حذف حساب: /.test(x.w)).map(x=>x.w.replace('حذف حساب: ','')).concat((S.settings.deletedAccounts||[]).map(x=>x.name)))].filter(n=>!S.settings.accounts.some(a=>a.name===n));
+  const a=o.def?Object.assign({},o.def):{id,name:o.name||'',icon:'🏦',type:'debit',opening:o.op!=null?o.op:0,limit:0,color:nextColor()};delete a.deletedAt;
+  const known=o.def||o.op!=null;
+  openSheet(`<h3>♻️ استرجاع حساب محذوف</h3>
+    <p class="note" style="margin:-4px 0 10px">${o.n} عملية من ${o.from} إلى ${o.to}، وكلها ستعود لهذا الحساب.</p>
+    <label class="field"><span>اسم الحساب</span><input id="rsName" value="${esc(a.name)}"></label>
+    ${names.length?`<div class="chl-chips" style="padding:0 0 8px">${names.map(n=>`<button class="chl-chip" data-rsn="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}
+    <div class="seg"><button data-rst="debit" aria-pressed="${a.type==='debit'}">حساب أو نقد</button><button data-rst="credit" aria-pressed="${a.type==='credit'}">بطاقة ائتمان</button><button data-rst="loan" aria-pressed="${a.type==='loan'}">دين أو قرض</button></div>
+    <label class="field"><span>الرصيد الافتتاحي ${known?'(الأصلي محفوظ)':'(قبل أول عملية، إن عرفته)'}</span><input id="rsOp" inputmode="decimal" value="${+a.opening||0}" style="direction:ltr;text-align:right"></label>
+    <p class="note" id="rsBal"></p>
+    <div class="actions"><button class="btn" id="rsGo">استرجاع الحساب</button></div>`,b=>{
+      const calc=()=>{const op=parseAmount(b.querySelector('#rsOp').value)||0,cur=op+o.flow;b.querySelector('#rsBal').textContent=`رصيده بعد الاسترجاع سيكون ${fmt(a.type==='debit'?cur:-cur)}${a.type==='debit'?'':' مستحقاً'}. يمكنك تعديله لاحقاً من شاشة الحساب أو بالمطابقة.`};calc();
+      b.querySelector('#rsOp').addEventListener('input',calc);
+      b.querySelectorAll('[data-rsn]').forEach(el=>el.addEventListener('click',()=>{b.querySelector('#rsName').value=el.dataset.rsn}));
+      b.querySelectorAll('[data-rst]').forEach(el=>el.addEventListener('click',()=>{a.type=el.dataset.rst;b.querySelectorAll('[data-rst]').forEach(x=>x.setAttribute('aria-pressed',x===el));calc()}));
+      b.querySelector('#rsGo').addEventListener('click',()=>{const nm=b.querySelector('#rsName').value.trim();if(!nm){toast('اكتب اسم الحساب');return}
+        a.name=nm;a.opening=parseAmount(b.querySelector('#rsOp').value)||0;a.icon=a.icon||(a.type==='credit'?'💳':a.type==='loan'?'🧾':'🏦');
+        S.settings.accounts.push(a);S.settings.deletedAccounts=(S.settings.deletedAccounts||[]).filter(x=>x.id!==a.id);saveSettings();closeSheet();toast('تم استرجاع '+nm);render()});
+    });
+}
 function viewAccounts(){
   const isCur=S.period>=curPeriod(),R=range(S.period);
   const f=isCur?flows():flowsBefore(R.to),f0=flowsBefore(R.from); const bal=a=>(+a.opening||0)+(f[a.id]||0); const bb=a=>bal(a)*rateOf(accCur(a));
@@ -1858,7 +1956,7 @@ function viewAccounts(){
     <div class="big">${mmoney(assets-liab)}<small>${esc(curInfo()[0])}</small></div>
     <div class="pair"><div>الأصول<b>${mmoney(assets)}</b></div><div>الالتزامات<b>${mmoney(liab)}</b></div></div>
     <div class="acc-chg">في بداية الشهر ${hid()?'••••':fmt(nw0)} · ${hid()?'':`<b>${chg>=0?'▲ +':'▼ −'}${fmt(Math.abs(chg))}</b>`}</div></section>
-    <div class="row2"><button class="btn ghost slim" data-action="transfer">⇄ تحويل</button><button class="btn ghost slim" data-action="orderacc">↕ ترتيب الحسابات</button></div><button class="btn ghost slim" data-aud-open="1" style="width:100%;margin-top:8px">🔍 تدقيق الحسابات · اسأل عن أي عملية</button>`;
+    <div class="row2"><button class="btn ghost slim" data-action="transfer">⇄ تحويل</button><button class="btn ghost slim" data-action="orderacc">↕ ترتيب الحسابات</button></div><button class="btn ghost slim" data-aud-open="1" style="width:100%;margin-top:8px">🔍 تدقيق الحسابات · اسأل عن أي عملية</button><p class="drag-hint">✋ اضغط مطولاً على أي حساب ثم اسحبه لتغيير مكانه</p>`;
   Object.keys(ACC_TYPES).forEach(type=>{
     const group=accs.filter(a=>a.type===type);
     if(!group.length&&type!=='debit') return;
@@ -1870,6 +1968,8 @@ function viewAccounts(){
       `<button class="tile add" data-action="newacc" data-type="${type}">＋ إضافة</button></div>`;
   });
   if(!accs.some(a=>a.type==='credit')||!accs.some(a=>a.type==='loan')) html+=`<p class="note">لإضافة بطاقة ائتمان أو دين، اضغط ＋ إضافة واختر النوع.</p>`;
+  const orph=orphanAccounts();
+  if(orph.length) html+=`<h2>حسابات محذوفة لها عمليات</h2><p class="note" style="margin:-4px 2px 8px">حسابات حُذفت وبقيت عملياتها، فلا تدخل في أي رصيد. استرجعها لتعود أرصدتها.</p><div class="list">${orph.map(o=>`<button class="set-row" data-restore="${esc(o.id)}" style="width:100%;text-align:start"><span class="ic">♻️</span><span class="grow"><span class="t1">${esc(o.name||'حساب غير معروف الاسم')}</span><span class="t2">${o.n} عملية · من ${o.from} إلى ${o.to} · أثرها ${o.flow>=0?'+':'−'}${fmt(Math.abs(o.flow))}${Object.keys(o.cats).length?'<br>أكثرها: '+esc(Object.keys(o.cats).sort((x,y)=>o.cats[y]-o.cats[x]).slice(0,2).join('، ')):''}</span></span><span class="t2">استرجاع ›</span></button>`).join('')}</div>`;
   return html;
 }
 function txListHtml(){
@@ -2924,8 +3024,11 @@ function accSheet(acc,type){
       const rcb=b.querySelector('#aRc'); if(rcb) rcb.addEventListener('click',()=>reconSheet(a));
       const tb=b.querySelector('#aTx'); if(tb) tb.addEventListener('click',()=>{S.prevTab=S.tab;S.accFilter=a.id;S.tab='tx';S.txView='list';closeSheet();render()});
       const d=b.querySelector('#aDel'); if(d) d.addEventListener('click',()=>{
-        if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='العمليات تبقى، اضغط للتأكيد';return}
-        S.settings.accounts=S.settings.accounts.filter(x=>x.id!==a.id); saveSettings(); closeSheet(); toast('تم حذف الحساب'); render();
+        const n=allTx().filter(t=>t.acc===a.id||t.to===a.id).length;
+        if(n){const typed=prompt(`لهذا الحساب ${n} عملية ستبقى بلا حساب.\nللتأكيد اكتب اسم الحساب كما هو:\n${a.name}`);if(typed==null)return;if(typed.trim()!==a.name.trim()){toast('لم يُحذف الحساب: الاسم غير مطابق');return}}
+        else if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='اضغط مرة أخرى لتأكيد الحذف';return}
+        (S.settings.deletedAccounts=S.settings.deletedAccounts||[]).push(Object.assign({},S.settings.accounts.find(x=>x.id===a.id)||a,{deletedAt:todayStr()}));
+        S.settings.accounts=S.settings.accounts.filter(x=>x.id!==a.id); saveSettings(); closeSheet(); toast('تم حذف الحساب، ويمكن استرجاعه من شاشة الحسابات'); render();
       });
     });
   };
@@ -3242,6 +3345,7 @@ document.addEventListener('click',e=>{
   const racc=e.target.closest('[data-racc]'); if(racc){S.prevTab=S.tab;S.accFilter=racc.dataset.racc;S.txView='list';S.tab='tx';window.scrollTo(0,0);render();return}
   const gl=e.target.closest('[data-goal]'); if(gl){const g=(S.settings.goals||[]).find(x=>x.id===gl.dataset.goal);if(g)goalSheet(g);return}
   const rc=e.target.closest('[data-rec]'); if(rc){const r=(S.settings.recurring||[]).find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return}
+  const rs=e.target.closest('[data-restore]'); if(rs){accRestoreSheet(rs.dataset.restore);return}
   const ac=e.target.closest('[data-acc]'); if(ac){accSheet(S.settings.accounts.find(x=>x.id===ac.dataset.acc)||null,'debit');return}
   const c=e.target.closest('[data-cat]'); if(c){catSheet(S.settings.categories.find(x=>x.id===c.dataset.cat)||null,'expense')}
 });
