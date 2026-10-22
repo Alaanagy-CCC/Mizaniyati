@@ -809,13 +809,21 @@ const NB=(window.AndroidBridge&&typeof window.AndroidBridge.getUsage==='function
 const HAS_HEALTH=!!(NB&&typeof NB.healthState==='function');
 const KEY='chl:data';
 const PR=[['fajr','الفجر'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
-const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true}];
+const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'qiyam',n:'قيام الليل',i:'🌌'},{k:'qnt',n:'القنوت',i:'🤲'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true}];
+const SN=[['fajr','ركعتا الفجر'],['dhuhr','بعد الظهر'],['maghrib','بعد المغرب'],['isha','بعد العشاء']];
+const BR=[['visit','زيارة','🏠'],['call','مكالمة','📞'],['gift','هدية','🎁'],['money','مال','💵'],['serve','خدمة','🤝'],['dua','دعاء','🤲']];
+const MEAL=[['b','الفطور','🌅'],['l','الغداء','☀️'],['d','العشاء','🌙'],['w','وجبة العمل','💼']];
+const AI=new Set(['com.anthropic.claude','com.openai.chatgpt','com.google.android.apps.bard','ai.perplexity.app.android','com.google.android.apps.labs.language.tailwind','com.microsoft.copilot','com.deepseek.chat','ai.x.grok','com.github.android','com.mistral.lechat']);
+const QURAN=new Set(['com.soundcloud.android']);
 const CN=[{k:'wait',n:'انتظار الصلاة بعد الصلاة',i:'⏳'},{k:'wudu',n:'إسباغ الوضوء على المكاره',i:'💧'},{k:'khuta',n:'كثرة الخطى إلى المساجد',i:'🚶'}];
 const HALF=new Set(['com.sec.android.app.sbrowser']);
 const FOOD=[['b','متوازن','🥗'],['m','مقبول','🍽'],['x','مفرط','🍔']];
 const SOCIAL=new Set(['com.whatsapp','com.whatsapp.w4b','com.instagram.android','com.instagram.barcelona','com.twitter.android','com.zhiliaoapp.musically','com.ss.android.ugc.trill',
   'com.snapchat.android','com.facebook.katana','com.facebook.lite','com.facebook.orca','com.google.android.youtube','org.telegram.messenger','com.linkedin.android',
   'com.reddit.frontpage','com.pinterest','com.discord','com.tumblr','com.vkontakte.android','com.bereal.ft']);
+const DIS=new Set([...SOCIAL,'com.sec.android.app.sbrowser']);
+const CLS={d:['تشتت','🌀'],a:['عمل بالذكاء الاصطناعي','🤖'],q:['استماع القرآن','🎧'],n:['عادي','']};
+const CLS_NEXT={d:'a',a:'q',q:'n',n:'d'};
 const RANGES={day:[1,'يوم'],week:[7,'أسبوع'],month:[30,'شهر'],q:[90,'3 أشهر'],year:[365,'سنة']};
 
 const $id=id=>document.getElementById(id);
@@ -825,7 +833,7 @@ const api=()=>window.__mznApi||null;
 const money=v=>{const a=api();return a?a.fmt(v)+' '+a.cur():(+v).toFixed(3)};
 
 let D=load(),sel=null,rng='week';
-function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v&&v.days){const c=Object.assign({work:40,wird:55,soc:60},v.cfg||{});if(+c.wird===54&&!c.w55){c.wird=55;c.w55=1}return{days:v.days,cfg:c}}}catch(e){}return{days:{},cfg:{work:40,wird:55,soc:60,w55:1}}}
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||'null');if(v&&v.days){const c=Object.assign({work:40,wird:55,soc:60,dis:120},v.cfg||{});if(+c.wird===54&&!c.w55){c.wird=55;c.w55=1}return{days:v.days,cfg:c}}}catch(e){}return{days:{},cfg:{work:40,wird:55,soc:60,dis:120,w55:1}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
 
 const pad=n=>String(n).padStart(2,'0');
@@ -834,15 +842,22 @@ const kdate=k=>{const[y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)};
 const addDays=(k,n)=>{const d=kdate(k);d.setDate(d.getDate()+n);return dkey(d)};
 const today=()=>dkey(new Date());
 const isFri=k=>kdate(k).getDay()===5;
-const day=k=>{const r=D.days[k]||(D.days[k]={});r.j=r.j||[];r.h=r.h||[];return r};
-const peek=k=>{const r=D.days[k]||{};return Object.assign({},r,{j:r.j||[],h:r.h||[]})};
+const day=k=>{const r=D.days[k]||(D.days[k]={});r.j=r.j||[];r.h=r.h||[];r.sn=r.sn||[];return r};
+const peek=k=>{const r=D.days[k]||{};return Object.assign({},r,{j:r.j||[],h:r.h||[],sn:r.sn||[],slpW:r.slp,slp:r.slpM!=null?r.slpM:r.slp,slpSrc:r.slpM!=null?'m':r.slp!=null?'w':''})};
+const brOk=r=>!!(r.br&&((r.br.t&&r.br.t.length)||(r.br.n&&r.br.n.trim())));
+const clsOf=p=>{const o=D.cfg.cls&&D.cfg.cls[p];if(o)return o;return QURAN.has(p)?'q':AI.has(p)?'a':DIS.has(p)?'d':'n'};
+/* وقت الشاشة مصنفاً: تشتت، وعمل بالذكاء الاصطناعي، واستماع القرآن (يشمل التشغيل في الخلفية) */
+function scr3(r){if(!r.ap)return null;let d=0,a=0,q=0;const ps=new Set([...Object.keys(r.ap),...Object.keys(r.sv||{})]);
+  ps.forEach(p=>{const c=clsOf(p),fg=r.ap[p]?+r.ap[p][1]:0;if(c==='d')d+=fg;else if(c==='a')a+=fg;else if(c==='q')q+=Math.max(fg,r.sv&&r.sv[p]?+r.sv[p]:0)});
+  return{d:d*6e4,a:a*6e4,q:q*6e4}}
+const DL=()=>(+D.cfg.dis||120)*6e4;
 const habitsFor=k=>HB.filter(h=>!h.fri||isFri(k));
 const T=()=>Math.max(1,+D.cfg.wird||55);
 const wp=r=>r.wp!=null?+r.wp:(r.h.includes('wird')?T():0);
 const cnt=(r,k)=>(r.cn&&+r.cn[k])||0;
 const socOk=r=>r.soc!=null&&r.soc<=(+D.cfg.soc||60)*60000;
 function score(k){const r=peek(k),hs=habitsFor(k),hasSoc=r.soc!=null;
-  return{done:r.j.length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0),total:6+hs.length+CN.length+(hasSoc?1:0)}}
+  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0),total:6+SN.length+1+hs.length+CN.length+(hasSoc?1:0)}}
 function streakOf(test,fri){let k=today();if(!test(peek(k)))k=addDays(k,-1);let n=0;
   for(let i=0;i<800;i++){if(fri&&!isFri(k)){k=addDays(k,-1);continue}if(test(peek(k))){n++;k=addDays(k,-1)}else break}return n}
 const unit=(n,fri)=>fri?(n<=10&&n>2?'جُمَع':'جمعة'):(n<=10&&n>2?'أيام':'يوماً');
@@ -857,6 +872,13 @@ const gJ=(j,n)=>G(j,5*n,3*n);                 // الجماعة: 5 أزرق، 3 
 const gW=(p,n)=>G(p,T()*n,T()*n/2);           // الورد: الهدف أزرق، نصفه فأكثر أسود
 const gV=(d,n)=>G(d,n,n/2);                   // الوتر: كل الأيام أزرق، نصفها فأكثر أسود
 const gcell=(g,t)=>`<b class="${GC[g]}">${esc(t)}</b>`;
+const gS=(c,n)=>G(c,4*n,2*n);                 // السنن: الأربع أزرق، اثنتان فأكثر أسود
+const gDis=(ms,n)=>ms<=DL()*n?'b':ms<=2*DL()*n?'k':'r'; // التشتت: ضمن الحد أزرق، حتى ضعفه أسود
+const gSlp=v=>v==null?null:v>=7*36e5?'b':v>=6*36e5?'k':'r';
+const gStep=v=>v==null?null:v>=8000?'b':v>=5000?'k':'r';
+const MG={b:'b',m:'k',x:'r'};                 // تقييم الوجبة: متوازن أزرق، مقبول أسود، مفرط أحمر
+const worst=a=>{a=a.filter(Boolean);return !a.length?null:a.includes('r')?'r':a.includes('k')?'k':'b'};
+const hrs=ms=>(ms/36e5).toFixed(1)+'س';
 
 /* ---------- الشريط ---------- */
 function stripInner(){const s=score(today());return `<span>🎯</span><span class="g">تحدياتي اليوم</span><span class="t2"><b class="num">${s.done}</b> من <span class="num">${s.total}</span> ›</span>`}
@@ -872,14 +894,16 @@ function dayHtml(){
   let h=`<div class="chl-day"><button data-c="prev" aria-label="اليوم السابق"${sel<=addDays(t,-30)?' disabled':''}>›</button><b>${lbl}</b><button data-c="next" aria-label="اليوم التالي"${sel>=t?' disabled':''}>‹</button></div>
   <div class="chl-hero"><small>أنجزت</small><b class="num">${s.done}</b> <span>من <span class="num">${s.total}</span></span><div class="chl-bar"><i style="width:${s.done/s.total*100}%"></i></div><div class="chl-msg">${msg}</div></div>
   <h2>صلاة الجماعة <b class="${GC[gJ(r.j.length,1)]}" style="font-size:.9rem">${r.j.length} من 5</b></h2><div class="list"><div class="chl-chips">${PR.map(([k,n])=>{const on=r.j.includes(k);return `<button class="chl-chip" data-j="${k}" aria-pressed="${on}">${on?'✓ ':''}${k==='dhuhr'&&isFri(sel)?'الجمعة':n}</button>`}).join('')}</div></div>
+  <h2>السنن الرواتب <b class="${GC[gS(r.sn.length,1)]}" style="font-size:.9rem">${r.sn.length} من 4</b></h2><div class="list"><div class="chl-chips">${SN.map(([k,n])=>{const on=r.sn.includes(k);return `<button class="chl-chip" data-sn="${k}" aria-pressed="${on}">${on?'✓ ':''}${n}</button>`}).join('')}</div></div>
+  <h2>برّ الوالدين ${brOk(r)?'<b class="pc-b" style="font-size:.9rem">✓</b>':''}</h2><div class="list"><div class="set-row" style="display:block"><div class="chl-chips" style="padding:0 0 8px">${BR.map(([k,n,i])=>{const on=!!(r.br&&r.br.t&&r.br.t.includes(k));return `<button class="chl-chip" data-br="${k}" aria-pressed="${on}">${i} ${n}</button>`}).join('')}</div><input class="fin-in" id="chlBrN" value="${esc(r.br&&r.br.n||'')}" placeholder="وصف: ماذا قدّمت أو كيف بررت؟" aria-label="وصف البر" style="width:100%;margin:0"></div></div>
   <h2>القرآن والأذكار</h2><div class="list">
     <div class="set-row chl-wrap"><div class="top"><span class="ic">📖</span><span class="g"><span class="t1" style="display:block">الورد اليومي</span><span class="t2"><span class="num">${pages}</span> من <span class="num">${T()}</span> صفحة · <b class="${GC[gW(pages,1)]}">${Math.min(100,pc(pages,T()))}٪</b>${wst>1?` · 🔥 ${wst} ${unit(wst)}`:''}</span></span>
       <button class="chl-pm" data-wp="-1" aria-label="إنقاص صفحة">−</button><input class="chl-num" id="chlWp" inputmode="numeric" value="${pages||''}" placeholder="0" aria-label="عدد الصفحات"><button class="chl-pm" data-wp="1" aria-label="زيادة صفحة">+</button></div>
       <div class="chl-pbar"><i style="width:${Math.min(100,pc(pages,T()))}%"></i></div>
       ${pages<T()?`<button class="chl-chip" data-wp="full" style="margin-top:10px">✓ أتممت ورد اليوم (${T()} صفحة)</button>`:''}</div>
     ${habitsFor(sel).map(hb=>{const on=r.h.includes(hb.k),st=streakOf(x=>x.h.includes(hb.k),hb.fri);
-      const extra=hb.k==='tdb'&&on?`<input class="chl-num" id="chlTa" inputmode="numeric" value="${r.ta||''}" placeholder="آيات" aria-label="عدد الآيات" style="width:70px">`:'';
-      return `<div class="set-row"><button class="chl-ck${on?' on':''}" data-h="${hb.k}" aria-pressed="${on}" aria-label="${hb.n}">${on?'✓':''}</button><span style="flex:1" data-h="${hb.k}">${hb.i} ${hb.n}${hb.k==='tdb'&&on&&r.ta?` <span class="t2">· ${r.ta} آية</span>`:''}</span>${extra}${st>1?`<span class="chl-fire">🔥 <span class="num">${st}</span> ${unit(st,hb.fri)}</span>`:''}</div>`}).join('')}
+      const extra=hb.k==='tdb'&&on?`<input class="chl-num" id="chlTa" inputmode="numeric" value="${r.ta||''}" placeholder="آيات" aria-label="عدد الآيات" style="width:70px">`:hb.k==='qiyam'&&on?`<input class="chl-num" id="chlQk" inputmode="numeric" value="${r.qk||''}" placeholder="ركعات" aria-label="عدد الركعات" style="width:70px">`:'';
+      return `<div class="set-row"><button class="chl-ck${on?' on':''}" data-h="${hb.k}" aria-pressed="${on}" aria-label="${hb.n}">${on?'✓':''}</button><span style="flex:1" data-h="${hb.k}">${hb.i} ${hb.n}${hb.k==='tdb'&&on&&r.ta?` <span class="t2">· ${r.ta} آية</span>`:''}${hb.k==='qiyam'&&on&&r.qk?` <span class="t2">· ${r.qk} ركعة</span>`:''}</span>${extra}${st>1?`<span class="chl-fire">🔥 <span class="num">${st}</span> ${unit(st,hb.fri)}</span>`:''}</div>`}).join('')}
   </div>
   <h2>فضائل الصلاة</h2><div class="list">${CN.map(c=>{const v=cnt(r,c.k),st=streakOf(x=>cnt(x,c.k)>0);
     return `<div class="set-row" style="gap:6px"><span class="ic">${c.i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${c.n}</span><span class="t2">${v?`<span class="num">${v}</span> ${v===1?'مرة':v===2?'مرتان':v<=10?'مرات':'مرة'}`:'لم تُسجَّل اليوم'}${st>1?` · 🔥 ${st} ${unit(st)}`:''}</span></span><button class="chl-pm" data-cn="${c.k}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-cnin="${c.k}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${c.n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-cn="${c.k}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')}</div>`;
@@ -887,14 +911,24 @@ function dayHtml(){
   h+=`<button class="chl-big" data-c="report">📊 التقرير الشامل</button><button class="chl-big" data-c="ask" style="margin-top:10px;background:var(--surface);color:var(--ink);border:1px solid var(--line)">🔎 اسأل عن العلاقات</button>`;
   return h;
 }
+function sleepHtml(r){
+  const g=gSlp(r.slp);
+  return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">😴</span><span style="flex:1"><span class="t1" style="display:block">النوم</span><span class="t2">الليلة المنتهية صباح هذا اليوم${r.slpSrc==='m'?' · تسجيل يدوي':r.slpSrc==='w'?' · من الساعة':''}${r.slpSrc==='m'&&r.slpW!=null?` (الساعة: ${fmtH(r.slpW)})`:''}</span></span><b class="${g?GC[g]:''}">${fmtH(r.slp)}</b></div>
+   <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap"><span class="t2">نمت</span><input type="time" class="fin-in" id="chlSa" value="${esc(r.slpA||'')}" style="width:auto;margin:0;padding:6px"><span class="t2">استيقظت</span><input type="time" class="fin-in" id="chlSb" value="${esc(r.slpB||'')}" style="width:auto;margin:0;padding:6px">${r.slpM!=null?'<button class="chl-chip" data-c="slpclr">مسح اليدوي</button>':''}</div>
+   <div class="t2" style="margin-top:4px;white-space:normal">التسجيل اليدوي يُقدَّم على بيانات الساعة.</div></div>`;
+}
+function mealsHtml(r){
+  const A=api(),tx=A&&A.dayTx?A.dayTx(sel):[],ml=r.ml||{};
+  return `<div class="set-row" style="display:block"><div class="t1">طعامي اليوم</div>${MEAL.map(([k,n,i])=>{const sp=tx.filter(x=>x.m===k).reduce((a,x)=>a+x.a,0);
+    return `<div style="margin-top:10px"><div class="t2" style="display:flex;justify-content:space-between"><span>${i} ${n}${k==='d'?' <b>⭐</b>':''}</span>${sp?`<span>صرفت ${esc(money(sp))}</span>`:''}</div><div class="chl-chips" style="padding:6px 0 0">${FOOD.map(([fk,fn])=>{const on=ml[k]===fk,bg={b:'#1D4ED8',m:'#333',x:'#C0392B'}[fk];return `<button class="chl-chip" data-ml="${k}" data-mv="${fk}" aria-pressed="${on}"${on?` style="background:${bg};border-color:${bg};color:#fff"`:''}>${on?'✓ ':''}${fn}</button>`}).join('')}</div></div>`}).join('')}</div>`;
+}
 function healthHtml(r){
-  let h='<h2>الصحة</h2><div class="list">';
+  let h='<h2>الصحة</h2><div class="list">'+sleepHtml(r);
   if(HAS_HEALTH){const hs=NB.healthState();
     if(hs===-1)h+=`<div class="set-row"><span class="ic">⌚</span><span style="flex:1" class="t2">بيانات الساعة تحتاج أندرويد 14 أو أحدث</span></div>`;
     else{
       if(hs<5)h+=`<button class="set-row" data-c="health" style="width:100%;text-align:start"><span class="ic">⌚</span><span style="flex:1"><span class="t1" style="display:block">${hs?'إكمال ربط بيانات الساعة':'ربط بيانات ساعة سامسونج'}</span><span class="t2" style="white-space:normal">النوم والخطوات والرياضة والسعرات عبر Health Connect</span></span><span class="t2">›</span></button>`;
       if(hs>0){
-        h+=`<div class="set-row"><span class="ic">😴</span><span style="flex:1"><span class="t1" style="display:block">النوم</span><span class="t2">الليلة المنتهية صباح هذا اليوم</span></span><b>${fmtH(r.slp)}</b></div>`;
         h+=`<div class="set-row"><span class="ic">👣</span><span style="flex:1">الخطوات</span><b class="num">${r.stp!=null?nf(r.stp):'—'}</b></div>`;
         const ty=r.exs?Object.keys(r.exs).map(n=>`${n} ${r.exs[n]} د`).join('، '):'';
         h+=`<div class="set-row"><span class="ic">🏃</span><span style="flex:1"><span class="t1" style="display:block">الرياضة</span>${ty?`<span class="t2" style="white-space:normal">${esc(ty)}</span>`:''}</span><b>${r.exm?fmtH(r.exm):'—'}</b></div>`;
@@ -903,7 +937,7 @@ function healthHtml(r){
       }
     }
   }
-  h+=`<div class="set-row" style="display:block"><div class="t1">طعامي اليوم</div><div class="chl-chips" style="padding:8px 0 0">${FOOD.map(([k,n,i])=>`<button class="chl-chip" data-food="${k}" aria-pressed="${r.food===k}">${i} ${n}</button>`).join('')}</div></div>`;
+  h+=mealsHtml(r);
   return h+'</div>';
 }
 function timeHtml(r){
@@ -915,7 +949,17 @@ function timeHtml(r){
     h+=`<div class="set-row"><span class="ic">⏱</span><span style="flex:1">وقت الشاشة</span><b>${fmtH(r.scr)}</b></div>`;
     const lim=(+D.cfg.soc||60)*60000,sst=streakOf(socOk);
     h+=`<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">📱</span><span style="flex:1"><span class="t1" style="display:block">تحدي قلة التواصل الاجتماعي</span><span class="t2">الحد ${fmtH(lim)} يومياً${sst>1?` · 🔥 ${sst} ${unit(sst)} تحت الحد`:''}</span></span><b class="${r.soc==null?'':socOk(r)?'pc-b':'pc-r'}">${fmtH(r.soc)}</b></div>${r.soc!=null?`<div class="chl-pbar"><i style="width:${Math.min(100,r.soc/lim*100)}%;background:${socOk(r)?'var(--accent)':'#C0392B'}"></i></div><div class="t2" style="margin-top:6px">${socOk(r)?'✓ تحت الحد، بارك الله فيك':`تجاوزت الحد بـ ${fmtH(r.soc-lim)}`}</div>`:''}</div>`;
-    if(r.top&&r.top.length)h+=`<details><summary class="set-row" style="cursor:pointer"><span style="flex:1">أكثر التطبيقات استخداماً</span><span class="t2">▾</span></summary><div class="chl-apps">${r.top.map(([n,m,s])=>`<div><span>${s===1?'📱 ':s===2?'🌐 ':''}${esc(n)}${s===2?' <span class="t2">(نصفه تواصل)</span>':''}</span><span>${fmtH(m*60000)}</span></div>`).join('')}</div></details>`;
+    const c3=scr3(r);
+    if(c3){const g=gDis(c3.d,1);
+      h+=`<div class="set-row"><span class="ic">🌀</span><span style="flex:1"><span class="t1" style="display:block">التشتت</span><span class="t2">الحد ${fmtH(DL())} · التواصل وسامسونج إنترنت ويوتيوب وتويتر</span></span><b class="${GC[g]}">${fmtH(c3.d)}</b></div>
+      <div class="set-row"><span class="ic">🤖</span><span style="flex:1">العمل بالذكاء الاصطناعي</span><b>${fmtH(c3.a)}</b></div>
+      <div class="set-row"><span class="ic">📖</span><span style="flex:1"><span class="t1" style="display:block">استماع القرآن</span><span class="t2">SoundCloud، ويشمل التشغيل والشاشة مطفأة</span></span><b>${fmtH(c3.q)}</b></div>`}
+    if(typeof NB.btState==='function'){
+      if(!NB.btState())h+=`<button class="set-row" data-c="bt" style="width:100%;text-align:start"><span class="ic">🎧</span><span style="flex:1"><span class="t1" style="display:block">تسجيل ساعات السماعات</span><span class="t2" style="white-space:normal">اضغط ثم اسمح بـ"الأجهزة القريبة" لتسجيل اتصال سماعات البلوتوث</span></span><span class="t2">›</span></button>`;
+      else h+=`<div class="set-row"><span class="ic">🎧</span><span style="flex:1"><span class="t1" style="display:block">السماعات</span><span class="t2">وقت اتصال سماعات البلوتوث</span></span><b>${r.hp!=null?fmtH(r.hp):'—'}</b></div>`}
+    if(r.ap){const L=Object.keys(r.ap).map(p=>[p,r.ap[p][0],+r.ap[p][1]]).sort((a,b)=>b[2]-a[2]).slice(0,10);
+      if(L.length)h+=`<details><summary class="set-row" style="cursor:pointer"><span style="flex:1">أكثر التطبيقات استخداماً</span><span class="t2">▾</span></summary><div class="t2" style="padding:4px 14px">اضغط على التطبيق لتغيير تصنيفه</div><div class="chl-apps">${L.map(([p,n,m])=>{const c=clsOf(p);return `<div data-cls="${esc(p)}" style="cursor:pointer"><span>${CLS[c][1]?CLS[c][1]+' ':''}${esc(n)} <span class="t2">(${CLS[c][0]})</span></span><span>${fmtH(m*60000)}</span></div>`}).join('')}</div></details>`}
+    else if(r.top&&r.top.length)h+=`<details><summary class="set-row" style="cursor:pointer"><span style="flex:1">أكثر التطبيقات استخداماً</span><span class="t2">▾</span></summary><div class="chl-apps">${r.top.map(([n,m,s])=>`<div><span>${s===1?'📱 ':s===2?'🌐 ':''}${esc(n)}${s===2?' <span class="t2">(نصفه تواصل)</span>':''}</span><span>${fmtH(m*60000)}</span></div>`).join('')}</div></details>`;
   }
   return h+'</div>';
 }
@@ -923,6 +967,7 @@ function setHtml(){
   return `<h2>الإعدادات</h2><div class="list">
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">هدف الورد اليومي</span><span class="t2">عدد الصفحات</span></span><input class="chl-num" id="chlTarget" inputmode="numeric" value="${T()}"></div>
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">حد التواصل الاجتماعي اليومي</span><span class="t2">يُحسب نصف وقت سامسونج إنترنت (تويتر ويوتيوب)</span></span><select class="pill" id="chlSoc">${[15,30,45,60,90,120,180].map(v=>`<option value="${v}"${+D.cfg.soc===v?' selected':''}>${v<60?v+' د':(v/60)+' س'}</option>`).join('')}</select></div>
+    <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">حد التشتت اليومي</span><span class="t2">التواصل وسامسونج إنترنت ويوتيوب وتويتر كاملة</span></span><select class="pill" id="chlDis">${[30,60,90,120,150,180,240].map(v=>`<option value="${v}"${+D.cfg.dis===v?' selected':''}>${v<60?v+' د':(v/60)+' س'}</option>`).join('')}</select></div>
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">ساعات العمل الأسبوعية</span><span class="t2">لحساب قيمة ساعتك من متوسط دخلك</span></span><select class="pill" id="chlWork">${[30,35,40,42,45,48,50,55,60].map(v=>`<option value="${v}"${+D.cfg.work===v?' selected':''}>${v}</option>`).join('')}</select></div></div>`;
 }
 function renderDay(){if($id('chl').hidden)return;const y=$id('chl').scrollTop;$id('chlBody').innerHTML=dayHtml()+setHtml();$id('chl').scrollTop=y}
@@ -956,6 +1001,16 @@ function build(r){
      pages>=604?`ما قرأته يعادل ${(pages/604).toFixed(1)} ختمة.`:''].filter(Boolean)})}
   {const wd=V.filter(x=>x.h.includes('witr')).length,g=gV(wd,nd),wst=streakOf(x=>x.h.includes('witr'));
    W.push({h:'صلاة الوتر',p:[nd===1?(wd?tk('b','أوترت، تقبّل الله منك.'):tk('r','لم يُسجَّل الوتر.')):`أوترت في ${tk(g,`${wd} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(wd,nd)+'٪')}.${wst>1?` والمواظبة الحالية ${wst} ${unit(wst)} متتالية.`:''}`]})}
+  {const sc=V.reduce((a,x)=>a+x.sn.length,0),g=gS(sc,nd),d4=V.filter(x=>x.sn.length>=4).length,d2=V.filter(x=>x.sn.length>=2&&x.sn.length<4).length;
+   W.push({h:'السنن الرواتب',p:[nd===1?`صلّيت ${tk(g,`${sc} من 4`)} من السنن الرواتب.`:`صلّيت ${sc} من ${nd*4} سنة راتبة، بنسبة ${tk(g,pc(sc,nd*4)+'٪')}.`,
+     nd>1?`أيام السنن الأربع كاملة: ${tk('b',d4)}، وأيام اثنتين أو ثلاث: ${tk('k',d2)}، وأيام أقل من اثنتين: ${tk('r',nd-d4-d2)}.`:''].filter(Boolean),b:nd>1?SN.map(([k,n])=>`${n}: ${V.filter(x=>x.sn.includes(k)).length} من ${nd}`):[]})}
+  {const qd=V.filter(x=>x.h.includes('qiyam')),qk=qd.reduce((a,x)=>a+(+x.qk||0),0),nt=V.filter(x=>x.h.includes('qnt')).length;
+   W.push({h:'قيام الليل',p:[nd===1?(qd.length?tk('b',`قمت الليل${qk?` (${qk} ركعة)`:''}.`):tk('r','لم يُسجَّل قيام الليل.')):`قمت الليل في ${tk(gV(qd.length,nd),`${qd.length} من ${nd}`)} يوماً، بنسبة ${tk(gV(qd.length,nd),pc(qd.length,nd)+'٪')}${qk?`، ومجموع الركعات المسجلة ${qk}`:''}.`]});
+   W.push({h:'القنوت',p:[nd===1?(nt?tk('b','قنتَّ.'):tk('r','لم يُسجَّل القنوت.')):`قنتَّ في ${tk(gV(nt,nd),`${nt} من ${nd}`)} يوماً، بنسبة ${tk(gV(nt,nd),pc(nt,nd)+'٪')}.`]})}
+  {const bd=ks.filter(k=>brOk(peek(k))),g=gV(bd.length,nd),tc={};bd.forEach(k=>(peek(k).br.t||[]).forEach(t=>tc[t]=(tc[t]||0)+1));
+   const notes=nd<=31?bd.map(k=>{const b=peek(k).br;const ty=(b.t||[]).map(t=>(BR.find(x=>x[0]===t)||[0,t])[1]).join('، ');return `${kdate(k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})}: ${[ty,b.n].filter(Boolean).join(' · ')}`}):[];
+   W.push({h:'برّ الوالدين',p:[nd===1?(bd.length?tk('b','بررت والديك اليوم، تقبّل الله منك.'):tk('r','لم يُسجَّل البر اليوم.')):`بررت والديك في ${tk(g,`${bd.length} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(bd.length,nd)+'٪')}.`,
+     Object.keys(tc).length?`الأنواع: ${BR.filter(x=>tc[x[0]]).map(x=>`${x[1]} ${tc[x[0]]}`).join('، ')}.`:''].filter(Boolean),b:notes})}
   const am=V.filter(x=>x.h.includes('am')).length,pm=V.filter(x=>x.h.includes('pm')).length;
   W.push({h:'الأذكار',p:[`أذكار الصباح ${tk(gV(am,nd),`${am} من ${nd}`)} (${pc(am,nd)}٪)، وأذكار المساء ${tk(gV(pm,nd),`${pm} من ${nd}`)} (${pc(pm,nd)}٪).`]});
   const td=V.filter(x=>x.h.includes('tdb')),ta=td.reduce((a,x)=>a+(+x.ta||0),0);
@@ -967,17 +1022,27 @@ function build(r){
   /* الصحة والوقت */
   const H=[],av=f=>{const v=V.map(x=>x[f]).filter(x=>x!=null);return v.length?{a:v.reduce((p,c)=>p+ +c,0)/v.length,s:v.reduce((p,c)=>p+ +c,0),n:v.length}:null};
   const sl=av('slp'),st=av('stp'),ex=av('exm'),ca=av('cal'),ki=av('kin'),sc=av('scr'),so=av('soc');
-  if(sl)H.push({h:'النوم',p:[nd===1?`نمت ${fmtH(sl.a)}.`:`متوسط نومك ${fmtH(sl.a)} في ${sl.n} ليلة، منها ${V.filter(x=>x.slp!=null&&x.slp<6*36e5).length} ليالٍ أقل من 6 ساعات.`]});
+  if(sl){const nm=V.filter(x=>x.slpSrc==='m').length,nw=V.filter(x=>x.slpSrc==='w').length;
+    H.push({h:'النوم',p:[nd===1?`نمت ${tk(gSlp(sl.a),fmtH(sl.a))}${V[0].slpSrc==='m'?' (تسجيل يدوي)':' (من الساعة)'}.`:`متوسط نومك ${tk(gSlp(sl.a),fmtH(sl.a))} في ${sl.n} ليلة (يدوي ${nm}، ومن الساعة ${nw}). ليالي 7 ساعات فأكثر: ${tk('b',V.filter(x=>x.slp>=7*36e5).length)}، ومن 6 إلى 7: ${tk('k',V.filter(x=>x.slp>=6*36e5&&x.slp<7*36e5).length)}، وأقل من 6: ${tk('r',V.filter(x=>x.slp!=null&&x.slp<6*36e5).length)}.`]})}
   if(st)H.push({h:'الحركة',p:[nd===1?`مشيت ${nf(st.a)} خطوة.`:`متوسط خطواتك ${nf(st.a)} يومياً (الإجمالي ${nf(st.s)})، وتجاوزت 8,000 خطوة في ${V.filter(x=>x.stp>=8000).length} يوم.`]});
   if(ex&&ex.s>0){const types={};V.forEach(x=>{if(x.exs)Object.keys(x.exs).forEach(t=>types[t]=(types[t]||0)+x.exs[t])});const exDays=V.filter(x=>x.exm>0).length,mins=Math.round(ex.s/60000);
     H.push({h:'الرياضة',p:[nd===1?`تمرّنت ${fmtH(ex.s)}.`:`تمرّنت ${mins} دقيقة في ${exDays} يوم${nd>=7?`، أي نحو ${Math.round(mins/nd*7)} دقيقة أسبوعياً، والتوصية الصحية العامة 150 دقيقة أسبوعياً على الأقل`:''}.`],b:Object.keys(types).sort((a,b)=>types[b]-types[a]).map(t=>`${t}: ${types[t]} دقيقة`)})}
   if(ca||ki)H.push({h:'السعرات',p:[ca?`متوسط السعرات المحروقة بالنشاط ${nf(ca.a)} يومياً.`:'',ki?`متوسط السعرات المتناولة المسجلة ${nf(ki.a)} يومياً.`:''].filter(Boolean)});
   const fd=FOOD.map(([k,nm])=>[nm,V.filter(x=>x.food===k).length]).filter(x=>x[1]);
-  if(fd.length)H.push({h:'الطعام',p:[`تقييمك لطعامك: ${fd.map(([nm,c])=>`${nm} ${c}`).join('، ')}${nd>1?` من ${nd} يوم`:''}.`]});
+  {const mb=MEAL.map(([mk,mn])=>{const c=FOOD.map(([fk,fn])=>[fk,fn,V.filter(x=>x.ml&&x.ml[mk]===fk).length]).filter(z=>z[2]);if(!c.length)return'';
+      return `${mk==='d'?'⭐ ':''}${mn}: ${c.map(([fk,fn,n])=>tk(MG[fk],`${fn} ${n}`)).join('، ')}`}).filter(Boolean);
+    if(mb.length||fd.length)H.push({h:'الطعام',p:[mb.length?`تقييم الوجبات${nd>1?` في ${nd} يوماً`:''} (متوازن أزرق، مقبول أسود، مفرط أحمر):`:'',fd.length?`التقييم العام السابق: ${fd.map(([nm,c])=>`${nm} ${c}`).join('، ')}.`:''].filter(Boolean),b:mb})}
   if(so){const lim=(+D.cfg.soc||60)*60000,ok=V.filter(x=>x.soc!=null&&x.soc<=lim).length;H.push({h:'تحدي قلة التواصل الاجتماعي',p:[`بقيت تحت الحد (${fmtH(lim)}) في ${ok} من ${so.n} يوم، بنسبة ${pc(ok,so.n)}٪.`]})}
   if(sc)H.push({h:'الشاشة والتواصل الاجتماعي',p:[`متوسط وقت الشاشة ${fmtH(sc.a)} يومياً${so?`، منه ${fmtH(so.a)} للتواصل الاجتماعي (الإجمالي ${fmtH(so.s)})`:''}.`]});
+  {const C=V.map(scr3).filter(Boolean);if(C.length){const n3=C.length,sd=C.reduce((a,c)=>a+c.d,0),sa=C.reduce((a,c)=>a+c.a,0),sq=C.reduce((a,c)=>a+c.q,0),ok=C.filter(c=>c.d<=DL()).length;
+    H.push({h:'التشتت والعمل والاستماع',p:[n3===1?`التشتت ${tk(gDis(sd,1),fmtH(sd))} (الحد ${fmtH(DL())})، والعمل بالذكاء الاصطناعي ${fmtH(sa)}، واستماع القرآن ${fmtH(sq)}.`:
+      `متوسط التشتت ${tk(gDis(sd,n3),fmtH(sd/n3))} يومياً (الحد ${fmtH(DL())})، وبقيت ضمن الحد في ${tk(gV(ok,n3),`${ok} من ${n3}`)} يوماً.`,
+      n3>1?`العمل بالذكاء الاصطناعي ${fmtH(sa)} (بمتوسط ${fmtH(sa/n3)} يومياً)، واستماع القرآن ${fmtH(sq)} (بمتوسط ${fmtH(sq/n3)} يومياً).`:''].filter(Boolean)})}}
+  {const hp=av('hp');if(hp)H.push({h:'السماعات',p:[nd===1?`اتصلت السماعات ${fmtH(hp.s)}.`:`مجموع اتصال السماعات ${fmtH(hp.s)} في ${hp.n} يوماً، بمتوسط ${fmtH(hp.a)} يومياً.`]})}
   if(!H.length)H.push({h:'لا توجد بيانات',p:['اربط بيانات الساعة ووقت الشاشة من صفحة تحدياتي، وسجّل تقييم طعامك، لتظهر هنا.']});
   out.aspects.push({h:'🩺 الصحة والوقت',sections:H});
+  /* ميزان الأبعاد الأربعة */
+  out.aspects.push(balanceAspect(ks,end,nd));
   /* الربط اليومي */
   if(A)out.aspects.push(linkAspect(ks,end,nd));
   /* الخلاصة */
@@ -994,7 +1059,7 @@ function build(r){
   {const ds=past.filter(k=>peek(k).scr!=null),dn=ds.filter(k=>wp(peek(k))>=T()),nn=ds.filter(k=>wp(peek(k))<T());
     if(dn.length>=5&&nn.length>=5){const a=x=>x.reduce((p,k)=>p+peek(k).scr,0)/x.length;X.push(`في الأيام التي أتممت فيها الورد كان متوسط وقت الشاشة ${fmtH(a(dn))}، مقابل ${fmtH(a(nn))} في غيرها.`)}}
   const wdn=V.filter(x=>x.h.includes('witr')).length;
-  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
+  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50],['قيام الليل',pc(V.filter(x=>x.h.includes('qiyam')).length,nd),50],['القنوت',pc(V.filter(x=>x.h.includes('qnt')).length,nd),50],['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50],['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
   if(so)items.push(['قلة التواصل الاجتماعي',pc(V.filter(x=>x.soc!=null&&x.soc<=(+D.cfg.soc||60)*60000).length,so.n)]);
   if(st)items.push(['الحركة (8,000 خطوة)',pc(V.filter(x=>x.stp>=8000).length,st.n)]);
   if(sl)items.push(['النوم (6 ساعات فأكثر)',pc(V.filter(x=>x.slp>=6*36e5).length,sl.n)]);
@@ -1011,6 +1076,84 @@ function build(r){
 const tokH=t=>t.replace(/⟦([bkr])\|([^⟧]*)⟧/g,(m,g,x)=>`<b class="${GC[g]}">${x}</b>`);
 const tokT=t=>String(t).replace(/⟦[bkr]\|([^⟧]*)⟧/g,'$1');
 const GLEG=`<div class="t2 g-leg"><b class="pc-b">أزرق</b> الهدف كاملاً · <b class="pc-k">أسود</b> بلغ الحد · <b class="pc-r">أحمر</b> دون الحد</div>`;
+
+/* ميزان الأبعاد الأربعة: القلبي والنفسي والجسدي والاقتصادي */
+function heartOf(r){const it=[Math.min(r.j.length,5)/5,Math.min(wp(r),T())/T(),r.h.includes('witr')?1:0,Math.min(r.sn.length,4)/4,r.h.includes('qiyam')?1:0,brOk(r)?1:0,r.h.includes('am')?1:0,r.h.includes('pm')?1:0];return it.reduce((a,b)=>a+b,0)/it.length}
+function balanceAspect(ks,end,nd){
+  const A=api(),S=[];
+  let base=0;if(A){if(nd>=7)base=ks.reduce((a,k)=>a+A.dayExpense(k),0)/nd;else{let t=0;for(let i=1;i<=30;i++)t+=A.dayExpense(addDays(end,-(nd-1)-i));base=t/30}}
+  const rows=ks.map(k=>{const r=peek(k),c=scr3(r),tx=A&&A.dayTx?A.dayTx(k):[],sp=A?A.dayExpense(k):0,nx=peek(addDays(k,1));
+    const ht=trk(k)?heartOf(r):null;
+    const gm=!A?null:sp<=base||sp===0?'b':sp<=base*1.5?'k':'r';
+    return{k,r,c,tx,sp,nx,ht,
+      gH:ht==null?null:G(ht,1,0.5),gN:c?gDis(c.d,1):null,gB:worst([gSlp(r.slp),gStep(r.stp)]),gM:gm,
+      food:tx.filter(x=>x.f).reduce((a,x)=>a+x.a,0),din:r.ml&&r.ml.d}});
+  const DIM=[['gH','🤍 القلبي','العبادات: الجماعة والورد والوتر والسنن والقيام والبر والأذكار'],['gN','🧠 النفسي',`التشتت على الشاشة (الحد ${fmtH(DL())})`],['gB','💪 الجسدي','النوم (7 ساعات أزرق، 6 أسود) والخطوات (8,000 أزرق، 5,000 أسود)'],['gM','💰 الاقتصادي',A?`المصروف مقابل معدل ${money(base)} يومياً (حتى مرة ونصف أسود)`:'']];
+  const note='كل بُعد يُقرأ بلونه: أزرق مكتمل، وأسود بلغ الحد، وأحمر دونه. الترابطات في بياناتك وليست دليلاً على السبب.';
+  if(nd===1){const x=rows[0],c=x.c;
+    S.push({h:'ميزان اليوم',b:[
+      `🤍 القلبي: ${x.ht==null?'لم تُسجَّل عبادات':tk(x.gH,pc(x.ht,1)+'٪')}${x.ht!=null?` (الجماعة ${x.r.j.length}/5، الورد ${wp(x.r)}/${T()}، السنن ${x.r.sn.length}/4، الوتر ${x.r.h.includes('witr')?'✓':'✗'}، القيام ${x.r.h.includes('qiyam')?'✓':'✗'}، البر ${brOk(x.r)?'✓':'✗'})`:''}.`,
+      `🧠 النفسي: ${c?`التشتت ${tk(x.gN,fmtH(c.d))}، والعمل بالذكاء الاصطناعي ${fmtH(c.a)}، واستماع القرآن ${fmtH(c.q)}`:'وقت الشاشة غير متاح'}${x.r.hp!=null?`، والسماعات ${fmtH(x.r.hp)}`:''}.`,
+      `💪 الجسدي: النوم ${x.r.slp==null?'غير مسجل':tk(gSlp(x.r.slp),fmtH(x.r.slp))}، والخطوات ${x.r.stp==null?'غير متاحة':tk(gStep(x.r.stp),nf(x.r.stp))}${x.din?`، والعشاء ${tk(MG[x.din],FOOD.find(f=>f[0]===x.din)[1])}`:''}.`,
+      A?`💰 الاقتصادي: صرفت ${tk(x.gM,money(x.sp))}${x.food?`، منها للطعام ${money(x.food)}`:''}.`:''].filter(Boolean)});
+    if(x.tx.length){const by={};x.tx.forEach(t=>{const kk=t.i+' '+t.c+(t.m?` (${(MEALS_AR[t.m]||'')})`:'');by[kk]=(by[kk]||0)+t.a});
+      S.push({h:'على ماذا صرفت',b:Object.keys(by).sort((a,b)=>by[b]-by[a]).map(k=>`${k}: ${money(by[k])}`)})}
+    return{h:'⚖️ ميزان الأبعاد الأربعة',note,grades:true,sections:S};
+  }
+  // عدّ الألوان لكل بُعد
+  let th='',tt='';
+  DIM.forEach(([f,n])=>{const v=rows.map(x=>x[f]).filter(Boolean);if(!v.length)return;const b=v.filter(g=>g==='b').length,k=v.filter(g=>g==='k').length,r=v.length-b-k;
+    th+=`<tr><td>${n}</td><td>${v.length}</td><td>${gcell('b',b)}</td><td>${gcell('k',k)}</td><td>${gcell('r',r)}</td></tr>`;tt+=`${n}: ${v.length} يوماً · أزرق ${b} · أسود ${k} · أحمر ${r}\n`});
+  if(th)S.push({h:'الأيام بالألوان',p:DIM.filter(d=>d[2]).map(d=>`${d[1]}: ${d[2]}.`),html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>البُعد</th><th>الأيام</th><th>أزرق</th><th>أسود</th><th>أحمر</th></tr>${th}</table></div>`,txt:tt});
+  // القراءة: مقارنات بين مجموعات الأيام
+  const M=[
+    ['القلب',x=>x.ht,v=>pc(v,1)+'٪',0.1],
+    ['التشتت',x=>x.c?x.c.d:null,fmtH,30*6e4],
+    ['العمل بالذكاء الاصطناعي',x=>x.c?x.c.a:null,fmtH,20*6e4],
+    ['استماع القرآن',x=>x.c?x.c.q:null,fmtH,15*6e4],
+    ['النوم',x=>x.r.slp,fmtH,30*6e4],
+    ['الصرف',x=>A?x.sp:null,money,base*0.2],
+    ['صرف الطعام',x=>A?x.food:null,money,base*0.1]];
+  const mean=(arr,f)=>{const v=arr.map(f).filter(z=>z!=null&&!isNaN(z));return v.length>=3?v.reduce((a,b)=>a+b,0)/v.length:null};
+  const R=[];
+  const cmp=(la,a,lb,b,skip)=>{if(a.length<3||b.length<3)return;const parts=[];
+    M.forEach(([n,f,fm,thr])=>{if(skip.includes(n))return;const va=mean(a,f),vb=mean(b,f);if(va==null||vb==null||Math.abs(va-vb)<thr||thr<=0)return;parts.push(`${n} ${fm(va)} مقابل ${fm(vb)}`)});
+    if(parts.length)R.push(`في ${la} (${a.length}) مقارنة بـ${lb} (${b.length}): ${parts.join('، و')}.`)};
+  const wS=rows.filter(x=>x.r.slp!=null);
+  cmp('أيام النوم الأقل من 6 ساعات',wS.filter(x=>x.r.slp<6*36e5),'أيام النوم الأطول',wS.filter(x=>x.r.slp>=6*36e5),['النوم']);
+  const wC=rows.filter(x=>x.c);
+  cmp('أيام التشتت فوق الحد',wC.filter(x=>x.c.d>DL()),'أيام التشتت ضمن الحد',wC.filter(x=>x.c.d<=DL()),['التشتت']);
+  cmp('أيام العمل بالذكاء الاصطناعي ساعة فأكثر',wC.filter(x=>x.c.a>=36e5),'الأيام الأقل',wC.filter(x=>x.c.a<36e5),['العمل بالذكاء الاصطناعي']);
+  cmp('أيام استماع القرآن نصف ساعة فأكثر',wC.filter(x=>x.c.q>=18e5),'الأيام الأقل',wC.filter(x=>x.c.q<18e5),['استماع القرآن']);
+  const wT=rows.filter(x=>x.ht!=null);
+  cmp('أيام السنن الأربع كاملة',wT.filter(x=>x.r.sn.length>=4),'غيرها',wT.filter(x=>x.r.sn.length<4),['القلب']);
+  if(A)cmp('أيام الصرف فوق المعدل',rows.filter(x=>x.sp>base&&x.sp>0),'أيام الصرف ضمن المعدل',rows.filter(x=>!(x.sp>base&&x.sp>0)),['الصرف','صرف الطعام']);
+  S.push({h:'القراءة',p:R.length?[]:['لا يظهر فرق واضح بعد، أو أن الأيام المسجلة في كل مجموعة أقل من ثلاثة.'],b:R});
+  // العشاء: أثره على ليلته وفجر اليوم التالي
+  {const dn=rows.filter(x=>x.din&&x.k<end),D2=[];
+    const grpD=v=>dn.filter(x=>x.din===v);
+    const desc=(arr,lbl)=>{if(!arr.length)return;const sl=arr.map(x=>x.nx.slp).filter(z=>z!=null),fj=arr.filter(x=>x.nx.j.includes('fajr')).length,qy=arr.filter(x=>x.r.h.includes('qiyam')||x.nx.h.includes('qiyam')).length;
+      D2.push(`بعد عشاء ${lbl} (${nDays(arr.length)}): ${sl.length?`النوم ${tk(gSlp(sl.reduce((a,b)=>a+b,0)/sl.length),fmtH(sl.reduce((a,b)=>a+b,0)/sl.length))}، و`:''}الفجر جماعةً ${tk(gV(fj,arr.length),`${fj} من ${arr.length}`)}، وقيام الليل ${qy} من ${arr.length}.`)};
+    desc(grpD('b'),'متوازن');desc(grpD('m'),'مقبول');desc(grpD('x'),'مفرط');
+    if(A){const ms=MEAL.map(([mk,mn])=>{const t=rows.reduce((a,x)=>a+x.tx.filter(z=>z.m===mk).reduce((p,z)=>p+z.a,0),0),c=rows.reduce((a,x)=>a+x.tx.filter(z=>z.m===mk).length,0);return t?`${mk==='d'?'⭐ ':''}${mn}: ${money(t)} في ${nTimes(c)}`:''}).filter(Boolean);
+      const un=rows.reduce((a,x)=>a+x.tx.filter(z=>z.f&&!z.m).reduce((p,z)=>p+z.a,0),0);if(un)ms.push(`طعام بلا وجبة محددة: ${money(un)}`);
+      if(ms.length)D2.push(...ms.map(m=>'الصرف: '+m))}
+    if(D2.length)S.push({h:'⭐ العشاء والوجبات',p:['يُقرأ العشاء مع نوم ليلته وفجر اليوم التالي. التقييم من صفحة "طعامي اليوم"، والصرف من الوجبة المحددة في المصروف.'],b:D2})}
+  // على ماذا صُرف
+  if(A){const by={};rows.forEach(x=>x.tx.forEach(t=>{const k=t.i+' '+t.c;(by[k]=by[k]||{a:0,d:new Set()}).a+=t.a;by[k].d.add(x.k)}));
+    const tot=Object.values(by).reduce((a,v)=>a+v.a,0);
+    const L=Object.keys(by).sort((a,b)=>by[b].a-by[a].a).slice(0,8).map(k=>`${k}: ${money(by[k].a)} (${pc(by[k].a,tot)}٪) في ${nDays(by[k].d.size)}`);
+    if(L.length)S.push({h:'على ماذا صُرف',p:[`المصروف المعتاد ${money(tot)}، وأكبر البنود:`],b:L})}
+  // جدول يومي
+  if(nd<=31){let h2='',t2='';rows.slice().reverse().forEach(x=>{const d=kdate(x.k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'numeric'});
+      h2+=`<tr><td>${d}</td><td>${x.gH?gcell(x.gH,pc(x.ht,1)+'٪'):'—'}</td><td>${x.c?gcell(x.gN,hrs(x.c.d)):'—'}</td><td>${x.c?hrs(x.c.a):'—'}</td><td>${x.r.slp!=null?gcell(gSlp(x.r.slp),hrs(x.r.slp)):'—'}</td><td>${x.din?gcell(MG[x.din],FOOD.find(f=>f[0]===x.din)[1]):'—'}</td><td>${A?gcell(x.gM,A.fmt(x.sp)):'—'}</td></tr>`;
+      t2+=`${d}: قلب ${x.ht!=null?pc(x.ht,1)+'٪':'—'} · تشتت ${x.c?hrs(x.c.d):'—'} · ذكاء اصطناعي ${x.c?hrs(x.c.a):'—'} · نوم ${x.r.slp!=null?hrs(x.r.slp):'—'} · عشاء ${x.din?FOOD.find(f=>f[0]===x.din)[1]:'—'} · صرف ${A?A.fmt(x.sp):'—'}\n`});
+    S.push({h:'يوماً بيوم',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>اليوم</th><th>القلب</th><th>تشتت</th><th>ذكاء</th><th>نوم</th><th>عشاء</th><th>صرف</th></tr>${h2}</table></div>`,txt:t2})}
+  return{h:'⚖️ ميزان الأبعاد الأربعة: القلب والنفس والجسد والمال',note,grades:true,sections:S};
+}
+const MEALS_AR={b:'فطور',l:'غداء',d:'عشاء',w:'وجبة العمل'};
+const nDays=n=>n===1?'يوم واحد':n===2?'يومين':n<=10?n+' أيام':n+' يوماً';
+const nTimes=n=>n===1?'مرة واحدة':n===2?'مرتين':n<=10?n+' مرات':n+' مرة';
 function linkAspect(ks,end,nd){
   const A=api(),SCR=4*36e5,STP=5000,LST=8000;
   const rows=ks.map(k=>{const r=peek(k);return{k,r,scr:r.scr,stp:r.stp,sp:A.dayExpense(k),j:r.j.length,w:wp(r),wt:r.h.includes('witr'),tr:trk(k)}});
@@ -1096,9 +1239,25 @@ function syncUsage(){
     if(!o)continue;let soc=0;const list=[];
     Object.keys(o.apps||{}).forEach(p=>{const[l,ms]=o.apps[p],s=SOCIAL.has(p),hf=HALF.has(p);if(s)soc+=ms;else if(hf)soc+=ms/2;list.push([l,Math.round(ms/60000),s?1:hf?2:0])});
     list.sort((a,b)=>b[1]-a[1]);const r=day(k);r.scr=o.total;r.soc=soc;r.top=list.slice(0,6);
+    const ap={};Object.keys(o.apps||{}).forEach(p=>{const[l,ms]=o.apps[p];ap[p]=[l,Math.round(ms/60000)]});r.ap=ap;
+    const sv={};Object.keys(o.svc||{}).forEach(p=>{if(clsOf(p)==='q'||QURAN.has(p))sv[p]=Math.round(o.svc[p]/60000)});r.sv=sv;
   }
   save();
 }
+/* السماعات: سجل اتصال سماعات البلوتوث، يُحوَّل إلى ساعات لكل يوم */
+function syncHeadset(){
+  if(!NB||typeof NB.getHeadset!=='function'||!NB.btState())return;
+  let o=null;try{o=JSON.parse(NB.getHeadset())}catch(e){}if(!o)return;
+  const now=Date.now(),CAP=12*36e5,open={},iv=[];
+  String(o.log||'').split(',').filter(Boolean).forEach(x=>{const[t,ts,dv]=x.split('|'),v=+ts;if(!v)return;const d=dv||'0';
+    if(t==='c'){if(open[d]==null)open[d]=v}else if(open[d]!=null){iv.push([open[d],Math.min(v,open[d]+CAP)]);delete open[d]}});
+  Object.keys(open).forEach(d=>iv.push([open[d],o.on?now:Math.min(now,open[d]+CAP)]));
+  iv.sort((a,b)=>a[0]-b[0]);const mg=[];iv.forEach(x=>{const l=mg[mg.length-1];if(l&&x[0]<=l[1])l[1]=Math.max(l[1],x[1]);else mg.push(x.slice())});
+  const by={};mg.forEach(([a,b])=>{let s=a;while(s<b){const k=dkey(new Date(s)),e=Math.min(b,kdate(addDays(k,1)).getTime());by[k]=(by[k]||0)+(e-s);s=e}});
+  const since=D.cfg.btSince||today();for(let k=since;k<=today();k=addDays(k,1))day(k).hp=by[k]||0;
+  Object.keys(by).forEach(k=>{if(k<since)day(k).hp=by[k]});save();
+}
+window.__chlBtPerm=function(ok){if(ok){if(!D.cfg.btSince)D.cfg.btSince=today();save();toast('سيُسجَّل اتصال السماعات من الآن');syncHeadset()}else toast('لم يُمنح إذن الأجهزة القريبة');renderDay()};
 function syncHealth(){
   if(!HAS_HEALTH)return;const hs=NB.healthState();if(hs<=0)return;
   const now=Date.now(),first=!D.cfg.hc30,n=first?30:9;NB.readSleep(now-(n+1)*864e5,now);NB.readHealth(n);if(first){D.cfg.hc30=1;save()}
@@ -1115,10 +1274,10 @@ window.__chlHealth=function(kind,obj){
   save();renderDay();
 };
 window.__chlSleepPerm=function(ok){if(ok){toast('تم ربط بيانات الساعة');syncHealth()}else toast('لم تُمنح كل الأذونات. تأكد أن سامسونج هيلث متصل بـ Health Connect');renderDay()};
-function syncAll(){syncJam();syncUsage();syncHealth();updateStrip();renderDay()}
+function syncAll(){syncJam();syncUsage();syncHeadset();syncHealth();updateStrip();renderDay()}
 
 /* ---------- اسأل عن العلاقات ---------- */
-const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.h&&r.h.length)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0)))};
+const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.h&&r.h.length)||(r.sn&&r.sn.length)||brOk(r)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0)))};
 const MET=[
  {k:'spend',n:'المصروف المعتاد',u:'money',f:k=>{const A=api();return A?A.dayExpense(k):null},any:true},
  {k:'jama',n:'صلاة الجماعة',u:'صلاة',f:k=>trk(k)?peek(k).j.length:null},
@@ -1127,6 +1286,13 @@ const MET=[
  {k:'tdb',n:'جلسة التدبر',u:'جلسة',f:k=>trk(k)?(peek(k).h.includes('tdb')?1:0):null},
  {k:'witr',n:'صلاة الوتر',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('witr')?1:0):null},
  {k:'fad',n:'فضائل الصلاة',u:'مرة',f:k=>trk(k)?CN.reduce((a,c)=>a+cnt(peek(k),c.k),0):null},
+ {k:'sunnah',n:'السنن الرواتب',u:'من 4',f:k=>trk(k)?peek(k).sn.length:null},
+ {k:'qiyam',n:'قيام الليل',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('qiyam')?1:0):null},
+ {k:'birr',n:'برّ الوالدين',u:'مرة',f:k=>trk(k)?(brOk(peek(k))?1:0):null},
+ {k:'dis',n:'التشتت',u:'h',f:k=>{const c=scr3(peek(k));return c?c.d/36e5:null}},
+ {k:'ai',n:'العمل بالذكاء الاصطناعي',u:'h',f:k=>{const c=scr3(peek(k));return c?c.a/36e5:null}},
+ {k:'qr',n:'استماع القرآن',u:'h',f:k=>{const c=scr3(peek(k));return c?c.q/36e5:null}},
+ {k:'hp',n:'السماعات',u:'h',f:k=>{const v=peek(k).hp;return v==null?null:v/36e5}},
  {k:'soc',n:'التواصل الاجتماعي',u:'h',f:k=>{const v=peek(k).soc;return v==null?null:v/36e5}},
  {k:'scr',n:'وقت الشاشة',u:'h',f:k=>{const v=peek(k).scr;return v==null?null:v/36e5}},
  {k:'slp',n:'النوم',u:'h',f:k=>{const v=peek(k).slp;return v==null?null:v/36e5}},
@@ -1140,7 +1306,7 @@ function rangeKeys(from,to){const r=[];for(let k=from;k<=to;k=addDays(k,1))r.pus
 function avgOver(m,keys){const v=keys.map(m.f).filter(x=>x!=null&&!isNaN(x));return v.length?{a:v.reduce((p,c)=>p+c,0)/v.length,s:v.reduce((p,c)=>p+c,0),n:v.length}:null}
 function baseline(){const t=today(),ks=rangeKeys(addDays(t,-89),addDays(t,-1));return ks}
 function cmpTxt(v,b,m){if(v==null||!b||!b.a)return'';const d=(v-b.a)/b.a*100;if(Math.abs(d)<5)return'<span class="t2">قريب من معدلك</span>';
-  const up=d>0,good=m.k==='spend'||m.k==='soc'||m.k==='scr'?!up:up;return `<b class="${good?'pc-b':'pc-r'}">${up?'▲':'▼'} ${Math.round(Math.abs(d))}٪</b>`}
+  const up=d>0,good=m.k==='spend'||m.k==='soc'||m.k==='scr'||m.k==='dis'?!up:up;return `<b class="${good?'pc-b':'pc-r'}">${up?'▲':'▼'} ${Math.round(Math.abs(d))}٪</b>`}
 function periodCard(){
   const isDay=AQ.mode==='day',t=today();
   let keys,title;
@@ -1216,6 +1382,8 @@ $id('chl').addEventListener('click',e=>{
     else if(a==='usage')NB.openUsageSettings();
     else if(a==='health')NB.requestHealth();
     else if(a==='report')openRep();
+    else if(a==='bt')NB.requestBt();
+    else if(a==='slpclr'){const r=day(sel);delete r.slpM;delete r.slpA;delete r.slpB;save();renderDay()}
     else if(a==='ask')openAsk();
     return}
   const w=e.target.closest('[data-wp]');
@@ -1224,6 +1392,14 @@ $id('chl').addEventListener('click',e=>{
   if(j){const r=day(sel),k=j.dataset.j,i=r.j.indexOf(k);if(i>=0)r.j.splice(i,1);else{r.j.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
   const hb=e.target.closest('[data-h]');
   if(hb){const r=day(sel),k=hb.dataset.h,i=r.h.indexOf(k);if(i>=0)r.h.splice(i,1);else{r.h.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
+  const sn=e.target.closest('[data-sn]');
+  if(sn){const r=day(sel),k=sn.dataset.sn,i=r.sn.indexOf(k);if(i>=0)r.sn.splice(i,1);else{r.sn.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
+  const br=e.target.closest('[data-br]');
+  if(br){const r=day(sel);r.br=r.br||{t:[],n:''};r.br.t=r.br.t||[];const k=br.dataset.br,i=r.br.t.indexOf(k);if(i>=0)r.br.t.splice(i,1);else{r.br.t.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
+  const ml=e.target.closest('[data-ml]');
+  if(ml){const r=day(sel);r.ml=r.ml||{};const k=ml.dataset.ml,v=ml.dataset.mv;if(r.ml[k]===v)delete r.ml[k];else r.ml[k]=v;save();renderDay();return}
+  const cl=e.target.closest('[data-cls]');
+  if(cl){const p=cl.dataset.cls;D.cfg.cls=D.cfg.cls||{};const nx=CLS_NEXT[clsOf(p)];D.cfg.cls[p]=nx;save();renderDay();toast('التصنيف: '+CLS[nx][0]);return}
   const f=e.target.closest('[data-food]');
   if(f){const r=day(sel);r.food=r.food===f.dataset.food?undefined:f.dataset.food;save();renderDay();return}
   const cb=e.target.closest('[data-cn]');
@@ -1235,6 +1411,12 @@ $id('chl').addEventListener('change',e=>{
   else if(e.target.dataset.cnin){const r=day(sel);r.cn=r.cn||{};r.cn[e.target.dataset.cnin]=Math.max(0,Math.round(+e.target.value||0));save();renderDay();updateStrip()}
   else if(id==='chlSoc'){D.cfg.soc=+e.target.value;save();renderDay();updateStrip()}
   else if(id==='chlTa'){day(sel).ta=Math.max(0,Math.round(+e.target.value||0));save();renderDay()}
+  else if(id==='chlQk'){day(sel).qk=Math.max(0,Math.round(+e.target.value||0));save();renderDay()}
+  else if(id==='chlBrN'){const r=day(sel);r.br=r.br||{t:[],n:''};r.br.n=e.target.value.trim();save();renderDay();updateStrip()}
+  else if(id==='chlDis'){D.cfg.dis=+e.target.value;save();renderDay()}
+  else if(id==='chlSa'||id==='chlSb'){const r=day(sel);r[id==='chlSa'?'slpA':'slpB']=e.target.value;
+    if(r.slpA&&r.slpB){const m=t=>{const[h,mi]=t.split(':').map(Number);return h*60+mi};let d=m(r.slpB)-m(r.slpA);if(d<=0)d+=1440;r.slpM=d*6e4;toast('سُجّل النوم: '+fmtH(r.slpM))}
+    save();renderDay()}
   else if(id==='chlWork'){D.cfg.work=+e.target.value;save()}
   else if(id==='chlTarget'){const v=Math.round(+e.target.value||0);if(v>0){D.cfg.wird=v;save();renderDay();updateStrip();toast('تم تحديث هدف الورد')}}
 });
@@ -2075,6 +2257,9 @@ function viewTx(){
 const FONT='IBM Plex Sans Arabic, sans-serif';
 const isEx=t=>t.type==='expense'&&(!!t.ex||!!catById(t.cat).noBudget);
 const usual=l=>l.filter(t=>!isEx(t));
+const isFoodCat=c=>!!c&&(c.id==='food'||/food|drink|restaurant|cafe|coffee|مطاعم|مطعم|طعام|أكل|اكل|وجبات|وجبة|قهوة|كافيه|افطار|إفطار|فطور|غداء|عشاء/i.test(c.name||''));
+const workCat=c=>!!c&&/العمل|work|office/i.test(c.name||'');
+const MEALS=[['b','فطور'],['l','غداء'],['d','عشاء'],['w','وجبة العمل']];
 const spentBy=list=>{const m={};list.forEach(t=>{if(t.type==='expense')m[t.cat]=(m[t.cat]||0)+ +t.amount});return m};
 function effBudget(c,k){const b=+c.budget||0;if(!b||!c.rollover)return b;const prev=spentBy(usual(txIn(shiftMonth(k,-1))))[c.id]||0;return b+Math.max(0,b-prev)}
 function totalBudget(k){const t=+S.settings.totalBudget||0;return t>0?t:expenseCats().reduce((a,c)=>a+effBudget(c,k),0)}
@@ -2830,6 +3015,7 @@ window.__mznApi={
   fmt:v=>fmt(v), cur:()=>curInfo()[0],
   avgIncome:()=>{const cp=curPeriod();let t=0,n=0;for(let i=1;i<=3;i++){const v=sum(txIn(shiftMonth(cp,-i)).filter(x=>x.type==='income'));if(v>0){t+=v;n++}}return n?t/n:0},
   dayExpense:d=>sum(usual(txOf(d.slice(0,7))).filter(x=>x.type==='expense'&&x.date===d)),
+  dayTx:d=>usual(txOf(d.slice(0,7))).filter(x=>x.type==='expense'&&x.date===d).map(x=>{const c=catById(x.cat);const f=isFoodCat(c);return{id:c.id,c:c.name,i:c.icon,a:+x.amount||0,m:x.meal||(f&&workCat(c)?'w':''),f,n:x.note||''}}),
   save:(name,text,mime)=>saveFile(name,text,mime),
   advice:()=>adviceSections(),
   audit:{accounts:()=>S.settings.accounts,cats:()=>S.settings.categories,all:()=>allTx(),
@@ -2959,6 +3145,7 @@ function txSheet(existing,preset){
     const isTr=t.type==='transfer';
     const cats=S.settings.categories.filter(c=>c.kind===t.type);
     if(!isTr&&!cats.some(c=>c.id===t.cat)) t.cat=cats[0]?cats[0].id:'';
+    if(!existing&&t.type==='expense'&&t.meal===undefined&&isFoodCat(catById(t.cat))){const h=new Date().getHours();t.meal=workCat(catById(t.cat))?'w':h>=4&&h<11?'b':h>=11&&h<16?'l':h>=18||h<4?'d':''}
     if(isTr&&(!t.to||t.to===t.acc)){const o=S.settings.accounts.find(a=>a.id!==t.acc);t.to=o?o.id:''}
     const fc=accCur(accById(t.acc)), tc=isTr?accCur(accById(t.to)):fc;
     openSheet(`<h3>${existing?'تعديل العملية':'عملية جديدة'}</h3>
@@ -2972,6 +3159,7 @@ function txSheet(existing,preset){
       <label class="field"><span>الوصف</span><input id="noteIn" value="${esc(t.note)}" placeholder="مثلاً: غداء مع الفريق، فاتورة الكهرباء…"></label>
       <label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
       ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
+      ${t.type==='expense'&&isFoodCat(catById(t.cat))?`<div class="field"><span>الوجبة</span><div class="chips">${MEALS.map(([k,n])=>`<button class="chip" data-k="meal" data-v="${k}" aria-pressed="${t.meal===k}">${k==='d'?'⭐ ':''}${n}</button>`).join('')}<button class="chip" data-k="meal" data-v="" aria-pressed="${!t.meal}">غير محددة</button></div></div>`:''}
       ${t.type==='expense'?`<label class="set-row" style="padding:0 2px 12px;border:0"><input type="checkbox" id="exIn" ${t.ex?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">مصروف استثنائي</span><span class="t2" style="white-space:normal">لا يدخل في حساب الميزانيات والمصروف المعتاد</span></span></label>`:''}
       <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
     b=>{
@@ -2994,6 +3182,7 @@ function txSheet(existing,preset){
         const rec={id:t.id,type:t.type,amount:fc===baseCur()?a:+(a*rateOf(fc)).toFixed(bdec),cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
         if(fc!==baseCur()) rec.oamt=a;
         if(t.type==='expense'&&t.ex) rec.ex=true;
+        if(t.type==='expense'&&t.meal&&isFoodCat(catById(rec.cat))) rec.meal=t.meal;
         if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3);
           const ur=b.querySelector('#updRate');if(ur&&ur.checked&&rec.toamt>0){S.settings.rates=S.settings.rates||{};if(fc===baseCur())S.settings.rates[tc]=+(a/rec.toamt).toFixed(6);else S.settings.rates[fc]=+(rec.toamt/a).toFixed(6);saveSettings()}}
         if(!existing&&t.rep){

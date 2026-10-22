@@ -124,6 +124,8 @@ jobs:
             <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
             <uses-permission android:name="android.permission.health.READ_NUTRITION" />
             <uses-permission android:name="android.permission.INTERNET" />
+          <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+          <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
             <queries>
               <intent>
                 <action android:name="android.intent.action.MAIN" />
@@ -160,6 +162,12 @@ jobs:
                   <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
                 </intent-filter>
               </activity-alias>
+              <receiver android:name=".HeadsetReceiver" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                  <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                </intent-filter>
+              </receiver>
               <receiver android:name=".PrayerReceiver" android:exported="true">
                 <intent-filter>
                   <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -275,6 +283,46 @@ jobs:
           }
           X
 
+          cat > $A/java/com/mizaniyati/app/HeadsetReceiver.java <<'X'
+          package com.mizaniyati.app;
+
+          import android.bluetooth.BluetoothClass;
+          import android.bluetooth.BluetoothDevice;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+
+          public class HeadsetReceiver extends BroadcastReceiver {
+            @Override
+            public void onReceive(Context c, Intent i) {
+              String a = i.getAction();
+              if (a == null) return;
+              try {
+                BluetoothDevice d = i.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (d == null) return;
+                BluetoothClass bc = d.getBluetoothClass();
+                if (bc == null || bc.getMajorDeviceClass() != BluetoothClass.Device.Major.AUDIO_VIDEO) return;
+                String t = BluetoothDevice.ACTION_ACL_CONNECTED.equals(a) ? "c" : "d";
+                log(c, t, Integer.toHexString(String.valueOf(d.getAddress()).hashCode()));
+              } catch (SecurityException e) { }
+            }
+
+            static synchronized void log(Context c, String t, String dev) {
+              SharedPreferences sp = c.getSharedPreferences("audio", Context.MODE_PRIVATE);
+              String v = sp.getString("log", "");
+              v = (v.isEmpty() ? "" : v + ",") + t + "|" + System.currentTimeMillis() + "|" + dev;
+              String[] parts = v.split(",");
+              if (parts.length > 3000) {
+                StringBuilder b = new StringBuilder();
+                for (int k = parts.length - 3000; k < parts.length; k++) { if (b.length() > 0) b.append(','); b.append(parts[k]); }
+                v = b.toString();
+              }
+              sp.edit().putString("log", v).apply();
+            }
+          }
+          X
+
           cat > $A/java/com/mizaniyati/app/MainActivity.java <<'X'
           package com.mizaniyati.app;
 
@@ -312,6 +360,8 @@ jobs:
           import android.hardware.biometrics.BiometricManager;
           import android.hardware.biometrics.BiometricPrompt;
           import android.location.Address;
+          import android.media.AudioDeviceInfo;
+          import android.media.AudioManager;
           import android.location.Geocoder;
           import android.location.Location;
           import android.location.LocationListener;
@@ -347,7 +397,7 @@ jobs:
           import org.json.JSONObject;
 
           public class MainActivity extends Activity {
-            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5;
+            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5, REQ_BT = 6;
             private static final String SLEEP_PERM = "android.permission.health.READ_SLEEP";
             private static final String[] HEALTH_PERMS = {SLEEP_PERM, "android.permission.health.READ_STEPS", "android.permission.health.READ_EXERCISE", "android.permission.health.READ_ACTIVE_CALORIES_BURNED", "android.permission.health.READ_NUTRITION"};
             private WebView web;
@@ -515,6 +565,34 @@ jobs:
               public String getUsage(long start, long end) { return usageJson(start, end); }
 
               @JavascriptInterface
+              public int btState() {
+                if (Build.VERSION.SDK_INT < 31) return 1;
+                return checkSelfPermission("android.permission.BLUETOOTH_CONNECT") == PackageManager.PERMISSION_GRANTED ? 1 : 0;
+              }
+
+              @JavascriptInterface
+              public void requestBt() {
+                runOnUiThread(() -> {
+                  if (Build.VERSION.SDK_INT < 31) { js("window.__chlBtPerm&&__chlBtPerm(true)"); return; }
+                  requestPermissions(new String[]{"android.permission.BLUETOOTH_CONNECT"}, REQ_BT);
+                });
+              }
+
+              @JavascriptInterface
+              public String getHeadset() {
+                boolean on = false;
+                try {
+                  AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+                  for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                    int t = d.getType();
+                    if (t == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || t == AudioDeviceInfo.TYPE_WIRED_HEADSET || t == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || t == AudioDeviceInfo.TYPE_USB_HEADSET || (Build.VERSION.SDK_INT >= 31 && t == AudioDeviceInfo.TYPE_BLE_HEADSET)) on = true;
+                  }
+                } catch (Exception e) { }
+                String log = getSharedPreferences("audio", MODE_PRIVATE).getString("log", "");
+                try { return new JSONObject().put("log", log).put("on", on).toString(); } catch (Exception e) { return "null"; }
+              }
+
+              @JavascriptInterface
               public int sleepState() {
                 if (Build.VERSION.SDK_INT < 34) return -1;
                 return checkSelfPermission(SLEEP_PERM) == PackageManager.PERMISSION_GRANTED ? 1 : 0;
@@ -623,7 +701,8 @@ jobs:
                 long until = Math.min(end, System.currentTimeMillis());
                 if (until <= start) return "{\"total\":0,\"apps\":{}}";
                 UsageEvents ev = um.queryEvents(start - 6 * 3600000L, until);
-                HashMap<String, Long> tot = new HashMap<>();
+                HashMap<String, Long> tot = new HashMap<>(), svc = new HashMap<>(), svcStart = new HashMap<>();
+                HashMap<String, Integer> svcN = new HashMap<>();
                 String fg = null;
                 long fs = 0;
                 UsageEvents.Event e = new UsageEvents.Event();
@@ -639,9 +718,26 @@ jobs:
                     if (fg != null && fg.equals(p)) { addSpan(tot, fg, fs, ts, start, until); fg = null; }
                   } else if (t == UsageEvents.Event.SCREEN_NON_INTERACTIVE || t == UsageEvents.Event.DEVICE_SHUTDOWN) {
                     if (fg != null) { addSpan(tot, fg, fs, ts, start, until); fg = null; }
+                    if (t == UsageEvents.Event.DEVICE_SHUTDOWN) {
+                      for (Map.Entry<String, Long> en : svcStart.entrySet()) addSpan(svc, en.getKey(), en.getValue(), ts, start, until);
+                      svcStart.clear(); svcN.clear();
+                    }
+                  } else if (t == UsageEvents.Event.FOREGROUND_SERVICE_START) {
+                    int n = svcN.getOrDefault(p, 0);
+                    if (n == 0) svcStart.put(p, ts);
+                    svcN.put(p, n + 1);
+                  } else if (t == UsageEvents.Event.FOREGROUND_SERVICE_STOP) {
+                    int n = svcN.getOrDefault(p, 0);
+                    if (n > 0) {
+                      if (n == 1) { Long st = svcStart.remove(p); if (st != null) addSpan(svc, p, st, ts, start, until); svcN.remove(p); }
+                      else svcN.put(p, n - 1);
+                    }
                   }
                 }
                 if (fg != null) addSpan(tot, fg, fs, until, start, until);
+                for (Map.Entry<String, Long> en : svcStart.entrySet()) addSpan(svc, en.getKey(), en.getValue(), until, start, until);
+                JSONObject sv = new JSONObject();
+                for (Map.Entry<String, Long> en : svc.entrySet()) if (en.getValue() >= 60000) sv.put(en.getKey(), en.getValue());
                 String home = homePkg();
                 PackageManager pm = getPackageManager();
                 JSONObject apps = new JSONObject();
@@ -656,7 +752,7 @@ jobs:
                   try { lbl = pm.getApplicationLabel(pm.getApplicationInfo(p, 0)).toString(); } catch (Exception x) { }
                   apps.put(p, new JSONArray().put(lbl).put(ms));
                 }
-                return new JSONObject().put("total", total).put("apps", apps).toString();
+                return new JSONObject().put("total", total).put("apps", apps).put("svc", sv).toString();
               } catch (Exception x) {
                 return "null";
               }
@@ -874,6 +970,8 @@ jobs:
                 js("window.__slhNotif&&__slhNotif(" + ok + ")");
               } else if (req == REQ_SLEEP) {
                 js("window.__chlSleepPerm&&__chlSleepPerm(" + ok + ")");
+              } else if (req == REQ_BT) {
+                js("window.__chlBtPerm&&__chlBtPerm(" + ok + ")");
               }
             }
 
