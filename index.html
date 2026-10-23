@@ -150,6 +150,11 @@ body.on-summary .top,body.on-summary .nav{display:none}
 .sm-card{border-radius:28px;padding:26px 24px;background:var(--surface);border:1px solid var(--line);box-shadow:0 12px 40px rgba(15,42,48,.06)}
 .sm-card.alt{background:linear-gradient(150deg,#0F3F45,#0B2E33);color:#F2F6F4;border:0}
 .sm-card.alt.neg{background:linear-gradient(150deg,#6B2A20,#3E1712)}
+.sm-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.sm-split .sm-half{min-width:0;padding:0 12px;display:flex;flex-direction:column;justify-content:flex-end}
+.sm-split .sm-half:first-child{padding-inline-start:0;border-inline-end:1px solid rgba(255,255,255,.18)}
+.sm-split .sm-half:last-child{padding-inline-end:0}
+.sm-half.neg .sm-v{color:#FFB4A8}
 .sm-l{font-size:.95rem;opacity:.75}
 .sm-v{font-family:var(--display);font-weight:600;font-size:clamp(2.6rem,13vw,3.6rem);line-height:1.15;margin:8px 0 12px;display:flex;align-items:baseline;gap:8px}
 .sm-v small{font-family:var(--body);font-size:1rem;font-weight:500;opacity:.6}
@@ -810,7 +815,7 @@ const HAS_HEALTH=!!(NB&&typeof NB.healthState==='function');
 const KEY='chl:data';
 const PR=[['fajr','الفجر'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
 const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'qiyam',n:'قيام الليل',i:'🌌'},{k:'qnt',n:'القنوت',i:'🤲'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true}];
-const DK=[['salat','الصلاة على النبي صلى الله عليه وسلم','🤍'],['istighfar','الاستغفار','🌿'],['tasbih','التسبيح','📿'],['tahlil','التهليل','☝️']];
+const DK=[['salat','الصلاة على النبي صلى الله عليه وسلم','🤍'],['istighfar','الاستغفار','🌿'],['tasbih','التسبيح','📿'],['tahlil','التهليل','☝️'],['takbir','التكبير','📣']];
 const DKT=10;
 const dkv=(r,k)=>(r.dk&&+r.dk[k])||0;
 const gDk=(v,n)=>G(v,DKT*n,DKT*n/2);          // الذكر: 10 أزرق، 5 فأكثر أسود
@@ -2992,7 +2997,7 @@ function viewSettings(){
     <div class="set-row"><span class="grow">مصدر الآيات</span><select class="pill" id="ayahSrc">${[['list',`المختارة (${AYAT.length})`],['mine',`آياتي (${(S.settings.myAyat||[]).length})`],['all','الكل']].map(([v,l])=>`<option value="${v}"${(S.settings.ayahSrc||'list')===v?' selected':''}>${l}</option>`).join('')}</select></div>
     <button class="set-row" data-action="ayahnext"><span class="ic">🔄</span><span class="grow"><span style="display:block">آية جديدة الآن</span><span class="t2">الحالية: ${esc(coverAyah().r)}</span></span></button>
     <button class="set-row" data-action="myayat"><span class="ic">📝</span><span class="grow">آياتي الخاصة</span><span class="t2">${(S.settings.myAyat||[]).length} ›</span></button>
-    <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">حسابات الصافي</span><span class="t2" style="white-space:normal">${esc(netCash().name)}</span></span><span class="t2">${netList().length} ›</span></button>
+    <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">أقسام الصافي</span><span class="t2" style="white-space:normal">${netGroups().filter(g=>g.ids.length).map((g,i)=>esc(g.n||netCash(i).name)).join(' · ')}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-fin-open="1"><span class="ic">💡</span><span class="grow">خطتي المالية</span><span class="t2">›</span></button>
     <button class="set-row" data-slh-open="1"><span class="ic">🕋</span><span class="grow">القبلة ومواقيت الصلاة</span><span class="t2">›</span></button>
     <button class="set-row" data-chl-open="1"><span class="ic">🎯</span><span class="grow">تحدياتي</span><span class="t2">›</span></button>
@@ -3026,18 +3031,28 @@ const THEME_ICON={auto:'<svg width="20" height="20" viewBox="0 0 24 24" fill="no
 function netAccId(){const v=S.settings.netAcc;if(v==='all')return'all';const d=S.settings.accounts.filter(a=>(a.type||'debit')==='debit');return d.some(a=>a.id===v)?v:(d[0]||{}).id}
 function netList(){const m=S.settings.netAccs;if(Array.isArray(m)&&m.length){const L=S.settings.accounts.filter(a=>m.includes(a.id));if(L.length)return L}
   const id=netAccId(),d=S.settings.accounts.filter(a=>(a.type||'debit')==='debit');return id==='all'?d:d.filter(a=>a.id===id)}
-function netCash(){const L=netList(),m=S.settings.netAccs,multi=Array.isArray(m)&&m.length;return{v:L.reduce((s,a)=>s+accBalBase(a.id),0),L,name:!multi&&netAccId()==='all'?'كل الحسابات النقدية':L.map(a=>a.name).join('، ')}}
+function netGroups(){const G=S.settings.netGroups;
+  if(Array.isArray(G)&&G.length)return G.map((g,i)=>({n:g.n||'',ids:(g.ids||[]).filter(id=>S.settings.accounts.some(a=>a.id===id))}));
+  return[{n:'',ids:netList().map(a=>a.id)},{n:'',ids:[]}]}
+function netCash(i){const g=netGroups()[i||0]||{n:'',ids:[]},L=S.settings.accounts.filter(a=>g.ids.includes(a.id));
+  return{v:L.reduce((s,a)=>s+accBalBase(a.id),0),L,n:g.n,name:L.map(a=>a.name).join('، ')}}
 function netSheet(){
-  const cur=new Set(netList().map(a=>a.id));
-  openSheet(`<h3>حسابات الصافي</h3><p class="note" style="margin:0 0 12px">اختر الحسابات التي يُجمع رصيدها في "الصافي"، وتظهر أسماؤها فوقه.</p>
+  const G=netGroups().map(g=>({n:g.n,ids:g.ids.slice()}));while(G.length<2)G.push({n:'',ids:[]});let gi=0;
+  const draw=()=>{const g=G[gi],cur=new Set(g.ids);
+  openSheet(`<h3>أقسام الصافي</h3><p class="note" style="margin:0 0 12px">ينقسم "الصافي" في الواجهة قسمين، ولكل قسم اسمه وحساباته. اترك القسم الثاني بلا حسابات ليظهر قسم واحد.</p>
+    <div class="seg" style="margin:0 0 12px">${G.map((x,i)=>`<button data-gi="${i}" aria-pressed="${i===gi}">${esc(x.n||(i?'القسم الثاني':'القسم الأول'))}</button>`).join('')}</div>
+    <label class="field"><span>اسم القسم</span><input id="naName" value="${esc(g.n)}" placeholder="${gi?'مثلاً: المدخرات':'مثلاً: الحساب الرئيسي'}"></label>
     <div class="list">${S.settings.accounts.map(a=>`<label class="set-row"><input type="checkbox" class="na-ck" data-id="${esc(a.id)}" ${cur.has(a.id)?'checked':''} style="width:20px;height:20px;flex:none"><span class="ic">${esc(a.icon||'')}</span><span class="grow">${esc(a.name)}</span><span class="amt">${fmt(accBalBase(a.id))}</span></label>`).join('')}</div>
     <p class="note" id="naSum" style="margin:10px 2px"></p>
-    <div class="err" id="naErr" hidden>اختر حساباً واحداً على الأقل</div>
-    <div class="actions"><button class="btn" id="naSave">حفظ</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
-  b=>{const up=()=>{let t=0;b.querySelectorAll('.na-ck').forEach(c=>{if(c.checked)t+=accBalBase(c.dataset.id)});b.querySelector('#naSum').textContent='المجموع: '+fmt(t)+' '+curInfo()[0]};
+    <div class="err" id="naErr" hidden>اختر حساباً واحداً على الأقل في القسم الأول</div>
+    <div class="actions"><button class="btn" id="naSave">حفظ القسمين</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>{const grab=()=>{g.n=b.querySelector('#naName').value.trim();g.ids=[...b.querySelectorAll('.na-ck')].filter(c=>c.checked).map(c=>c.dataset.id)};
+    const up=()=>{let t=0;b.querySelectorAll('.na-ck').forEach(c=>{if(c.checked)t+=accBalBase(c.dataset.id)});b.querySelector('#naSum').textContent='مجموع هذا القسم: '+fmt(t)+' '+curInfo()[0]};
     b.querySelectorAll('.na-ck').forEach(c=>c.addEventListener('change',up));up();
-    b.querySelector('#naSave').addEventListener('click',()=>{const ids=[...b.querySelectorAll('.na-ck')].filter(c=>c.checked).map(c=>c.dataset.id);if(!ids.length){b.querySelector('#naErr').hidden=false;return}
-      S.settings.netAccs=ids;saveSettings();closeSheet();toast('تم حفظ حسابات الصافي');render()})});
+    b.querySelectorAll('[data-gi]').forEach(el=>el.addEventListener('click',()=>{grab();gi=+el.dataset.gi;draw()}));
+    b.querySelector('#naSave').addEventListener('click',()=>{grab();if(!G[0].ids.length){if(gi!==0){gi=0;draw()}setTimeout(()=>{const e=document.querySelector('#naErr');if(e)e.hidden=false},50);return}
+      S.settings.netGroups=G;S.settings.netAccs=G[0].ids;saveSettings();closeSheet();toast('تم حفظ أقسام الصافي');render()})})};
+  draw();
 }
 function smMini(inc,expU){
   const srT=+S.settings.saveRate||0,sr=inc>0?(inc-expU)/inc:null;
@@ -3137,8 +3152,10 @@ function viewSummary(){
     <div class="sm-head"><div class="sm-greet">${greet}</div><div class="sm-per">${esc(periodLabel(k))}</div></div>
     <div class="sm-card"><div class="sm-l">المصروف</div><div class="sm-v num">${fmt(exp)}<small>${esc(cur)}</small></div>
       <div class="sm-bar"><i style="width:${pctUsed*100}%"></i></div><div class="sm-c">${hasB?`${Math.round(expU/tb*100)}٪ من ميزانية ${fmt(tb)}`:inc>0?`${Math.round(exp/inc*100)}٪ من دخل الفترة`:'لا دخل مسجّل بعد في هذه الفترة'}</div></div>
-    ${(()=>{const nc=netCash();return `<div class="sm-card alt${nc.v<0?' neg':''}"><div class="sm-c" style="margin:0 0 4px;white-space:normal">${nc.L.map(a=>esc((a.icon?a.icon+' ':'')+a.name)).join(' + ')}</div><div class="sm-l">الصافي</div><div class="sm-v num">${nc.v<0?'−':''}${fmt(Math.abs(nc.v))}<small>${esc(cur)}</small></div>
-      <div class="sm-c">${left<0?`تجاوزت ${hasB?'الميزانية':'دخل الفترة'} بـ ${fmt(Math.abs(left))}`:`الباقي من ${hasB?'الميزانية':'دخل الفترة'} ${fmt(left)}`}${left>0&&daysLeft?` (نحو ${fmt(left/daysLeft)} يومياً)`:''}</div></div>`})()}
+    ${(()=>{const gs=netGroups().map((g,i)=>netCash(i)).filter(x=>x.L.length),one=gs.length<2,tot=gs.reduce((a,x)=>a+x.v,0);
+      const half=(nc,i)=>`<div class="sm-half${nc.v<0?' neg':''}"><div class="sm-c" style="margin:0 0 4px;white-space:normal;font-size:.78rem">${nc.L.map(a=>esc((a.icon?a.icon+' ':'')+a.name)).join(' + ')}</div><div class="sm-l">${esc(nc.n||(one?'الصافي':i?'القسم الثاني':'الصافي'))}</div><div class="sm-v num"${one?'':' style="font-size:clamp(1.2rem,5.6vw,1.8rem);margin:6px 0 4px;gap:4px;flex-wrap:wrap"'}>${nc.v<0?'−':''}${fmt(Math.abs(nc.v))}<small>${esc(cur)}</small></div></div>`;
+      return `<div class="sm-card alt${(one?(gs[0]?gs[0].v:0):tot)<0?' neg':''}" data-action="netaccs" style="cursor:pointer">${one?half(gs[0]||{L:[],v:0,n:''},0):`<div class="sm-split">${gs.map(half).join('')}</div>`}
+      <div class="sm-c" style="margin-top:8px">${left<0?`تجاوزت ${hasB?'الميزانية':'دخل الفترة'} بـ ${fmt(Math.abs(left))}`:`الباقي من ${hasB?'الميزانية':'دخل الفترة'} ${fmt(left)}`}${left>0&&daysLeft?` (نحو ${fmt(left/daysLeft)} يومياً)`:''}</div></div>`})()}
     ${smMini(inc,expU)}
     <button class="sm-go" data-action="gohome">متابعة <span>←</span></button>
   </section>`;
