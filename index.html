@@ -831,7 +831,7 @@ const NB=(window.AndroidBridge&&typeof window.AndroidBridge.getUsage==='function
 const HAS_HEALTH=!!(NB&&typeof NB.healthState==='function');
 const KEY='chl:data';
 const PR=[['fajr','الفجر'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
-const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'qiyam',n:'قيام الليل',i:'🌌'},{k:'qnt',n:'القنوت',i:'🤲'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true}];
+const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'qiyam',n:'قيام الليل',i:'🌌'},{k:'qnt',n:'القنوت',i:'🤲'},{k:'duha',n:'ركعتا الضحى',i:'☀️'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true},{k:'kahf',n:'قراءة سورة الكهف',i:'📖',fri:true}];
 const DK=[['salat','الصلاة على النبي صلى الله عليه وسلم','🤍'],['istighfar','الاستغفار','🌿'],['tasbih','التسبيح','📿'],['tahmid','التحميد','🌼'],['tahlil','التهليل','☝️'],['takbir','التكبير','📣']];
 const DKT=10;
 const dkv=(r,k)=>(r.dk&&+r.dk[k])||0;
@@ -923,7 +923,7 @@ function tally(P){const end=P.to<today()?P.to:today(),ks=[];for(let k=P.from;k<=
   return{n,P,rows:[
     ['🌅 أذكار الصباح',c(x=>x.h.includes('am')),n,'يوماً'],['🌇 أذكار المساء',c(x=>x.h.includes('pm')),n,'يوماً'],
     ['🕌 الجماعة',sm(x=>x.j.length),5*n,'صلاة'],['📖 الورد',sm(x=>wp(x)),T()*n,'صفحة'],['🕋 السنن الرواتب',sm(x=>x.sn.length),4*n,'سنة'],
-    ['🌙 الوتر',c(x=>x.h.includes('witr')),n,'يوماً'],['🌌 قيام الليل',c(x=>x.h.includes('qiyam')),n,'يوماً'],['🤲 القنوت',c(x=>x.h.includes('qnt')),n,'يوماً'],
+    ['🌙 الوتر',c(x=>x.h.includes('witr')),n,'يوماً'],['🌌 قيام الليل',c(x=>x.h.includes('qiyam')),n,'يوماً'],['☀️ ركعتا الضحى',c(x=>x.h.includes('duha')),n,'يوماً'],['📖 الكهف يوم الجمعة',ks.filter(k=>isFri(k)&&peek(k).h.includes('kahf')).length,ks.filter(isFri).length,'جمعة'],['🤲 القنوت',c(x=>x.h.includes('qnt')),n,'يوماً'],
     ['👪 برّ الوالدين',c(brOk),n,'يوماً'],...DK.map(([d,nm,i])=>[i+' '+nm,sm(x=>dkv(x,d)),DKT*n,'مرة'])]}}
 function tallyHtml(){
   const L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
@@ -1060,6 +1060,7 @@ function build(r){
      nd>1?`أيام السنن الأربع كاملة: ${tk('b',d4)}، وأيام اثنتين أو ثلاث: ${tk('k',d2)}، وأيام أقل من اثنتين: ${tk('r',nd-d4-d2)}.`:''].filter(Boolean),b:nd>1?SN.map(([k,n])=>`${n}: ${V.filter(x=>x.sn.includes(k)).length} من ${nd}`):[]})}
   {const qd=V.filter(x=>x.h.includes('qiyam')),qk=qd.reduce((a,x)=>a+(+x.qk||0),0),nt=V.filter(x=>x.h.includes('qnt')).length;
    W.push({h:'قيام الليل',p:[nd===1?(qd.length?tk('b',`قمت الليل${qk?` (${qk} ركعة)`:''}.`):tk('r','لم يُسجَّل قيام الليل.')):`قمت الليل في ${tk(gV(qd.length,nd),`${qd.length} من ${nd}`)} يوماً، بنسبة ${tk(gV(qd.length,nd),pc(qd.length,nd)+'٪')}${qk?`، ومجموع الركعات المسجلة ${qk}`:''}.`]});
+   {const dd=V.filter(x=>x.h.includes('duha')).length,g=gV(dd,nd);W.push({h:'ركعتا الضحى',p:[nd===1?(dd?tk('b','صلّيت الضحى.'):tk('r','لم تُسجَّل الضحى.')):`صلّيت الضحى في ${tk(g,`${dd} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(dd,nd)+'٪')}.`]})}
    W.push({h:'القنوت',p:[nd===1?(nt?tk('b','قنتَّ.'):tk('r','لم يُسجَّل القنوت.')):`قنتَّ في ${tk(gV(nt,nd),`${nt} من ${nd}`)} يوماً، بنسبة ${tk(gV(nt,nd),pc(nt,nd)+'٪')}.`]})}
   {const bd=ks.filter(k=>brOk(peek(k))),g=gV(bd.length,nd),tc={};bd.forEach(k=>(peek(k).br.t||[]).forEach(t=>tc[t]=(tc[t]||0)+1));
    const notes=nd<=31?bd.map(k=>{const b=peek(k).br;const ty=(b.t||[]).map(t=>(BR.find(x=>x[0]===t)||[0,t])[1]).join('، ');return `${kdate(k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})}: ${[ty,b.n].filter(Boolean).join(' · ')}`}):[];
@@ -1074,7 +1075,9 @@ function build(r){
   W.push({h:'التدبر',p:[nd===1?(td.length?`جلست للتدبر${ta?`، وتدبرت ${ta} آية`:''}.`:'لم تُسجَّل جلسة تدبر.'):`جلست للتدبر ${td.length} من ${nd} يوم${ta?`، وتدبرت ${ta} آية`:''}.`]});
   {const b=CN.map(c=>{const t=V.reduce((a,x)=>a+cnt(x,c.k),0),dd=V.filter(x=>cnt(x,c.k)>0).length;return t?`${c.n}: ${t} ${t===1?'مرة':t===2?'مرتان':t<=10?'مرات':'مرة'} في ${dd} من ${nd} ${nd===1?'':'يوم'} (${pc(dd,nd)}٪)`:''}).filter(Boolean);
     if(b.length)W.push({h:'فضائل الصلاة',b})}
-  const fr=ks.filter(isFri);if(fr.length){const fd=fr.filter(k=>peek(k).h.includes('jm')).length;W.push({h:'جلسة الجمعة',p:[nd===1?(fd?'حضرت جلسة الجمعة.':'لم تُسجَّل جلسة الجمعة.'):`حضرت ${fd} من ${fr.length} ${fr.length>2&&fr.length<11?'جُمَع':'جمعة'}.`]})}
+  const fr=ks.filter(isFri);if(fr.length){const fd=fr.filter(k=>peek(k).h.includes('jm')).length,kf=fr.filter(k=>peek(k).h.includes('kahf')).length,fu=fr.length>2&&fr.length<11?'جُمَع':'جمعة',gk=gV(kf,fr.length);
+    W.push({h:'جلسة الجمعة',p:[nd===1?(fd?'حضرت جلسة الجمعة.':'لم تُسجَّل جلسة الجمعة.'):`حضرت ${fd} من ${fr.length} ${fu}.`]});
+    W.push({h:'سورة الكهف',p:[fr.length===1?(kf?tk('b','قرأت سورة الكهف يوم الجمعة.'):tk('r','لم تُسجَّل قراءة الكهف يوم الجمعة.')):`قرأت سورة الكهف في ${tk(gk,`${kf} من ${fr.length}`)} ${fu}، بنسبة ${tk(gk,pc(kf,fr.length)+'٪')}.`]})}
   out.aspects.push({h:'🕌 العبادة',grades:true,note:nd<n&&r!=='day'?`يبدأ التسجيل من ${L(start)}`:'',sections:W});
   /* الصحة والوقت */
   const H=[],av=f=>{const v=V.map(x=>x[f]).filter(x=>x!=null);return v.length?{a:v.reduce((p,c)=>p+ +c,0)/v.length,s:v.reduce((p,c)=>p+ +c,0),n:v.length}:null};
@@ -1116,7 +1119,7 @@ function build(r){
   {const ds=past.filter(k=>peek(k).scr!=null),dn=ds.filter(k=>wp(peek(k))>=T()),nn=ds.filter(k=>wp(peek(k))<T());
     if(dn.length>=5&&nn.length>=5){const a=x=>x.reduce((p,k)=>p+peek(k).scr,0)/x.length;X.push(`في الأيام التي أتممت فيها الورد كان متوسط وقت الشاشة ${fmtH(a(dn))}، مقابل ${fmtH(a(nn))} في غيرها.`)}}
   const wdn=V.filter(x=>x.h.includes('witr')).length;
-  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50],['قيام الليل',pc(V.filter(x=>x.h.includes('qiyam')).length,nd),50],['القنوت',pc(V.filter(x=>x.h.includes('qnt')).length,nd),50],['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),DKT*nd),50]),['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
+  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50],['قيام الليل',pc(V.filter(x=>x.h.includes('qiyam')).length,nd),50],['ركعتا الضحى',pc(V.filter(x=>x.h.includes('duha')).length,nd),50],['القنوت',pc(V.filter(x=>x.h.includes('qnt')).length,nd),50],['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),DKT*nd),50]),['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
   if(so)items.push(['قلة التواصل الاجتماعي',pc(V.filter(x=>x.soc!=null&&x.soc<=(+D.cfg.soc||60)*60000).length,so.n)]);
   if(st)items.push(['الحركة (8,000 خطوة)',pc(V.filter(x=>x.stp>=8000).length,st.n)]);
   if(sl)items.push(['النوم (6 ساعات فأكثر)',pc(V.filter(x=>x.slp>=6*36e5).length,sl.n)]);
@@ -1135,7 +1138,7 @@ const tokT=t=>String(t).replace(/⟦[bkr]\|([^⟧]*)⟧/g,'$1');
 const GLEG=`<div class="t2 g-leg"><b class="pc-b">أزرق</b> الهدف كاملاً · <b class="pc-k">أسود</b> بلغ الحد · <b class="pc-r">أحمر</b> دون الحد</div>`;
 
 /* ميزان الأبعاد الأربعة: القلبي والنفسي والجسدي والاقتصادي */
-function heartOf(r){const it=[...DK.map(([k])=>Math.min(dkv(r,k),DKT)/DKT),Math.min(r.j.length,5)/5,Math.min(wp(r),T())/T(),r.h.includes('witr')?1:0,Math.min(r.sn.length,4)/4,r.h.includes('qiyam')?1:0,brOk(r)?1:0,r.h.includes('am')?1:0,r.h.includes('pm')?1:0];return it.reduce((a,b)=>a+b,0)/it.length}
+function heartOf(r){const it=[...DK.map(([k])=>Math.min(dkv(r,k),DKT)/DKT),Math.min(r.j.length,5)/5,Math.min(wp(r),T())/T(),r.h.includes('witr')?1:0,Math.min(r.sn.length,4)/4,r.h.includes('qiyam')?1:0,r.h.includes('duha')?1:0,brOk(r)?1:0,r.h.includes('am')?1:0,r.h.includes('pm')?1:0];return it.reduce((a,b)=>a+b,0)/it.length}
 function balanceAspect(ks,end,nd){
   const A=api(),S=[];
   let base=0;if(A){if(nd>=7)base=ks.reduce((a,k)=>a+A.dayExpense(k),0)/nd;else{let t=0;for(let i=1;i<=30;i++)t+=A.dayExpense(addDays(end,-(nd-1)-i));base=t/30}}
@@ -1345,6 +1348,7 @@ const MET=[
  {k:'fad',n:'فضائل الصلاة',u:'مرة',f:k=>trk(k)?CN.reduce((a,c)=>a+cnt(peek(k),c.k),0):null},
  {k:'dk',n:'الأذكار اليومية',u:'مرة',f:k=>trk(k)?DK.reduce((a,[d])=>a+dkv(peek(k),d),0):null},
  {k:'sunnah',n:'السنن الرواتب',u:'من 4',f:k=>trk(k)?peek(k).sn.length:null},
+ {k:'duha',n:'ركعتا الضحى',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('duha')?1:0):null},
  {k:'qiyam',n:'قيام الليل',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('qiyam')?1:0):null},
  {k:'birr',n:'برّ الوالدين',u:'مرة',f:k=>trk(k)?(brOk(peek(k))?1:0):null},
  {k:'dis',n:'التشتت',u:'h',f:k=>{const c=scr3(peek(k));return c?c.d/36e5:null}},
@@ -3890,7 +3894,7 @@ function accSheet(acc,type){
       <label class="field"><span>${debt?'المبلغ المستحق عليك حالياً':'الرصيد الحالي'} (${esc(curSym(cur))})</span><input id="aBal" inputmode="decimal" value="${shown===''?'':esc(+shown.toFixed((CUR[cur]||[0,2])[1]))}" placeholder="0" style="direction:ltr;text-align:right"></label>
       ${a.type==='credit'?`<label class="field"><span>حد البطاقة (${esc(curSym(accCur(a)))})</span><input id="aLim" inputmode="decimal" value="${+a.limit?esc(a.limit):''}" placeholder="اختياري" style="direction:ltr;text-align:right"></label>`:''}
       <div class="err" id="aErr" hidden>اكتب اسم الحساب</div>
-      <div class="actions"><button class="btn" id="aSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="aRc">⚖️ مطابقة الرصيد'+(a.reconciled?' (آخرها '+esc(a.reconciled.date)+')':'')+'</button><button class="btn ghost" id="aTx">عرض عمليات الحساب</button><button class="btn danger" id="aDel">حذف الحساب</button>'}</div>`,
+      <div class="actions"><button class="btn" id="aSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="aEx">📤 تصدير الحساب بعملياته</button><button class="btn ghost" id="aRc">⚖️ مطابقة الرصيد'+(a.reconciled?' (آخرها '+esc(a.reconciled.date)+')':'')+'</button><button class="btn ghost" id="aTx">عرض عمليات الحساب</button><button class="btn danger" id="aDel">حذف الحساب</button>'}</div>`,
     b=>{
       const grab=()=>{a.name=b.querySelector('#aName').value;a.icon=b.querySelector('#aIcon').value;const al=b.querySelector('#aAl');if(al)a.alias=al.value.trim()};
       b.querySelector('#aCur').addEventListener('change',e=>{grab();a.currency=e.target.value;draw()});
@@ -3909,6 +3913,7 @@ function accSheet(acc,type){
         saveSettings(); closeSheet(); toast('تم حفظ الحساب'); render();
       });
       const rcb=b.querySelector('#aRc'); if(rcb) rcb.addEventListener('click',()=>reconSheet(a));
+      const exb=b.querySelector('#aEx'); if(exb) exb.addEventListener('click',()=>accExportSheet(S.settings.accounts.find(x=>x.id===a.id)||a));
       const tb=b.querySelector('#aTx'); if(tb) tb.addEventListener('click',()=>{S.prevTab=S.tab;S.accFilter=a.id;S.tab='tx';S.txView='list';closeSheet();render()});
       const d=b.querySelector('#aDel'); if(d) d.addEventListener('click',()=>{
         const n=allTx().filter(t=>t.acc===a.id||t.to===a.id).length;
@@ -3942,6 +3947,41 @@ function recSheet(r){
     });
   });
 }
+/* ---------- تصدير حساب كامل بعملياته (لرُشد للأعمال أو غيره) ----------
+   ملف يصدّره المستخدم يدوياً؛ لا اتصال ولا مزامنة بين التطبيقين. */
+function accExportData(a){
+  const cur=accCur(a),L=allTx().filter(t=>t.acc===a.id||t.to===a.id).slice().sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+  const usedCats=new Set(L.map(t=>t.cat).filter(Boolean));
+  const tx=L.map(t=>{const out=t.acc===a.id&&!(t.type==='income'||(t.type==='adjust'&&(t.sign||1)>0));const isTo=t.type==='transfer'&&t.to===a.id&&t.acc!==a.id;
+    const amtAcc=isTo?toAmt(t):fromAmt(t);
+    return{id:t.id,date:t.date,type:t.type,direction:isTo?'in':out?'out':'in',amount:+(+amtAcc).toFixed(6),currency:cur,amount_base:+(+t.amount).toFixed(6),base_currency:baseCur(),
+      category_id:t.cat||null,category:t.cat?catById(t.cat).name:null,note:t.note||'',counterpart_account:t.type==='transfer'?(isTo?accById(t.acc).name:(t.to?accById(t.to).name:null)):null,
+      exceptional:!!t.ex||undefined,recurring_id:t.rid||undefined,meal:t.meal||undefined}});
+  const bal=accBal(a);
+  return{format:'rushd-account-export',version:1,source_app:'رُشد الشخصي',exported_at:new Date().toISOString(),
+    note:'تصدير يدوي لحساب واحد بعملياته. لا يتضمن بيانات أي حساب آخر سوى أسماء الحسابات المقابلة في التحويلات.',
+    base_currency:baseCur(),rates:Object.assign({},S.settings.rates||{}),rates_updated:S.settings.ratesUpdated||null,
+    account:{id:a.id,name:a.name,type:a.type,currency:cur,opening_balance:+(+a.opening||0).toFixed(6),current_balance:+bal.toFixed(6),limit:+a.limit||0,reconciled:a.reconciled||null},
+    categories:S.settings.categories.filter(c=>usedCats.has(c.id)).map(c=>({id:c.id,name:c.name,kind:c.kind,icon:c.icon})),
+    summary:{transactions:tx.length,first_date:tx.length?tx[0].date:null,last_date:tx.length?tx[tx.length-1].date:null,
+      total_in:+tx.filter(x=>x.direction==='in').reduce((s,x)=>s+x.amount,0).toFixed(6),total_out:+tx.filter(x=>x.direction==='out').reduce((s,x)=>s+x.amount,0).toFixed(6)},
+    transactions:tx};
+}
+function accExportSheet(a){
+  const d=accExportData(a),c=d.account.currency,slug=(a.name||'account').replace(/[^\w\u0600-\u06FF-]+/g,'-');
+  openSheet(`<h3>تصدير الحساب: ${esc(a.name)}</h3>
+    <div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="mrow"><span class="grow">العمليات</span><b class="num">${d.summary.transactions}</b></div>
+    <div class="mrow"><span class="grow">الفترة</span><b>${esc(d.summary.first_date||'—')} إلى ${esc(d.summary.last_date||'—')}</b></div>
+    <div class="mrow"><span class="grow">الرصيد الحالي</span><b class="num">${fmtC(d.account.current_balance,c)} ${esc(curSym(c))}</b></div>
+    <div class="mrow"><span class="grow">الداخل / الخارج</span><b class="num">${fmtC(d.summary.total_in,c)} / ${fmtC(d.summary.total_out,c)}</b></div></div>
+    <p class="note" style="margin:0 0 12px">ملف JSON يستورده رُشد للأعمال، ومعه CSV للجداول. التصدير يدوي ولا يربط التطبيقين، ولا يحذف شيئاً من رُشد. الملف يحوي بيانات مالية، فاحفظه في مكان آمن.</p>
+    <div class="actions"><button class="btn" id="exJ">تصدير لرُشد للأعمال (JSON)</button><button class="btn ghost" id="exC">تصدير جدول (CSV)</button></div>`,
+  b=>{b.querySelector('#exJ').addEventListener('click',()=>{if(!saveFile('rushd-account-'+slug+'-'+todayStr()+'.json',JSON.stringify(d,null,1),'application/json'))toast('تم التصدير إلى التنزيلات')});
+    b.querySelector('#exC').addEventListener('click',()=>{const q=v=>{v=String(v==null?'':v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+      const lines=['date,type,direction,amount,currency,amount_base,category,counterpart_account,note,id'].concat(d.transactions.map(t=>[t.date,t.type,t.direction,t.amount,t.currency,t.amount_base,t.category,t.counterpart_account,t.note,t.id].map(q).join(',')));
+      if(!saveFile('rushd-account-'+slug+'-'+todayStr()+'.csv','\uFEFF'+lines.join('\n'),'text/csv'))toast('تم التصدير إلى التنزيلات')})});
+}
+window.__accExport=a=>accExportData(a);
 function saveFile(name,text,mime){
   S.noLockUntil=Date.now()+120000;
   if(window.AndroidBridge){try{window.AndroidBridge.saveFile(name,mime,text);return true}catch(e){}}
