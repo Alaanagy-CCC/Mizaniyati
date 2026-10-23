@@ -810,6 +810,10 @@ const HAS_HEALTH=!!(NB&&typeof NB.healthState==='function');
 const KEY='chl:data';
 const PR=[['fajr','الفجر'],['dhuhr','الظهر'],['asr','العصر'],['maghrib','المغرب'],['isha','العشاء']];
 const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار المساء',i:'🌇'},{k:'witr',n:'صلاة الوتر',i:'🌙'},{k:'qiyam',n:'قيام الليل',i:'🌌'},{k:'qnt',n:'القنوت',i:'🤲'},{k:'tdb',n:'جلسة التدبر',i:'💭'},{k:'jm',n:'جلسة الجمعة',i:'🕌',fri:true}];
+const DK=[['salat','الصلاة على النبي صلى الله عليه وسلم','🤍'],['istighfar','الاستغفار','🌿'],['tasbih','التسبيح','📿'],['tahlil','التهليل','☝️']];
+const DKT=10;
+const dkv=(r,k)=>(r.dk&&+r.dk[k])||0;
+const gDk=(v,n)=>G(v,DKT*n,DKT*n/2);          // الذكر: 10 أزرق، 5 فأكثر أسود
 const SN=[['fajr','ركعتا الفجر'],['dhuhr','بعد الظهر'],['maghrib','بعد المغرب'],['isha','بعد العشاء']];
 const BR=[['visit','زيارة','🏠'],['call','مكالمة','📞'],['gift','هدية','🎁'],['money','مال','💵'],['serve','خدمة','🤝'],['dua','دعاء','🤲']];
 const MEAL=[['b','الفطور','🌅'],['l','الغداء','☀️'],['d','العشاء','🌙'],['w','وجبة العمل','💼']];
@@ -857,7 +861,7 @@ const wp=r=>r.wp!=null?+r.wp:(r.h.includes('wird')?T():0);
 const cnt=(r,k)=>(r.cn&&+r.cn[k])||0;
 const socOk=r=>r.soc!=null&&r.soc<=(+D.cfg.soc||60)*60000;
 function score(k){const r=peek(k),hs=habitsFor(k),hasSoc=r.soc!=null;
-  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0),total:6+SN.length+1+hs.length+CN.length+(hasSoc?1:0)}}
+  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=DKT).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0),total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)}}
 function streakOf(test,fri){let k=today();if(!test(peek(k)))k=addDays(k,-1);let n=0;
   for(let i=0;i<800;i++){if(fri&&!isFri(k)){k=addDays(k,-1);continue}if(test(peek(k))){n++;k=addDays(k,-1)}else break}return n}
 const unit=(n,fri)=>fri?(n<=10&&n>2?'جُمَع':'جمعة'):(n<=10&&n>2?'أيام':'يوماً');
@@ -905,6 +909,8 @@ function dayHtml(){
       const extra=hb.k==='tdb'&&on?`<input class="chl-num" id="chlTa" inputmode="numeric" value="${r.ta||''}" placeholder="آيات" aria-label="عدد الآيات" style="width:70px">`:hb.k==='qiyam'&&on?`<input class="chl-num" id="chlQk" inputmode="numeric" value="${r.qk||''}" placeholder="ركعات" aria-label="عدد الركعات" style="width:70px">`:'';
       return `<div class="set-row"><button class="chl-ck${on?' on':''}" data-h="${hb.k}" aria-pressed="${on}" aria-label="${hb.n}">${on?'✓':''}</button><span style="flex:1" data-h="${hb.k}">${hb.i} ${hb.n}${hb.k==='tdb'&&on&&r.ta?` <span class="t2">· ${r.ta} آية</span>`:''}${hb.k==='qiyam'&&on&&r.qk?` <span class="t2">· ${r.qk} ركعة</span>`:''}</span>${extra}${st>1?`<span class="chl-fire">🔥 <span class="num">${st}</span> ${unit(st,hb.fri)}</span>`:''}</div>`}).join('')}
   </div>
+  <h2>الأذكار اليومية <span class="t2" style="font-size:.8rem">(${DKT} مرات لكلٍّ)</span></h2><div class="list">${DK.map(([k,n,i])=>{const v=dkv(r,k),g=gDk(v,1),st=streakOf(x=>dkv(x,k)>=DKT);
+    return `<div class="set-row" style="gap:6px"><span class="ic">${i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${n}</span><span class="t2"><b class="${GC[g]}">${v} من ${DKT}</b>${st>1?` · 🔥 ${st} ${unit(st)}`:''}</span></span><button class="chl-pm" data-dk="${k}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-dkin="${k}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-dk="${k}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')}</div>
   <h2>فضائل الصلاة</h2><div class="list">${CN.map(c=>{const v=cnt(r,c.k),st=streakOf(x=>cnt(x,c.k)>0);
     return `<div class="set-row" style="gap:6px"><span class="ic">${c.i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${c.n}</span><span class="t2">${v?`<span class="num">${v}</span> ${v===1?'مرة':v===2?'مرتان':v<=10?'مرات':'مرة'}`:'لم تُسجَّل اليوم'}${st>1?` · 🔥 ${st} ${unit(st)}`:''}</span></span><button class="chl-pm" data-cn="${c.k}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-cnin="${c.k}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${c.n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-cn="${c.k}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')}</div>`;
   h+=healthHtml(r)+timeHtml(r);
@@ -1011,6 +1017,9 @@ function build(r){
    const notes=nd<=31?bd.map(k=>{const b=peek(k).br;const ty=(b.t||[]).map(t=>(BR.find(x=>x[0]===t)||[0,t])[1]).join('، ');return `${kdate(k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})}: ${[ty,b.n].filter(Boolean).join(' · ')}`}):[];
    W.push({h:'برّ الوالدين',p:[nd===1?(bd.length?tk('b','بررت والديك اليوم، تقبّل الله منك.'):tk('r','لم يُسجَّل البر اليوم.')):`بررت والديك في ${tk(g,`${bd.length} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(bd.length,nd)+'٪')}.`,
      Object.keys(tc).length?`الأنواع: ${BR.filter(x=>tc[x[0]]).map(x=>`${x[1]} ${tc[x[0]]}`).join('، ')}.`:''].filter(Boolean),b:notes})}
+  {const b=DK.map(([k,n])=>{const t=V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),full=V.filter(x=>dkv(x,k)>=DKT).length,raw=V.reduce((a,x)=>a+dkv(x,k),0);
+      return nd===1?`${n}: ${tk(gDk(dkv(V[0],k),1),`${dkv(V[0],k)} من ${DKT}`)}`:`${n}: ${tk(gDk(t,nd),`${raw} من ${DKT*nd}`)} (${pc(t,DKT*nd)}٪)، وأتممت العشر في ${tk(gV(full,nd),`${full} من ${nd}`)} يوماً`});
+    W.push({h:'الأذكار اليومية',p:[`الهدف ${DKT} مرات لكل ذكر يومياً${nd>1?`، أي ${DKT*nd} في المدة`:''}.`],b})}
   const am=V.filter(x=>x.h.includes('am')).length,pm=V.filter(x=>x.h.includes('pm')).length;
   W.push({h:'الأذكار',p:[`أذكار الصباح ${tk(gV(am,nd),`${am} من ${nd}`)} (${pc(am,nd)}٪)، وأذكار المساء ${tk(gV(pm,nd),`${pm} من ${nd}`)} (${pc(pm,nd)}٪).`]});
   const td=V.filter(x=>x.h.includes('tdb')),ta=td.reduce((a,x)=>a+(+x.ta||0),0);
@@ -1059,7 +1068,7 @@ function build(r){
   {const ds=past.filter(k=>peek(k).scr!=null),dn=ds.filter(k=>wp(peek(k))>=T()),nn=ds.filter(k=>wp(peek(k))<T());
     if(dn.length>=5&&nn.length>=5){const a=x=>x.reduce((p,k)=>p+peek(k).scr,0)/x.length;X.push(`في الأيام التي أتممت فيها الورد كان متوسط وقت الشاشة ${fmtH(a(dn))}، مقابل ${fmtH(a(nn))} في غيرها.`)}}
   const wdn=V.filter(x=>x.h.includes('witr')).length;
-  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50],['قيام الليل',pc(V.filter(x=>x.h.includes('qiyam')).length,nd),50],['القنوت',pc(V.filter(x=>x.h.includes('qnt')).length,nd),50],['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50],['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
+  const items=[['صلاة الجماعة',pc(jd,nd*5),60],['الورد',Math.min(100,pc(pages,T()*nd)),50],['صلاة الوتر',pc(wdn,nd),50],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50],['قيام الليل',pc(V.filter(x=>x.h.includes('qiyam')).length,nd),50],['القنوت',pc(V.filter(x=>x.h.includes('qnt')).length,nd),50],['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),DKT*nd),50]),['أذكار الصباح',pc(am,nd),50],['أذكار المساء',pc(pm,nd),50],['التدبر',pc(td.length,nd),50]];
   if(so)items.push(['قلة التواصل الاجتماعي',pc(V.filter(x=>x.soc!=null&&x.soc<=(+D.cfg.soc||60)*60000).length,so.n)]);
   if(st)items.push(['الحركة (8,000 خطوة)',pc(V.filter(x=>x.stp>=8000).length,st.n)]);
   if(sl)items.push(['النوم (6 ساعات فأكثر)',pc(V.filter(x=>x.slp>=6*36e5).length,sl.n)]);
@@ -1078,7 +1087,7 @@ const tokT=t=>String(t).replace(/⟦[bkr]\|([^⟧]*)⟧/g,'$1');
 const GLEG=`<div class="t2 g-leg"><b class="pc-b">أزرق</b> الهدف كاملاً · <b class="pc-k">أسود</b> بلغ الحد · <b class="pc-r">أحمر</b> دون الحد</div>`;
 
 /* ميزان الأبعاد الأربعة: القلبي والنفسي والجسدي والاقتصادي */
-function heartOf(r){const it=[Math.min(r.j.length,5)/5,Math.min(wp(r),T())/T(),r.h.includes('witr')?1:0,Math.min(r.sn.length,4)/4,r.h.includes('qiyam')?1:0,brOk(r)?1:0,r.h.includes('am')?1:0,r.h.includes('pm')?1:0];return it.reduce((a,b)=>a+b,0)/it.length}
+function heartOf(r){const it=[...DK.map(([k])=>Math.min(dkv(r,k),DKT)/DKT),Math.min(r.j.length,5)/5,Math.min(wp(r),T())/T(),r.h.includes('witr')?1:0,Math.min(r.sn.length,4)/4,r.h.includes('qiyam')?1:0,brOk(r)?1:0,r.h.includes('am')?1:0,r.h.includes('pm')?1:0];return it.reduce((a,b)=>a+b,0)/it.length}
 function balanceAspect(ks,end,nd){
   const A=api(),S=[];
   let base=0;if(A){if(nd>=7)base=ks.reduce((a,k)=>a+A.dayExpense(k),0)/nd;else{let t=0;for(let i=1;i<=30;i++)t+=A.dayExpense(addDays(end,-(nd-1)-i));base=t/30}}
@@ -1088,7 +1097,7 @@ function balanceAspect(ks,end,nd){
     return{k,r,c,tx,sp,nx,ht,
       gH:ht==null?null:G(ht,1,0.5),gN:c?gDis(c.d,1):null,gB:worst([gSlp(r.slp),gStep(r.stp)]),gM:gm,
       food:tx.filter(x=>x.f).reduce((a,x)=>a+x.a,0),din:r.ml&&r.ml.d}});
-  const DIM=[['gH','🤍 القلبي','العبادات: الجماعة والورد والوتر والسنن والقيام والبر والأذكار'],['gN','🧠 النفسي',`التشتت على الشاشة (الحد ${fmtH(DL())})`],['gB','💪 الجسدي','النوم (7 ساعات أزرق، 6 أسود) والخطوات (8,000 أزرق، 5,000 أسود)'],['gM','💰 الاقتصادي',A?`المصروف مقابل معدل ${money(base)} يومياً (حتى مرة ونصف أسود)`:'']];
+  const DIM=[['gH','🤍 القلبي','العبادات: الجماعة والورد والوتر والسنن والقيام والبر والأذكار اليومية'],['gN','🧠 النفسي',`التشتت على الشاشة (الحد ${fmtH(DL())})`],['gB','💪 الجسدي','النوم (7 ساعات أزرق، 6 أسود) والخطوات (8,000 أزرق، 5,000 أسود)'],['gM','💰 الاقتصادي',A?`المصروف مقابل معدل ${money(base)} يومياً (حتى مرة ونصف أسود)`:'']];
   const note='كل بُعد يُقرأ بلونه: أزرق مكتمل، وأسود بلغ الحد، وأحمر دونه. الترابطات في بياناتك وليست دليلاً على السبب.';
   if(nd===1){const x=rows[0],c=x.c;
     S.push({h:'ميزان اليوم',b:[
@@ -1277,7 +1286,7 @@ window.__chlSleepPerm=function(ok){if(ok){toast('تم ربط بيانات الس
 function syncAll(){syncJam();syncUsage();syncHeadset();syncHealth();updateStrip();renderDay()}
 
 /* ---------- اسأل عن العلاقات ---------- */
-const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.h&&r.h.length)||(r.sn&&r.sn.length)||brOk(r)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0)))};
+const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.dk&&Object.values(r.dk).some(v=>+v>0))||(r.h&&r.h.length)||(r.sn&&r.sn.length)||brOk(r)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0)))};
 const MET=[
  {k:'spend',n:'المصروف المعتاد',u:'money',f:k=>{const A=api();return A?A.dayExpense(k):null},any:true},
  {k:'jama',n:'صلاة الجماعة',u:'صلاة',f:k=>trk(k)?peek(k).j.length:null},
@@ -1286,6 +1295,7 @@ const MET=[
  {k:'tdb',n:'جلسة التدبر',u:'جلسة',f:k=>trk(k)?(peek(k).h.includes('tdb')?1:0):null},
  {k:'witr',n:'صلاة الوتر',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('witr')?1:0):null},
  {k:'fad',n:'فضائل الصلاة',u:'مرة',f:k=>trk(k)?CN.reduce((a,c)=>a+cnt(peek(k),c.k),0):null},
+ {k:'dk',n:'الأذكار اليومية',u:'مرة',f:k=>trk(k)?DK.reduce((a,[d])=>a+dkv(peek(k),d),0):null},
  {k:'sunnah',n:'السنن الرواتب',u:'من 4',f:k=>trk(k)?peek(k).sn.length:null},
  {k:'qiyam',n:'قيام الليل',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('qiyam')?1:0):null},
  {k:'birr',n:'برّ الوالدين',u:'مرة',f:k=>trk(k)?(brOk(peek(k))?1:0):null},
@@ -1392,6 +1402,8 @@ $id('chl').addEventListener('click',e=>{
   if(j){const r=day(sel),k=j.dataset.j,i=r.j.indexOf(k);if(i>=0)r.j.splice(i,1);else{r.j.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
   const hb=e.target.closest('[data-h]');
   if(hb){const r=day(sel),k=hb.dataset.h,i=r.h.indexOf(k);if(i>=0)r.h.splice(i,1);else{r.h.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
+  const dk=e.target.closest('[data-dk]');
+  if(dk){const r=day(sel);r.dk=r.dk||{};const k=dk.dataset.dk,nv=Math.max(0,(+r.dk[k]||0)+ +dk.dataset.d);r.dk[k]=nv;if(navigator.vibrate)navigator.vibrate(nv===DKT?[30,40,30]:12);if(nv===DKT)toast('أتممت '+DKT+' مرات، تقبّل الله منك');save();renderDay();updateStrip();return}
   const sn=e.target.closest('[data-sn]');
   if(sn){const r=day(sel),k=sn.dataset.sn,i=r.sn.indexOf(k);if(i>=0)r.sn.splice(i,1);else{r.sn.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
   const br=e.target.closest('[data-br]');
@@ -1411,6 +1423,7 @@ $id('chl').addEventListener('change',e=>{
   else if(e.target.dataset.cnin){const r=day(sel);r.cn=r.cn||{};r.cn[e.target.dataset.cnin]=Math.max(0,Math.round(+e.target.value||0));save();renderDay();updateStrip()}
   else if(id==='chlSoc'){D.cfg.soc=+e.target.value;save();renderDay();updateStrip()}
   else if(id==='chlTa'){day(sel).ta=Math.max(0,Math.round(+e.target.value||0));save();renderDay()}
+  else if(e.target.dataset.dkin){const r=day(sel);r.dk=r.dk||{};r.dk[e.target.dataset.dkin]=Math.max(0,Math.round(+e.target.value||0));save();renderDay();updateStrip()}
   else if(id==='chlQk'){day(sel).qk=Math.max(0,Math.round(+e.target.value||0));save();renderDay()}
   else if(id==='chlBrN'){const r=day(sel);r.br=r.br||{t:[],n:''};r.br.n=e.target.value.trim();save();renderDay();updateStrip()}
   else if(id==='chlDis'){D.cfg.dis=+e.target.value;save();renderDay()}
@@ -2623,6 +2636,14 @@ function monthlyExpenseMedian(){
 function accBalBase(id){const a=S.settings.accounts.find(x=>x.id===id);if(!a)return 0;const f=flows();return((+a.opening||0)+(f[id]||0))*rateOf(accCur(a))}
 function accNetIn(id,k){const a=S.settings.accounts.find(x=>x.id===id);if(!a)return 0;const r=rateOf(accCur(a));let n=0;
   txIn(k).forEach(t=>{if(t.acc===id){const v=fromAmt(t)*r;n+=t.type==='income'?v:-v}if(t.type==='transfer'&&t.to===id)n+=toAmt(t)*r});return n}
+/* الإيداعات في الحساب خلال الشهر: الدخل إليه والتحويلات الواردة، دون خصم السحوبات */
+function accDepIn(id,k){const a=S.settings.accounts.find(x=>x.id===id);if(!a)return 0;const r=rateOf(accCur(a));let n=0;
+  txIn(k).forEach(t=>{if(t.type==='income'&&t.acc===id)n+=fromAmt(t)*r;if(t.type==='transfer'&&t.to===id)n+=toAmt(t)*r});return n}
+function goalMonth(g,s){const cp=curPeriod(),R=range(cp);
+  const dep=g.acc?accDepIn(g.acc,cp):(g.contribs||[]).filter(c=>c.date>=R.from&&c.date<R.to).reduce((a,c)=>a+ +c.amount,0);
+  const mt=+g.monthly||(s&&s.need>0?s.need:0),done=s&&s.target&&s.cur>=s.target;
+  const ok=dep>0&&(!mt||dep>=mt-1e-6);
+  return{dep,mt,ok,cls:ok?'pos':'neg',lbl:ok?'محقق هذا الشهر':dep>0?'دون المطلوب هذا الشهر':'لم يُودَع هذا الشهر بعد',done}}
 function goalState(g){
   const cur=g.acc?accBalBase(g.acc):(g.contribs||[]).reduce((a,c)=>a+ +c.amount,0);
   const target=+g.target||0,rem=Math.max(0,target-cur),pct=target?Math.min(1,cur/target):0;
@@ -2656,6 +2677,7 @@ function viewGoals(){
       <div class="g-bar"><i style="width:${s.pct*100}%"></i></div>
       <div class="g-nums"><span class="num">${fmt(s.cur)}</span><span class="t2">من <span class="num">${fmt(s.target)}</span> ${esc(curInfo()[0])}</span></div>
       ${lines.map(l=>`<div class="t2" style="white-space:normal;margin-top:4px">${l}</div>`).join('')}
+      ${(()=>{const m=goalMonth(g,s);return m.done?'':`<div class="t2" style="white-space:normal;margin-top:6px">أودعت هذا الشهر <b class="num">${fmt(m.dep)}</b>${m.mt?` من <b class="num">${fmt(m.mt)}</b> المطلوبة`:''}</div><span class="g-st ${m.cls}">${m.lbl}</span> `})()}
       ${s.status?`<span class="g-st ${s.scls}">${s.status}</span>`:''}</button>`}).join('');
   const hasEm=gs.some(g=>g.kind==='emergency');
   h+=`<div class="row2" style="margin-top:14px">${hasEm?'':`<button class="btn ghost slim" style="margin:0" data-action="newgoal" data-kind="emergency">🛟 صندوق الطوارئ</button>`}<button class="btn ghost slim" style="margin:0${hasEm?';grid-column:1/-1':''}" data-action="newgoal" data-kind="saving">＋ هدف ادخار</button></div>`;
@@ -2672,14 +2694,15 @@ function goalSheet(g,kind){
       ${x.kind==='emergency'?`<div class="field"><span style="display:block;font-size:.84rem;color:var(--muted);margin-bottom:6px">عدد الأشهر التي يغطيها الصندوق (مصروفك الشهري المعتاد ${fmt(med)})</span><div class="seg" style="margin:0">${[3,6,9,12].map(m=>`<button data-gm="${m}" aria-pressed="${+x.months===m}">${m} أشهر</button>`).join('')}</div></div>`:''}
       <label class="field"><span>المبلغ المستهدف (${esc(curInfo()[0])})</span><input id="gTarget" inputmode="decimal" value="${esc(x.target)}" style="direction:ltr;text-align:right"></label>
       <label class="field"><span>التاريخ المستهدف (اختياري)</span><input type="date" id="gDate" value="${esc(x.date||'')}"></label>
-      <label class="field"><span>ربط بحساب</span><select id="gAcc"><option value="">بلا ربط، سأسجل الإيداعات يدوياً</option>${S.settings.accounts.filter(a=>a.type==='debit').map(a=>`<option value="${esc(a.id)}"${a.id===x.acc?' selected':''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('')}</select></label>
-      <p class="note" style="margin:-6px 2px 12px">عند الربط بحساب، يُعدّ رصيد الحساب هو المبلغ المُدّخر، ويُحسب معدل الادخار من صافي ما دخل إليه في آخر 3 أشهر.</p>
+      <label class="field"><span>الإيداع الشهري المستهدف (اختياري)</span><input id="gMon" inputmode="decimal" value="${esc(x.monthly||'')}" placeholder="${s&&s.need>0?'المحسوب من التاريخ: '+fmt(s.need):'أي إيداع يُعدّ محققاً'}" style="direction:ltr;text-align:right"></label>
+      <label class="field"><span>ربط بحساب</span><select id="gAcc"><option value="">بلا ربط، سأسجل الإيداعات يدوياً</option>${S.settings.accounts.filter(a=>(a.type||'debit')==='debit').map(a=>`<option value="${esc(a.id)}"${a.id===x.acc?' selected':''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('')}</select></label>
+      <p class="note" style="margin:-6px 2px 12px">عند الربط بحساب، يُعدّ رصيد الحساب هو المبلغ المُدّخر، وكل إيداع أو تحويل إليه هذا الشهر يُحسب في "محقق هذا الشهر".</p>
       ${!x.acc&&!isNew?`<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="t1" style="margin-bottom:8px">الإيداعات</div><div class="row2" style="grid-template-columns:1fr auto;margin-bottom:8px"><input id="gAdd" inputmode="decimal" placeholder="مبلغ جديد" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);direction:ltr;text-align:right"><button class="btn slim" id="gAddBtn" style="margin:0;width:auto">إضافة</button></div>${(x.contribs||[]).slice().reverse().slice(0,8).map(c=>`<div class="mrow"><span class="ml">${esc(c.date)}</span><span class="grow"></span><span class="num mv">${fmt(c.amount)}</span></div>`).join('')||'<div class="t2">لا توجد إيداعات بعد</div>'}</div>`:''}
       ${s&&s.target?`<p class="note" style="margin:0 2px 12px">المُدّخر ${fmt(s.cur)} من ${fmt(s.target)} (${Math.round(s.pct*100)}٪)${s.proj?' · التاريخ المتوقع '+monthYear(s.proj):''}</p>`:''}
       <div class="err" id="gErr" hidden>أدخل اسم الهدف ومبلغاً مستهدفاً</div>
       <div class="actions"><button class="btn" id="gSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="gReset">إعادة ضبط الهدف</button><button class="btn danger" id="gDel">حذف الهدف</button>'}</div>`,
     b=>{
-      const grab=()=>{x.icon=b.querySelector('#gIcon').value.trim()||'🎯';x.name=b.querySelector('#gName').value.trim();const tv=parseAmount(b.querySelector('#gTarget').value);x.target=isNaN(tv)?'':Math.abs(tv);x.date=b.querySelector('#gDate').value;x.acc=b.querySelector('#gAcc').value};
+      const grab=()=>{x.icon=b.querySelector('#gIcon').value.trim()||'🎯';x.name=b.querySelector('#gName').value.trim();const tv=parseAmount(b.querySelector('#gTarget').value);x.target=isNaN(tv)?'':Math.abs(tv);x.date=b.querySelector('#gDate').value;x.acc=b.querySelector('#gAcc').value;const mv=parseAmount(b.querySelector('#gMon').value);x.monthly=isNaN(mv)||!mv?'':Math.abs(mv)};
       b.querySelectorAll('[data-gm]').forEach(el=>el.addEventListener('click',()=>{grab();x.months=+el.dataset.gm;x.target=Math.ceil(med*x.months/10)*10;draw()}));
       b.querySelector('#gAcc').addEventListener('change',()=>{grab();draw()});
       const save=(msg)=>{const list=S.settings.goals=S.settings.goals||[];const i=list.findIndex(y=>y.id===x.id);if(i>=0)list[i]=x;else list.push(x);saveSettings();if(msg)toast(msg)};
@@ -2969,7 +2992,7 @@ function viewSettings(){
     <div class="set-row"><span class="grow">مصدر الآيات</span><select class="pill" id="ayahSrc">${[['list',`المختارة (${AYAT.length})`],['mine',`آياتي (${(S.settings.myAyat||[]).length})`],['all','الكل']].map(([v,l])=>`<option value="${v}"${(S.settings.ayahSrc||'list')===v?' selected':''}>${l}</option>`).join('')}</select></div>
     <button class="set-row" data-action="ayahnext"><span class="ic">🔄</span><span class="grow"><span style="display:block">آية جديدة الآن</span><span class="t2">الحالية: ${esc(coverAyah().r)}</span></span></button>
     <button class="set-row" data-action="myayat"><span class="ic">📝</span><span class="grow">آياتي الخاصة</span><span class="t2">${(S.settings.myAyat||[]).length} ›</span></button>
-    <div class="set-row"><span class="grow"><span style="display:block">حساب الصافي</span><span class="t2">يظهر في الملخص بجانب المصروف</span></span><select class="pill" id="netAccSel" style="max-width:55%">${S.settings.accounts.filter(a=>(a.type||'debit')==='debit').map(a=>`<option value="${esc(a.id)}"${netAccId()===a.id?' selected':''}>${esc(a.icon||'')} ${esc(a.name)}</option>`).join('')}<option value="all"${netAccId()==='all'?' selected':''}>كل الحسابات النقدية</option></select></div>
+    <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">حسابات الصافي</span><span class="t2" style="white-space:normal">${esc(netCash().name)}</span></span><span class="t2">${netList().length} ›</span></button>
     <button class="set-row" data-fin-open="1"><span class="ic">💡</span><span class="grow">خطتي المالية</span><span class="t2">›</span></button>
     <button class="set-row" data-slh-open="1"><span class="ic">🕋</span><span class="grow">القبلة ومواقيت الصلاة</span><span class="t2">›</span></button>
     <button class="set-row" data-chl-open="1"><span class="ic">🎯</span><span class="grow">تحدياتي</span><span class="t2">›</span></button>
@@ -3001,7 +3024,21 @@ function applyTheme(){const t=S.settings&&S.settings.theme;const r=document.docu
   const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',dark?'#0B181B':'#0F3F45')}
 const THEME_ICON={auto:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',dark:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',light:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'};
 function netAccId(){const v=S.settings.netAcc;if(v==='all')return'all';const d=S.settings.accounts.filter(a=>(a.type||'debit')==='debit');return d.some(a=>a.id===v)?v:(d[0]||{}).id}
-function netCash(){const id=netAccId(),d=S.settings.accounts.filter(a=>(a.type||'debit')==='debit');const L=id==='all'?d:d.filter(a=>a.id===id);return{v:L.reduce((s,a)=>s+accBalBase(a.id),0),name:id==='all'?'كل الحسابات النقدية':(L[0]?L[0].name:'')}}
+function netList(){const m=S.settings.netAccs;if(Array.isArray(m)&&m.length){const L=S.settings.accounts.filter(a=>m.includes(a.id));if(L.length)return L}
+  const id=netAccId(),d=S.settings.accounts.filter(a=>(a.type||'debit')==='debit');return id==='all'?d:d.filter(a=>a.id===id)}
+function netCash(){const L=netList(),m=S.settings.netAccs,multi=Array.isArray(m)&&m.length;return{v:L.reduce((s,a)=>s+accBalBase(a.id),0),L,name:!multi&&netAccId()==='all'?'كل الحسابات النقدية':L.map(a=>a.name).join('، ')}}
+function netSheet(){
+  const cur=new Set(netList().map(a=>a.id));
+  openSheet(`<h3>حسابات الصافي</h3><p class="note" style="margin:0 0 12px">اختر الحسابات التي يُجمع رصيدها في "الصافي"، وتظهر أسماؤها فوقه.</p>
+    <div class="list">${S.settings.accounts.map(a=>`<label class="set-row"><input type="checkbox" class="na-ck" data-id="${esc(a.id)}" ${cur.has(a.id)?'checked':''} style="width:20px;height:20px;flex:none"><span class="ic">${esc(a.icon||'')}</span><span class="grow">${esc(a.name)}</span><span class="amt">${fmt(accBalBase(a.id))}</span></label>`).join('')}</div>
+    <p class="note" id="naSum" style="margin:10px 2px"></p>
+    <div class="err" id="naErr" hidden>اختر حساباً واحداً على الأقل</div>
+    <div class="actions"><button class="btn" id="naSave">حفظ</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>{const up=()=>{let t=0;b.querySelectorAll('.na-ck').forEach(c=>{if(c.checked)t+=accBalBase(c.dataset.id)});b.querySelector('#naSum').textContent='المجموع: '+fmt(t)+' '+curInfo()[0]};
+    b.querySelectorAll('.na-ck').forEach(c=>c.addEventListener('change',up));up();
+    b.querySelector('#naSave').addEventListener('click',()=>{const ids=[...b.querySelectorAll('.na-ck')].filter(c=>c.checked).map(c=>c.dataset.id);if(!ids.length){b.querySelector('#naErr').hidden=false;return}
+      S.settings.netAccs=ids;saveSettings();closeSheet();toast('تم حفظ حسابات الصافي');render()})});
+}
 function smMini(inc,expU){
   const srT=+S.settings.saveRate||0,sr=inc>0?(inc-expU)/inc:null;
   const em=(S.settings.goals||[]).find(g=>g.kind==='emergency'),es=em?goalState(em):null,med=em?monthlyExpenseMedian():0,emM=es&&med?es.cur/med:null;
@@ -3100,8 +3137,8 @@ function viewSummary(){
     <div class="sm-head"><div class="sm-greet">${greet}</div><div class="sm-per">${esc(periodLabel(k))}</div></div>
     <div class="sm-card"><div class="sm-l">المصروف</div><div class="sm-v num">${fmt(exp)}<small>${esc(cur)}</small></div>
       <div class="sm-bar"><i style="width:${pctUsed*100}%"></i></div><div class="sm-c">${hasB?`${Math.round(expU/tb*100)}٪ من ميزانية ${fmt(tb)}`:inc>0?`${Math.round(exp/inc*100)}٪ من دخل الفترة`:'لا دخل مسجّل بعد في هذه الفترة'}</div></div>
-    ${(()=>{const nc=netCash();return `<div class="sm-card alt${nc.v<0?' neg':''}"><div class="sm-l">الصافي</div><div class="sm-v num">${nc.v<0?'−':''}${fmt(Math.abs(nc.v))}<small>${esc(cur)}</small></div>
-      <div class="sm-c">النقد في ${esc(nc.name)} · ${left<0?`تجاوزت ${hasB?'الميزانية':'دخل الفترة'} بـ ${fmt(Math.abs(left))}`:`الباقي من ${hasB?'الميزانية':'دخل الفترة'} ${fmt(left)}`}${left>0&&daysLeft?` (نحو ${fmt(left/daysLeft)} يومياً)`:''}</div></div>`})()}
+    ${(()=>{const nc=netCash();return `<div class="sm-card alt${nc.v<0?' neg':''}"><div class="sm-c" style="margin:0 0 4px;white-space:normal">${nc.L.map(a=>esc((a.icon?a.icon+' ':'')+a.name)).join(' + ')}</div><div class="sm-l">الصافي</div><div class="sm-v num">${nc.v<0?'−':''}${fmt(Math.abs(nc.v))}<small>${esc(cur)}</small></div>
+      <div class="sm-c">${left<0?`تجاوزت ${hasB?'الميزانية':'دخل الفترة'} بـ ${fmt(Math.abs(left))}`:`الباقي من ${hasB?'الميزانية':'دخل الفترة'} ${fmt(left)}`}${left>0&&daysLeft?` (نحو ${fmt(left/daysLeft)} يومياً)`:''}</div></div>`})()}
     ${smMini(inc,expU)}
     <button class="sm-go" data-action="gohome">متابعة <span>←</span></button>
   </section>`;
@@ -3588,6 +3625,7 @@ document.addEventListener('click',e=>{
     else if(act==='wrsave'){const r=S.wrOut;const html='<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>'+esc(r.title)+'</title><body style="font-family:Tahoma,sans-serif;max-width:720px;margin:24px auto;line-height:1.8;padding:0 16px">'+document.querySelector('.report').outerHTML+'</body></html>';if(!saveFile('mizaniyati-report-'+todayStr()+'.html',html,'text/html'))toast('تم حفظ التقرير في التنزيلات')}
     else if(act==='wrshare'){navigator.share({title:S.wrOut.title,text:reportText(S.wrOut)}).catch(()=>{})}
     else if(act==='saverate'){saveRateSheet()}
+    else if(act==='netaccs'){netSheet()}
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
     else if(act==='import'){S.noLockUntil=Date.now()+120000;$('#fileIn').click()}
