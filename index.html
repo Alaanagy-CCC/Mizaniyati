@@ -2789,7 +2789,7 @@ function viewHome(){
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
   const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
-  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__oblStrip?window.__oblStrip():'')+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__oblStrip?window.__oblStrip():'')+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
@@ -3634,6 +3634,7 @@ function viewSettings(){
     <button class="set-row" data-action="myayat"><span class="ic">📝</span><span class="grow">آياتي الخاصة</span><span class="t2">${(S.settings.myAyat||[]).length} ›</span></button>
     <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">أقسام الصافي</span><span class="t2" style="white-space:normal">${netGroups().filter(g=>g.ids.length).map((g,i)=>esc(g.n||netCash(i).name)).join(' · ')}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-obl-open="1"><span class="ic">📑</span><span class="grow">التزاماتي</span><span class="t2">›</span></button>
+    <button class="set-row" data-action="coclaims"><span class="ic">💼</span><span class="grow"><span style="display:block">نفقات الشركة وتعويضها</span><span class="t2">${coAccs().length?'المستحق لك: '+esc(coF(coClaims().owed)):'لم يُعلَّم حساب للشركة بعد'}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-fin-open="1"><span class="ic">💡</span><span class="grow">خطتي المالية</span><span class="t2">›</span></button>
     <button class="set-row" data-slh-open="1"><span class="ic">🕋</span><span class="grow">القبلة ومواقيت الصلاة</span><span class="t2">›</span></button>
     <button class="set-row" data-chl-open="1"><span class="ic">🎯</span><span class="grow">تحدياتي</span><span class="t2">›</span></button>
@@ -3925,10 +3926,12 @@ function txSheet(existing,preset){
       <label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
       ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
       ${t.type==='expense'&&isFoodCat(catById(t.cat))?`<div class="field"><span>الوجبة</span><div class="chips">${MEALS.map(([k,n])=>`<button class="chip" data-k="meal" data-v="${k}" aria-pressed="${t.meal===k}">${k==='d'?'⭐ ':''}${n}</button>`).join('')}<button class="chip" data-k="meal" data-v="" aria-pressed="${!t.meal}">غير محددة</button></div></div>`:''}
+      ${t.type==='expense'&&+catById(t.cat).coPct>0&&!accById(t.acc).co?`<label class="set-row" style="padding:0 2px 8px;border:0"><input type="checkbox" id="noCoIn" ${t.noCo?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">ليست للشركة</span><span class="t2" style="white-space:normal">نصيب الشركة من هذا البند ${+catById(t.cat).coPct}٪، ويُعوَّض لك ما لم تستثنها</span></span></label>`:''}
+      ${preset.rb?`<p class="note" style="margin:-4px 2px 12px">💼 تعويض ${preset.rb.items.length} ${preset.rb.items.length>2&&preset.rb.items.length<11?'عمليات':'عملية'} من نفقات الشركة. بعد الحفظ نفّذ التحويل نفسه في البنك.</p>`:''}
       ${t.type==='expense'?`<label class="set-row" style="padding:0 2px 12px;border:0"><input type="checkbox" id="exIn" ${t.ex?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">مصروف استثنائي</span><span class="t2" style="white-space:normal">لا يدخل في حساب الميزانيات والمصروف المعتاد</span></span></label>`:''}
       <div class="actions"><button class="btn" id="saveTx">حفظ</button>${existing?'<button class="btn danger" id="delTx">حذف العملية</button>':''}</div>`,
     b=>{
-      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value;const xe=b.querySelector('#exIn');if(xe)t.ex=xe.checked};
+      const grab=()=>{t.amount=b.querySelector('#amtIn').value;t.date=b.querySelector('#dateIn').value||t.date;t.note=b.querySelector('#noteIn').value;const ai=b.querySelector('#accIn');if(ai)t.acc=ai.value;const ti=b.querySelector('#toIn');if(ti)t.to=ti.value;const ri=b.querySelector('#repIn');if(ri)t.rep=ri.value;const rv=b.querySelector('#recvIn');if(rv)t.recv=rv.value;const xe=b.querySelector('#exIn');if(xe)t.ex=xe.checked;const nc=b.querySelector('#noCoIn');if(nc)t.noCo=nc.checked};
       ['#accIn','#toIn'].forEach(s=>{const el=b.querySelector(s);if(el)el.addEventListener('change',()=>{grab();t.recv='';t.recvTouched=false;draw()})});
       const eq=b.querySelector('#eqv'),ain=b.querySelector('#amtIn'),rin=b.querySelector('#recvIn'),rl=b.querySelector('#rateLn');
       if(rin){const tdec=(CUR[tc]||[0,2])[1];
@@ -3947,6 +3950,8 @@ function txSheet(existing,preset){
         const rec={id:t.id,type:t.type,amount:fc===baseCur()?a:+(a*rateOf(fc)).toFixed(bdec),cat:t.type==='transfer'?'':t.cat,acc:t.acc,to:t.type==='transfer'?t.to:'',date:t.date,note:t.note.trim()};
         if(fc!==baseCur()) rec.oamt=a;
         if(t.type==='expense'&&t.ex) rec.ex=true;
+        if(t.type==='expense'&&t.noCo) rec.noCo=true;
+        if(t.type==='transfer'){if(existing&&existing.rb)rec.rb=existing.rb;else if(!existing&&preset.rb)rec.rb=preset.rb}
         if(t.type==='expense'&&t.meal&&isFoodCat(catById(rec.cat))) rec.meal=t.meal;
         if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3);
           const ur=b.querySelector('#updRate');if(ur&&ur.checked&&rec.toamt>0){S.settings.rates=S.settings.rates||{};if(fc===baseCur())S.settings.rates[tc]=+(a/rec.toamt).toFixed(6);else S.settings.rates[fc]=+(rec.toamt/a).toFixed(6);saveSettings()}}
@@ -3959,7 +3964,7 @@ function txSheet(existing,preset){
         if(oldMonth){S.months[oldMonth]=txOf(oldMonth).filter(x=>x.id!==rec.id); if(oldMonth!==nm) saveMonth(oldMonth);}
         S.months[nm]=txOf(nm).concat(rec); sortMonth(nm); saveMonth(nm);
         if(S.settings.lastAcc!==rec.acc&&rec.type!=='transfer'){S.settings.lastAcc=rec.acc;saveSettings()}
-        if(window.__oblAfterSave){try{window.__oblAfterSave(rec,!!existing)}catch(e){}} closeSheet(); toast(existing?'تم حفظ التعديل':'تمت الإضافة'); if(!existing) budgetAlert(rec); render();
+        if(window.__oblAfterSave){try{window.__oblAfterSave(rec,!!existing)}catch(e){}} closeSheet(); toast(rec.rb&&!existing?'سُجّل التعويض. نفّذ التحويل في البنك، ثم صدّر حساب الشركة لرُشد للأعمال':existing?'تم حفظ التعديل':'تمت الإضافة'); if(!existing) budgetAlert(rec); render();
       });
       const d=b.querySelector('#delTx'); if(d) d.addEventListener('click',()=>{
         if(d.dataset.confirm!=='1'){d.dataset.confirm='1';d.textContent='اضغط مرة أخرى للتأكيد';return}
@@ -3977,6 +3982,7 @@ function catSheet(cat,kind){
     ${c.kind==='expense'?`<label class="field"><span>الميزانية الشهرية (${esc(curInfo()[0])})</span><input id="cBud" inputmode="decimal" value="${+c.budget?esc(c.budget):''}" placeholder="بدون ميزانية" style="direction:ltr;text-align:right"></label>`:''}
     ${c.kind==='expense'?`<label class="set-row" style="padding:4px 2px 8px;border:0"><input type="checkbox" id="cNob" ${c.noBudget?'checked':''} style="width:20px;height:20px"><span class="grow"><span class="t1">بند غير استهلاكي</span><span class="t2">مثل تسديد الديون: لا يدخل في الميزانيات والمصروف المعتاد</span></span></label>`:''}
     ${c.kind==='expense'?`<label class="set-row" style="padding:4px 2px 14px;border:0"><input type="checkbox" id="cRoll" ${c.rollover?'checked':''} style="width:20px;height:20px"><span class="grow"><span class="t1">ترحيل المتبقي</span><span class="t2">يُضاف ما لم يُصرف من ميزانية البند إلى الشهر التالي</span></span></label>`:''}
+    ${c.kind==='expense'?`<label class="field"><span>نصيب الشركة من هذا البند (٪)</span><input id="cCo" inputmode="decimal" value="${+c.coPct?esc(c.coPct):''}" placeholder="0 = شخصي بالكامل" style="direction:ltr;text-align:right"></label>`:''}
     <div class="err" id="cErr" hidden>اكتب اسم البند</div>
     <div class="actions"><button class="btn" id="cSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="cTx">عرض كل عمليات البند</button><button class="btn danger" id="cDel">حذف البند</button>'}</div>`,
   b=>{
@@ -3989,6 +3995,7 @@ function catSheet(cat,kind){
       const bi=b.querySelector('#cBud'); if(bi){const v=parseAmount(bi.value);c.budget=isNaN(v)?0:Math.abs(v)}
       const rl=b.querySelector('#cRoll'); if(rl) c.rollover=rl.checked;
       const nb=b.querySelector('#cNob'); if(nb){c.noBudget=nb.checked;if(c.noBudget)c.budget=0}
+      const cc=b.querySelector('#cCo'); if(cc){let v=parseAmount(cc.value);v=isNaN(v)?0:Math.max(0,Math.min(100,Math.abs(v)));if(v)c.coPct=v;else delete c.coPct}
       if(isNew) S.settings.categories.push(c); else S.settings.categories=S.settings.categories.map(x=>x.id===c.id?c:x);
       saveSettings(); closeSheet(); toast('تم حفظ البند'); render();
     });
@@ -4033,10 +4040,11 @@ function accSheet(acc,type){
       <label class="field"><span>العملة</span><select id="aCur">${Object.keys(CUR).map(c=>`<option value="${c}"${c===cur?' selected':''}>${c} ${CUR[c][0]}</option>`).join('')}</select></label>
       <label class="field"><span>${debt?'المبلغ المستحق عليك حالياً':'الرصيد الحالي'} (${esc(curSym(cur))})</span><input id="aBal" inputmode="decimal" value="${shown===''?'':esc(+shown.toFixed((CUR[cur]||[0,2])[1]))}" placeholder="0" style="direction:ltr;text-align:right"></label>
       ${a.type==='credit'?`<label class="field"><span>حد البطاقة (${esc(curSym(accCur(a)))})</span><input id="aLim" inputmode="decimal" value="${+a.limit?esc(a.limit):''}" placeholder="اختياري" style="direction:ltr;text-align:right"></label>`:''}
+      <label class="set-row" style="padding:4px 2px 12px;border:0"><input type="checkbox" id="aCo" ${a.co?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">💼 حساب الشركة</span><span class="t2" style="white-space:normal">مال CoreCompass. يُعوَّض منه ما تدفعه للشركة من حساباتك الشخصية</span></span></label>
       <div class="err" id="aErr" hidden>اكتب اسم الحساب</div>
       <div class="actions"><button class="btn" id="aSave">حفظ</button>${isNew?'':'<button class="btn ghost" id="aEx">📤 تصدير الحساب بعملياته</button><button class="btn ghost" id="aRc">⚖️ مطابقة الرصيد'+(a.reconciled?' (آخرها '+esc(a.reconciled.date)+')':'')+'</button><button class="btn ghost" id="aTx">عرض عمليات الحساب</button><button class="btn danger" id="aDel">حذف الحساب</button>'}</div>`,
     b=>{
-      const grab=()=>{a.name=b.querySelector('#aName').value;a.icon=b.querySelector('#aIcon').value;const al=b.querySelector('#aAl');if(al)a.alias=al.value.trim()};
+      const grab=()=>{a.name=b.querySelector('#aName').value;a.icon=b.querySelector('#aIcon').value;const al=b.querySelector('#aAl');if(al)a.alias=al.value.trim();const ac=b.querySelector('#aCo');if(ac){if(ac.checked)a.co=true;else delete a.co}};
       b.querySelector('#aCur').addEventListener('change',e=>{grab();a.currency=e.target.value;draw()});
       b.querySelectorAll('[data-t]').forEach(el=>el.addEventListener('click',()=>{grab();a.type=el.dataset.t;draw()}));
       const ni=b.querySelector('#aName'),ii=b.querySelector('#aIcon');
@@ -4091,21 +4099,89 @@ function recSheet(r){
    ملف يصدّره المستخدم يدوياً؛ لا اتصال ولا مزامنة بين التطبيقين. */
 function accExportData(a){
   const cur=accCur(a),L=allTx().filter(t=>t.acc===a.id||t.to===a.id).slice().sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
-  const usedCats=new Set(L.map(t=>t.cat).filter(Boolean));
+  const usedCats=new Set(L.map(t=>t.cat).filter(Boolean)),TM={};allTx().forEach(t=>TM[t.id]=t);
   const tx=L.map(t=>{const out=t.acc===a.id&&!(t.type==='income'||(t.type==='adjust'&&(t.sign||1)>0));const isTo=t.type==='transfer'&&t.to===a.id&&t.acc!==a.id;
     const amtAcc=isTo?toAmt(t):fromAmt(t);
     return{id:t.id,date:t.date,type:t.type,direction:isTo?'in':out?'out':'in',amount:+(+amtAcc).toFixed(6),currency:cur,amount_base:+(+t.amount).toFixed(6),base_currency:baseCur(),
       category_id:t.cat||null,category:t.cat?catById(t.cat).name:null,note:t.note||'',counterpart_account:t.type==='transfer'?(isTo?accById(t.acc).name:(t.to?accById(t.to).name:null)):null,
-      exceptional:!!t.ex||undefined,recurring_id:t.rid||undefined,meal:t.meal||undefined}});
+      exceptional:!!t.ex||undefined,recurring_id:t.rid||undefined,meal:t.meal||undefined,
+      reimbursement:t.rb&&t.rb.items?{kind:'company_expense_reimbursement',items:t.rb.items.map(x=>{const e=TM[x.id];return e?{expense_id:e.id,date:e.date,category:catById(e.cat).name,note:e.note||'',paid_from:accById(e.acc).name,expense_amount_base:+(+e.amount).toFixed(6),company_pct:+catById(e.cat).coPct||null,company_share_base:+(+x.s).toFixed(6)}:{expense_id:x.id,company_share_base:+(+x.s).toFixed(6),missing:true}})}:undefined}});
+  const coPart=a.co?(()=>{const C=coClaims();return{is_company_account:true,counted_from:coCfg().from,reimbursed_total_base:+C.paid.toFixed(6),outstanding_total_base:+C.owed.toFixed(6),
+    outstanding_note:'نفقات للشركة دفعها المدير من حساباته الشخصية ولم تُعوَّض بعد؛ تُعامل ديناً للمدير على الشركة (حساب قرض المدير).',
+    outstanding:C.open.map(x=>({expense_id:x.t.id,date:x.t.date,category:catById(x.t.cat).name,note:x.t.note||'',paid_from:accById(x.t.acc).name,expense_amount_base:+(+x.t.amount).toFixed(6),company_pct:x.p,company_share_base:+x.sh.toFixed(6),already_reimbursed_base:+x.cov.toFixed(6),outstanding_base:+x.left.toFixed(6)}))}})():undefined;
   const bal=accBal(a);
   return{format:'rushd-account-export',version:1,source_app:'رُشد الشخصي',exported_at:new Date().toISOString(),
     note:'تصدير يدوي لحساب واحد بعملياته. لا يتضمن بيانات أي حساب آخر سوى أسماء الحسابات المقابلة في التحويلات.',
     base_currency:baseCur(),rates:Object.assign({},S.settings.rates||{}),rates_updated:S.settings.ratesUpdated||null,
     account:{id:a.id,name:a.name,type:a.type,currency:cur,opening_balance:+(+a.opening||0).toFixed(6),current_balance:+bal.toFixed(6),limit:+a.limit||0,reconciled:a.reconciled||null},
     categories:S.settings.categories.filter(c=>usedCats.has(c.id)).map(c=>({id:c.id,name:c.name,kind:c.kind,icon:c.icon})),
+    company:coPart,
     summary:{transactions:tx.length,first_date:tx.length?tx[0].date:null,last_date:tx.length?tx[tx.length-1].date:null,
       total_in:+tx.filter(x=>x.direction==='in').reduce((s,x)=>s+x.amount,0).toFixed(6),total_out:+tx.filter(x=>x.direction==='out').reduce((s,x)=>s+x.amount,0).toFixed(6)},
     transactions:tx};
+}
+/* ---------- نفقات الشركة المدفوعة من مالك الشخصي وتعويضها ----------
+   البند يحمل نسبة الشركة (coPct)، والحساب يُعلَّم حساباً للشركة (co).
+   التطبيق يقترح التعويض فقط؛ لا يتغير رصيد إلا بعد موافقتك وحفظ التحويل بنفسك. */
+const coAccs=()=>S.settings.accounts.filter(a=>a.co);
+const coCfg=()=>S.settings.coCfg||(S.settings.coCfg={from:range(curPeriod()).from});
+const coF=v=>fmt(v)+' '+curInfo()[0];
+function coClaims(){
+  const ca=new Set(coAccs().map(a=>a.id)),from=coCfg().from||'0000-00-00',all=allTx(),cov={};
+  all.forEach(t=>{if(t.type==='transfer'&&t.rb&&t.rb.items&&t.rb.items.length){const tot=t.rb.items.reduce((s,x)=>s+(+x.s||0),0),r=tot>0?Math.min(1,(+t.amount||0)/tot):0;t.rb.items.forEach(x=>cov[x.id]=(cov[x.id]||0)+(+x.s||0)*r)}});
+  const items=all.filter(t=>t.type==='expense'&&t.date>=from&&!t.noCo&&!ca.has(t.acc)&&(+catById(t.cat).coPct||0)>0)
+    .map(t=>{const p=Math.min(100,+catById(t.cat).coPct),sh=(+t.amount||0)*p/100,c=cov[t.id]||0;return{t,p,sh,cov:c,left:Math.max(0,sh-c)}})
+    .sort((a,b)=>a.t.date<b.t.date?-1:a.t.date>b.t.date?1:0);
+  const open=items.filter(x=>x.left>0.0005),reimb=all.filter(t=>t.type==='transfer'&&t.rb).sort((a,b)=>a.date<b.date?1:-1);
+  return{items,open,owed:open.reduce((s,x)=>s+x.left,0),reimb,paid:reimb.reduce((s,t)=>s+(+t.amount||0),0)};
+}
+function coStrip(){if(!coAccs().length)return'';const c=coClaims();if(c.owed<0.0005)return'';
+  return `<button class="slh-strip" data-action="coclaims"><span>💼</span><span class="g">مستحق لك من الشركة</span><span class="t2"><span class="num">${fmt(c.owed)}</span> · ${c.open.length} ${c.open.length>2&&c.open.length<11?'عمليات':'عملية'} ›</span></button>`}
+function coSheet(){
+  const draw=()=>{
+    const ca=coAccs(),C=coClaims(),sel=S.coSel||(S.coSel={}),cfg=coCfg();
+    const src=ca.some(a=>a.id===S.coSrc)?S.coSrc:(ca[0]||{}).id,sa=src?accById(src):null;
+    const groups={};C.open.forEach(x=>{(groups[x.t.acc]=groups[x.t.acc]||[]).push(x)});
+    const dd=d=>{const[y,m,dy]=d.split('-');return `${+dy}/${+m}`};
+    let h=`<h3>💼 نفقات الشركة من مالك الشخصي</h3>
+      <p class="note" style="margin:-4px 0 12px">يحسب التطبيق نصيب الشركة من كل مصروف في بنود لها نسبة للشركة، دفعته من حساب شخصي. ثم يقترح عليك التعويض من حساب الشركة، ولا يسجّل شيئاً إلا بعد موافقتك.</p>`;
+    if(!ca.length)h+=`<div class="warnbar" style="margin-bottom:12px">علّم حساب الشركة أولاً: افتح الحساب من شاشة الحسابات، وفعّل «حساب الشركة».</div>`;
+    h+=`<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="mrow"><span class="grow">المستحق لك من الشركة</span><b class="num">${coF(C.owed)}</b></div>
+      <div class="mrow"><span class="grow">العمليات غير المعوَّضة</span><b class="num">${C.open.length}</b></div>
+      <div class="mrow"><span class="grow">ما عُوِّض حتى الآن</span><b class="num">${coF(C.paid)}</b></div>
+      ${sa?`<div class="mrow"><span class="grow">رصيد ${esc(sa.name)}</span><b class="num">${coF(accBalBase(src))}</b></div>`:''}</div>`;
+    if(ca.length>1)h+=`<label class="field"><span>التعويض من حساب الشركة</span><select id="coSrc">${ca.map(a=>`<option value="${esc(a.id)}"${a.id===src?' selected':''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('')}</select></label>`;
+    Object.keys(groups).forEach(acc=>{const L=groups[acc],on=L.filter(x=>sel[x.t.id]!==false),tot=on.reduce((s,x)=>s+x.left,0),pa=accById(acc);
+      let bt='';if(src&&tot>0.0005){const bal=accBalBase(src);
+        bt=`<button class="btn" data-copay="${esc(acc)}" style="margin-top:8px;width:100%">اقتراح: حوّل ${coF(tot)} من ${esc(sa.name)} إلى ${esc(pa.name)}</button>
+          ${bal<tot-0.0005?`<p class="note" style="margin:6px 2px 0">رصيد حساب الشركة (${coF(bal)}) أقل من المبلغ. ما لا تعوّضه الآن يبقى ديناً للشركة عليك في حساب قرض المدير، ويظهر في التصدير.</p>`:''}`}
+      h+=`<h4 style="margin:14px 2px 6px">دُفعت من ${esc(pa.icon||'')} ${esc(pa.name)} <span class="t2">· ${coF(L.reduce((s,x)=>s+x.left,0))}</span></h4>${bt}<div class="list" style="margin-top:8px">${L.map(x=>{const c=catById(x.t.cat),ck=sel[x.t.id]!==false;
+        return `<div class="set-row" style="gap:8px"><input type="checkbox" data-cosel="${esc(x.t.id)}" ${ck?'checked':''} style="width:20px;height:20px;flex:none" aria-label="اختيار للتعويض"><span class="grow"><span class="t1" style="white-space:normal">${esc(c.icon||'')} ${esc(c.name)}${x.t.note?' · '+esc(x.t.note):''}</span><span class="t2">${dd(x.t.date)} · ${fmt(x.t.amount)} × ${x.p}٪${x.cov>0.0005?' · عُوِّض جزء منها':''}</span></span><b class="num">${fmt(x.left)}</b><button class="chip" data-cono="${esc(x.t.id)}" aria-label="ليست للشركة" title="ليست للشركة">✕</button></div>`}).join('')}</div>`;
+    });
+    if(!C.open.length)h+=`<p class="note">لا توجد نفقات للشركة غير معوَّضة منذ ${esc(cfg.from)}.</p>`;
+    const cats=expenseCats();
+    h+=`<details style="margin-top:16px"><summary class="set-row" style="cursor:pointer"><span class="grow">نسب الشركة للبنود</span><span class="t2">${cats.filter(c=>+c.coPct>0).length} ▾</span></summary>
+      <p class="note" style="margin:6px 2px">0 يعني شخصياً بالكامل. مثلاً: اشتراكات الذكاء الاصطناعي 90، المؤتمرات 100.</p>
+      <div class="list">${cats.map(c=>`<div class="set-row"><span class="grow">${esc(c.icon||'')} ${esc(c.name)}</span><input class="fin-in" data-copct="${esc(c.id)}" inputmode="decimal" value="${+c.coPct?+c.coPct:''}" placeholder="0" style="width:70px;margin:0;text-align:center"><span class="t2">٪</span></div>`).join('')}</div></details>
+      <label class="field" style="margin-top:12px"><span>احسب النفقات ابتداءً من تاريخ</span><input type="date" id="coFrom" value="${esc(cfg.from||'')}"></label>
+      <p class="note" style="margin:-6px 2px 12px">حتى لا تدخل نفقات قديمة سبق تسويتها.</p>`;
+    if(C.reimb.length)h+=`<details><summary class="set-row" style="cursor:pointer"><span class="grow">سجل التعويضات</span><span class="t2">${C.reimb.length} ▾</span></summary><div class="list">${C.reimb.slice(0,30).map(t=>`<div class="set-row"><span class="grow"><span class="t1">${esc(t.date)} · ${t.rb.items.length} ${t.rb.items.length>2&&t.rb.items.length<11?'عمليات':'عملية'}</span><span class="t2">${esc(accById(t.acc).name)} ← ${esc(accById(t.to).name)}</span></span><b class="num">${fmt(t.amount)}</b></div>`).join('')}</div></details>`;
+    if(src)h+=`<div class="actions"><button class="btn ghost" id="coExp">📤 تصدير ${esc(sa.name)} لرُشد للأعمال</button></div>`;
+    openSheet(h,b=>{
+      const s=b.querySelector('#coSrc');if(s)s.addEventListener('change',()=>{S.coSrc=s.value;draw()});
+      b.querySelectorAll('[data-cosel]').forEach(el=>el.addEventListener('change',()=>{sel[el.dataset.cosel]=el.checked?undefined:false;if(el.checked)delete sel[el.dataset.cosel];draw()}));
+      b.querySelectorAll('[data-cono]').forEach(el=>el.addEventListener('click',()=>{const id=el.dataset.cono,t=allTx().find(x=>x.id===id);if(!t)return;
+        if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='تأكيد؟';return}
+        t.noCo=true;saveMonth(t.date.slice(0,7));toast('استُثنيت من نفقات الشركة، وتُعاد من تعديل العملية');draw();render()}));
+      b.querySelectorAll('[data-copct]').forEach(el=>el.addEventListener('change',()=>{const c=S.settings.categories.find(x=>x.id===el.dataset.copct);if(!c)return;let v=parseAmount(el.value);v=isNaN(v)?0:Math.max(0,Math.min(100,Math.abs(v)));if(v)c.coPct=v;else delete c.coPct;saveSettings();draw();render()}));
+      const fr=b.querySelector('#coFrom');if(fr)fr.addEventListener('change',()=>{if(fr.value){coCfg().from=fr.value;saveSettings();draw();render()}});
+      b.querySelectorAll('[data-copay]').forEach(el=>el.addEventListener('click',()=>{const acc=el.dataset.copay,L=coClaims().open.filter(x=>x.t.acc===acc&&sel[x.t.id]!==false);if(!L.length)return;
+        const tot=L.reduce((s,x)=>s+x.left,0),fc=accCur(accById(src)),dec=(CUR[fc]||[0,3])[1];
+        txSheet(null,{type:'transfer',acc:src,to:acc,amount:+(fc===baseCur()?tot:tot/rateOf(fc)).toFixed(dec),date:todayStr(),note:`تعويض نفقات الشركة (${L.length} ${L.length>2&&L.length<11?'عمليات':'عملية'})`,rb:{items:L.map(x=>({id:x.t.id,s:+x.left.toFixed(6)}))}})}));
+      const ex=b.querySelector('#coExp');if(ex)ex.addEventListener('click',()=>accExportSheet(accById(src)));
+    });
+  };
+  draw();
 }
 function accExportSheet(a){
   const d=accExportData(a),c=d.account.currency,slug=(a.name||'account').replace(/[^\w\u0600-\u06FF-]+/g,'-');
@@ -4113,12 +4189,13 @@ function accExportSheet(a){
     <div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="mrow"><span class="grow">العمليات</span><b class="num">${d.summary.transactions}</b></div>
     <div class="mrow"><span class="grow">الفترة</span><b>${esc(d.summary.first_date||'—')} إلى ${esc(d.summary.last_date||'—')}</b></div>
     <div class="mrow"><span class="grow">الرصيد الحالي</span><b class="num">${fmtC(d.account.current_balance,c)} ${esc(curSym(c))}</b></div>
-    <div class="mrow"><span class="grow">الداخل / الخارج</span><b class="num">${fmtC(d.summary.total_in,c)} / ${fmtC(d.summary.total_out,c)}</b></div></div>
+    <div class="mrow"><span class="grow">الداخل / الخارج</span><b class="num">${fmtC(d.summary.total_in,c)} / ${fmtC(d.summary.total_out,c)}</b></div>
+    ${d.company?`<div class="mrow"><span class="grow">💼 تعويضات مرفقة تفاصيلها</span><b class="num">${d.transactions.filter(t=>t.reimbursement).length}</b></div><div class="mrow"><span class="grow">💼 مستحق للمدير لم يُعوَّض</span><b class="num">${fmt(d.company.outstanding_total_base)} ${esc(curInfo()[0])}</b></div>`:''}</div>
     <p class="note" style="margin:0 0 12px">ملف JSON يستورده رُشد للأعمال، ومعه CSV للجداول. التصدير يدوي ولا يربط التطبيقين، ولا يحذف شيئاً من رُشد. الملف يحوي بيانات مالية، فاحفظه في مكان آمن.</p>
     <div class="actions"><button class="btn" id="exJ">تصدير لرُشد للأعمال (JSON)</button><button class="btn ghost" id="exC">تصدير جدول (CSV)</button></div>`,
   b=>{b.querySelector('#exJ').addEventListener('click',()=>{if(!saveFile('rushd-account-'+slug+'-'+todayStr()+'.json',JSON.stringify(d,null,1),'application/json'))toast('تم التصدير إلى التنزيلات')});
     b.querySelector('#exC').addEventListener('click',()=>{const q=v=>{v=String(v==null?'':v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-      const lines=['date,type,direction,amount,currency,amount_base,category,counterpart_account,note,id'].concat(d.transactions.map(t=>[t.date,t.type,t.direction,t.amount,t.currency,t.amount_base,t.category,t.counterpart_account,t.note,t.id].map(q).join(',')));
+      const lines=['date,type,direction,amount,currency,amount_base,category,counterpart_account,note,id,reimbursed_items'].concat(d.transactions.map(t=>[t.date,t.type,t.direction,t.amount,t.currency,t.amount_base,t.category,t.counterpart_account,t.note,t.id,t.reimbursement?t.reimbursement.items.map(x=>[x.date,x.category,x.note,x.company_share_base].join(' ')).join(' ; '):''].map(q).join(',')));
       if(!saveFile('rushd-account-'+slug+'-'+todayStr()+'.csv','\uFEFF'+lines.join('\n'),'text/csv'))toast('تم التصدير إلى التنزيلات')})});
 }
 window.__accExport=a=>accExportData(a);
@@ -4394,6 +4471,7 @@ document.addEventListener('click',e=>{
     else if(act==='tileedit'){S.tileEdit=!S.tileEdit;render()}
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
+    else if(act==='coclaims'){coSheet()}
     else if(act==='import'){S.noLockUntil=Date.now()+120000;$('#fileIn').click()}
     else if(act==='health'){healthSheet()}
     else if(act==='lockon'){pinSheet('set')}
