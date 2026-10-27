@@ -1002,7 +1002,7 @@ function dayHtml(){
   const lbl=sel===t?'اليوم':sel===addDays(t,-1)?'أمس':kdate(sel).toLocaleDateString('ar-u-nu-latn',{weekday:'long',day:'numeric',month:'long'});
   const msg=s.done===s.total?'أتممت يومك كاملاً، تقبّل الله منك':s.done?'بارك الله في سعيك، وما تيسّر خير':'ابدأ بما تيسّر';
   let h=`<div class="chl-day"><button data-c="prev" aria-label="اليوم السابق"${sel<=addDays(t,-30)?' disabled':''}>›</button><b>${lbl}</b><button data-c="next" aria-label="اليوم التالي"${sel>=t?' disabled':''}>‹</button></div>
-  <div class="chl-hero"><small>أنجزت</small><b class="num">${s.done}</b> <span>من <span class="num">${s.total}</span></span><div class="chl-bar"><i style="width:${s.done/s.total*100}%"></i></div><div class="chl-msg">${msg}</div></div>${tallyHtml()}`;
+  <div class="chl-hero"><small>أنجزت</small><b class="num">${s.done}</b> <span>من <span class="num">${s.total}</span></span><div class="chl-bar"><i style="width:${s.done/s.total*100}%"></i></div><div class="chl-msg">${msg}</div></div>${mrepStripIn()}${resHtml()}${tallyHtml()}`;
   h+=tierHtml(1,r)+tierHtml(2,r)+tierHtml(3,r);
   h+=`<section class="tier tzD">${diaryHtml(r)}</section><section class="tier tzH">${healthHtml(r)}</section>`;const tm=timeHtml(r);if(tm)h+=`<section class="tier tzT">${tm}</section>`;
   h+=`<button class="chl-big" data-c="report">📊 التقرير الشامل</button><button class="chl-big" data-c="ask" style="margin-top:10px;background:var(--surface);color:var(--ink);border:1px solid var(--line)">🔎 اسأل عن العلاقات</button>`;
@@ -1080,16 +1080,145 @@ function setHtml(){
 function renderDay(){if($id('chl').hidden)return;const y=$id('chl').scrollTop;$id('chlBody').innerHTML=dayHtml()+setHtml();$id('chl').scrollTop=y}
 
 /* ---------- التقرير الشامل ---------- */
-function build(r){
-  let n=RANGES[r][0];const end=today(),A=api();
-  let start=addDays(end,-(n-1));if(r==='month'&&A&&A.period){start=perOf(0).from;n=Math.round((kdate(end)-kdate(start))/864e5)+1}const startFull=start;
+/* ---------- التقرير الشهري الذكي ----------
+   مقارنة بالشهر الماضي ومتوسط ثلاثة أشهر، وعزم يُختار ويُراجع، وأنماط مع عدد الأيام دائماً.
+   الأيام غير المسجلة لا تُحسب صفراً: النسب من الأيام المسجلة فقط. */
+let mOff=0;
+const MI=[ // [مفتاح، اسم، رتبة البند، دالة: [المنجز، المطلوب] أو null]
+  ['pray','صلاة الجماعة','pray',r=>[Math.min(r.j.length,5),5]],
+  ['fajrJ','الفجر في جماعة','pray',r=>[r.j.includes('fajr')?1:0,1]],
+  ['masjid','الصلاة في المسجد','pray',r=>r.pp&&Object.keys(r.pp).length?[Object.values(r.pp).filter(v=>v==='m').length,5]:null],
+  ['ptime','أول الوقت','pray',r=>r.pt?[r.pt.length,5]:null],
+  ['birr','برّ الوالدين','birr',r=>[brOk(r)?1:0,1]],
+  ['dawa','الدعوة والأمر بالمعروف','dawa',r=>[r.h.includes('dawa')||r.dawa?1:0,1]],
+  ['witr','صلاة الوتر','witr',r=>[r.h.includes('witr')?1:0,1]],
+  ['qnt','القنوت','qnt',r=>[r.h.includes('qnt')?1:0,1]],
+  ['sn','السنن الرواتب','sn',r=>[Math.min(r.sn.length,4),4]],
+  ['am','أذكار الصباح','am',r=>[r.h.includes('am')?1:0,1]],
+  ['pm','أذكار المساء','pm',r=>[r.h.includes('pm')?1:0,1]],
+  ['pa','أذكار ما بعد الصلاة','pa',r=>[PA(r),5]],
+  ['nawm','أذكار النوم','nawm',r=>[r.h.includes('nawm')?1:0,1]],
+  ['qiyam','قيام الليل','qiyam',r=>[r.h.includes('qiyam')?1:0,1]],
+  ['duha','ركعتا الضحى','duha',r=>[r.h.includes('duha')?1:0,1]],
+  ['wird','الورد اليومي','wird',r=>[Math.min(wp(r),T()),T()]],
+  ['tdb','جلسة التدبر','tdb',r=>[r.h.includes('tdb')?1:0,1]],
+  ['kahf','سورة الكهف','kahf',(r,k)=>isFri(k)?[r.h.includes('kahf')?1:0,1]:null],
+  ['dk','الأذكار العشرية','dk',r=>[DK.reduce((a,[d])=>a+Math.min(dkv(r,d),DKT),0),DK.length*DKT]],
+  ['dua','الدعاء للأهل والمسلمين','dua',r=>[DUA.filter(d=>r.h.includes(d.k)).length,DUA.length]]];
+const MH=[ // الصحة والوقت: متوسطات، low=الأقل أفضل
+  ['slp','متوسط النوم',r=>r.slp!=null?+r.slp:null,v=>fmtH(v),0],
+  ['stp','متوسط الخطوات',r=>r.stp!=null?+r.stp:null,v=>nf(v),0],
+  ['dis','متوسط التشتت',r=>{const c=scr3(r);return c?c.d:null},v=>fmtH(v),1],
+  ['ai','العمل بالذكاء الاصطناعي',r=>{const c=scr3(r);return c?c.a:null},v=>fmtH(v),0]];
+const dN=n=>n===1?'يوم واحد':n===2?'يومان':n>2&&n<11?n+' أيام':n+' يوماً';
+const rangeKs=(from,to)=>{const o=[];for(let k=from;k<=to;k=addDays(k,1))o.push(k);return o};
+function statsOf(ks){const tk_=ks.filter(trk),o={};
+  MI.forEach(([k,n,ik,f])=>{let a=0,b=0,d=0;tk_.forEach(x=>{const v=f(peek(x),x);if(v){a+=v[0];b+=v[1];d++}});if(b)o[k]={n,ik,pct:Math.round(a/b*100),days:d}});
+  MH.forEach(([k,n,f,fm,low])=>{const v=ks.map(x=>f(peek(x))).filter(x=>x!=null);if(v.length)o[k]={n,h:1,avg:v.reduce((p,c)=>p+c,0)/v.length,days:v.length,fm,low}});
+  o._t=tk_.length;return o}
+function perKs(off){const P=perOf(off),e=P.to<today()?P.to:today();return P.from>e?[]:rangeKs(P.from,e)}
+const arrow=(d,low)=>d==null||Math.abs(d)<0.5?'＝':(d>0)!==!!low?'▲':'▼';
+const dGrade=(d,low)=>d==null||Math.abs(d)<0.5?'k':(d>0)!==!!low?'b':'r';
+function wkChart(ks){
+  const wk=[];for(let i=0;i<ks.length;i+=7)wk.push(ks.slice(i,i+7));if(wk.length<2)return'';
+  const rows=[['صلاة الجماعة',w=>{const s=statsOf(w).pray;return s?s.pct:null},v=>v+'٪',100],['الورد',w=>{const s=statsOf(w).wird;return s?s.pct:null},v=>v+'٪',100],['الوتر',w=>{const s=statsOf(w).witr;return s?s.pct:null},v=>v+'٪',100],
+    ['النوم',w=>{const s=statsOf(w).slp;return s?s.avg/36e5:null},v=>v.toFixed(1)+' س',9],['التشتت',w=>{const s=statsOf(w).dis;return s?s.avg/36e5:null},v=>v.toFixed(1)+' س',Math.max(4,DL()/36e5*1.5)]];
+  const html=rows.map(([n,f,fm,mx])=>{const vs=wk.map(f);if(vs.every(v=>v==null))return'';
+    return `<div style="display:flex;align-items:flex-end;gap:8px;margin:8px 0"><span style="width:84px;font-size:.85rem">${n}</span><div style="flex:1;display:flex;gap:6px;align-items:flex-end;height:56px">${vs.map((v,i)=>`<div style="flex:1;text-align:center;font-size:.7rem"><div style="height:${v==null?0:Math.max(3,Math.min(100,v/mx*100))*0.42}px;background:${v==null?'transparent':'#2E7D8A'};border-radius:4px 4px 0 0;margin:0 auto;width:70%"></div><div>${v==null?'—':fm(v)}</div></div>`).join('')}</div></div>`}).join('');
+  const txt=rows.map(([n,f,fm])=>`${n}: ${wk.map(f).map(v=>v==null?'—':fm(v)).join(' ← ')}`).join('\n');
+  return{html:`<div class="t2" style="font-size:.8rem">الأسابيع من أول الشهر (يمين) إلى آخره (يسار)</div>${html}`,txt}}
+function monthPost(out,ks,end,off){
+  const A=api(),P=perOf(off),L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
+  const cur=statsOf(ks),prv=statsOf(perKs(off-1)),p3=[1,2,3].map(i=>statsOf(perKs(off-i))).filter(s=>s._t);
+  const av3=k=>{const v=p3.map(s=>s[k]).filter(Boolean);return v.length?(v[0].h?v.reduce((a,x)=>a+x.avg,0)/v.length:Math.round(v.reduce((a,x)=>a+x.pct,0)/v.length)):null};
+  const take=n=>out.aspects.findIndex(a=>a.h.startsWith(n));
+  const pull=n=>{const i=take(n);return i>=0?out.aspects.splice(i,1)[0]:null};
+  const sumA=pull('🧭');const links=sumA?(sumA.sections.find(s=>s.h==='الربط بين الجوانب')||{}).b||[]:[];
+  /* الخطوات المقترحة لكل رتبة */
+  const ITMi=k=>ITM.findIndex(x=>x[0]===k),TH={pray:80,dawa:30};
+  const steps=[];TIERS.forEach(([t,h])=>{const L_=MI.filter(x=>cur[x[0]]&&tierOf(x[2])===t&&x[0]!=='fajrJ').sort((a,b)=>ITMi(a[2])-ITMi(b[2]));
+    const w=L_.find(x=>cur[x[0]].pct<(TH[x[0]]||50))||L_.filter(x=>cur[x[0]].pct<100).sort((a,b)=>cur[a[0]].pct-cur[b[0]].pct)[0];if(w)steps.push({k:w[0],n:w[1],pct:cur[w[0]].pct,t,th:h})});
+  /* ١. شهرك في دقيقة */
+  const S1=[],dl=MI.filter(x=>cur[x[0]]&&prv[x[0]]).map(x=>({n:x[1],k:x[0],d:cur[x[0]].pct-prv[x[0]].pct,c:cur[x[0]].pct,p:prv[x[0]].pct}));
+  const up=dl.filter(x=>x.d>=5).sort((a,b)=>b.d-a.d).slice(0,3),dn=dl.filter(x=>x.d<=-5).sort((a,b)=>a.d-b.d).slice(0,3);
+  if(!cur._t)S1.push({h:'لا تسجيل',p:['لم تُسجَّل أيام في هذا الشهر بعد.']});
+  if(up.length)S1.push({h:'تحسّن عن الشهر الماضي',b:up.map(x=>`${x.n}: ${x.p}٪ ← ${tk('b',x.c+'٪')} (▲ ${x.d})`)});
+  if(dn.length)S1.push({h:'تراجع عن الشهر الماضي',b:dn.map(x=>`${x.n}: ${x.p}٪ ← ${tk('r',x.c+'٪')} (▼ ${-x.d})`)});
+  if(!up.length&&!dn.length&&prv._t&&cur._t)S1.push({h:'مقارنة بالشهر الماضي',p:['مستواك قريب من الشهر الماضي في كل البنود (فرق أقل من 5 نقاط).']});
+  if(steps.length)S1.push({h:'خطوة الشهر القادم',p:['من أعلى رتبة فيها نقص، بحسب أهمية البند لا أقل نسبة:'],b:steps.map((x,i)=>`${i===0?'⭐ ':''}${x.th.replace(/^\S+\s/,'')}: ${x.n} (${x.pct}٪)`)});
+  if(A&&A.monthMoney){const m=A.monthMoney(off);const b=[`الدخل ${money(m.inc)}، والمصروف ${money(m.exp)}، والباقي ${tk(m.inc-m.exp>=0?'b':'r',money(m.inc-m.exp))}.`];
+    if(m.over.length)b.push(`تجاوز الميزانية: ${m.over.slice(0,3).map(x=>`${x[0]} (${money(x[1])} من ${money(x[2])})`).join('، ')}.`);
+    if(m.co>0.0005)b.push(`المستحق لك من الشركة: ${money(m.co)}.`);
+    if(window.__oblSummary){try{const o=window.__oblSummary();if(o&&o.next)b.push(`أقرب التزام: ${o.next.name} ${o.next.dl}${o.over?`، ومتأخر ${o.over}`:''}.`)}catch(e){}}
+    S1.push({h:'المال في سطور',b})}
+  {const tr=ks.filter(trk);if(tr.length){const best=tr.map(k=>[k,heartOf(peek(k))]).sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?1:-1))[0],w=peek(best[0]).word;
+    S1.push({h:'أفضل أيامك',p:[`${L(best[0])}: ${tk('b',pc(best[1],1)+'٪')} في ميزان العبادة.${w?` وكتبت فيه: «${w}»`:''}`]})}}
+  /* ٢. عزمك */
+  const RS=(D.cfg.res||{})[P.from]||[],S2=[];
+  if(RS.length)S2.push({h:'ما عزمت عليه لهذا الشهر',b:RS.map(x=>{const c=cur[x.k];if(!c)return `${x.n}: لم يُسجَّل`;const g=c.pct>=100||c.pct>=x.base+10?'b':c.pct>x.base?'k':'r';
+    return `${x.n}: كان ${x.base}٪ ← ${tk(g,c.pct+'٪')} ${g==='b'?'، وفّيت بعزمك، الحمد لله':g==='k'?'، تقدّم يسير':'، لم يتحقق بعد'}`})});
+  /* ٣. المقارنة */
+  const S3=[],row=(x,s)=>{const p=prv[x],a=av3(x);if(s.h){const d=p?s.avg-p.avg:null;return `${s.n}: ${s.fm(s.avg)}${p?` · الماضي ${s.fm(p.avg)} ${tk(dGrade(d,s.low),arrow(d,s.low))}`:''}${a!=null?` · متوسط 3 أشهر ${s.fm(a)}`:''}`}
+    const d=p?s.pct-p.pct:null;return `${s.n}: ${tk(G(s.pct,100,50),s.pct+'٪')}${p?` · الماضي ${p.pct}٪ ${tk(dGrade(d),arrow(d)+(d?' '+Math.abs(d):''))}`:''}${a!=null?` · متوسط 3 أشهر ${a}٪`:''}`};
+  TIERS.forEach(([t,h])=>{const b=MI.filter(x=>cur[x[0]]&&tierOf(x[2])===t).sort((a,b)=>ITMi(a[2])-ITMi(b[2])).map(x=>row(x[0],cur[x[0]]));if(b.length)S3.push({h,b})});
+  {const b=MH.filter(x=>cur[x[0]]).map(x=>row(x[0],cur[x[0]]));if(b.length)S3.push({h:'🩺 الصحة والوقت',b})}
+  const wc=wkChart(ks);if(wc)S3.push({h:'أسبوعاً بأسبوع',html:wc.html,txt:wc.txt});
+  /* ٤. الأنماط وما يسبق النقص (آخر 90 يوماً لزيادة العيّنة) */
+  const S4=[],k90=rangeKs(addDays(end,-89),end).filter(trk),WD=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  {const b=[];[['fajrJ','الفجر في جماعة'],['pray','صلاة الجماعة'],['witr','الوتر'],['wird','الورد'],['am','أذكار الصباح']].forEach(([k,n])=>{const f=MI.find(x=>x[0]===k)[3],by=WD.map(()=>[0,0,0]);
+      k90.forEach(x=>{const v=f(peek(x),x);if(!v)return;const w=kdate(x).getDay();by[w][0]+=v[0];by[w][1]+=v[1];by[w][2]++});
+      const L_=by.map((v,i)=>({i,n:v[2],p:v[1]?Math.round(v[0]/v[1]*100):null})).filter(x=>x.n>=3&&x.p!=null);if(L_.length<4)return;
+      const lo=L_.reduce((a,x)=>x.p<a.p?x:a),hi=L_.reduce((a,x)=>x.p>a.p?x:a);if(hi.p-lo.p>=25)b.push(`${n}: أضعف أيامك ${WD[lo.i]} (${tk('r',lo.p+'٪')} في ${dN(lo.n)})، وأقواها ${WD[hi.i]} (${tk('b',hi.p+'٪')})`)});
+    if(b.length)S4.push({h:'أيام الأسبوع',p:[`من ${k90.length} يوماً مسجلاً في آخر 90 يوماً:`],b})}
+  {const tr=ks.filter(trk),h1=tr.filter(k=>k<addDays(P.from,15)),h2=tr.filter(k=>k>=addDays(P.from,15));
+    if(h1.length>=5&&h2.length>=5){const a=x=>Math.round(x.reduce((p,k)=>p+heartOf(peek(k)),0)/x.length*100),A1=a(h1),A2=a(h2);
+      S4.push({h:'أول الشهر وآخره',p:[`ميزان العبادة في النصف الأول ${A1}٪، وفي النصف الثاني ${tk(A2>=A1?'b':'r',A2+'٪')}.${A2<A1-7?' فتورك يبدأ في النصف الثاني؛ فاجعل عزمك القادم يشدّ آخر الشهر.':A2>A1+7?' تبدأ ثم تشتد، بارك الله لك.':''}`]})}}
+  {const st=(test)=>{let best=0,c=0,bk=null,s=null;ks.forEach(k=>{if(trk(k)&&test(peek(k))){c++;if(c===1)s=k;if(c>best){best=c;bk=s}}else c=0});return[best,bk]};
+    const b=[['الجماعة كاملة (5)',x=>x.j.length>=5],['الوتر',x=>x.h.includes('witr')],['الورد كاملاً',x=>wp(x)>=T()],['أذكار ما بعد الصلاة (5)',x=>PA(x)>=5]].map(([n,f])=>{const[v,s]=st(f);return v>=2?`${n}: ${dN(v)} متتالية، بدأت ${L(s)}`:''}).filter(Boolean);
+    if(b.length)S4.push({h:'أطول مواظبة هذا الشهر',b})}
+  {const mins=t=>{if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m};
+    const late=r=>{const m=mins(r.slpA);return m==null?null:m<300?1:m>=1080?0:null};
+    const F={late:['نمت بعد منتصف الليل',x=>late(peek(x))],short:['نمت أقل من 6 ساعات',x=>{const r=peek(x);return r.slp==null?null:r.slp<6*36e5?1:0}],
+      disPrev:['تجاوزت حد التشتت في اليوم السابق',x=>{const c=scr3(peek(addDays(x,-1)));return c?(c.d>DL()?1:0):null}],dis:['تجاوزت حد التشتت في اليوم نفسه',x=>{const c=scr3(peek(x));return c?(c.d>DL()?1:0):null}],
+      dinPrev:['كان عشاء الليلة السابقة مفرطاً',x=>{const r=peek(addDays(x,-1));return r.ml&&r.ml.d?(r.ml.d==='x'?1:0):null}],din:['كان عشاؤك مفرطاً',x=>{const r=peek(x);return r.ml&&r.ml.d?(r.ml.d==='x'?1:0):null}]};
+    const TG=[['الفجر في جماعة',r=>r.j.includes('fajr'),['late','short','disPrev','dinPrev']],['الوتر',r=>r.h.includes('witr'),['dis','din','short']],['الورد كاملاً',r=>wp(r)>=T(),['dis','short']]];
+    const b=[];TG.forEach(([n,ok,fs])=>{const miss=k90.filter(k=>!ok(peek(k))),hit=k90.filter(k=>ok(peek(k)));
+      fs.forEach(f=>{const[fn,fv]=F[f],mk=miss.map(fv).filter(v=>v!=null),hk=hit.map(fv).filter(v=>v!=null);if(mk.length<5||hk.length<5)return;
+        const mr=Math.round(mk.filter(v=>v).length/mk.length*100),hr=Math.round(hk.filter(v=>v).length/hk.length*100);
+        if(mr-hr>=20)b.push(`فاتك «${n}» ${dN(miss.length)}؛ و${fn} في ${mk.filter(v=>v).length} من ${mk.length} منها (${tk('r',mr+'٪')})، مقابل ${tk('b',hr+'٪')} في الأيام التي أدركته فيها.`)})});
+    S4.push({h:'ما الذي يسبق النقص؟',p:[b.length?'من آخر 90 يوماً. ترابط في بياناتك وليس دليلاً على السبب، ولا يُذكر إلا ما بُني على 5 أيام فأكثر:':'لم يظهر نمط واضح بعد (يلزم 5 أيام فأكثر لكل طرف، وفرق 20 نقطة فأكثر). سجّل وقت نومك يدوياً ليتضح أثر السهر على الفجر.'],b})}
+  if(links.length)S4.push({h:'الربط بين الجوانب',b:links});
+  /* ٥. عزم الشهر القادم */
+  const nx=perOf(off+1).from,chosen=(D.cfg.res||{})[nx]||[],cand=[];
+  steps.forEach(x=>cand.push(x));MI.filter(x=>cur[x[0]]&&cur[x[0]].pct<100&&!cand.some(c=>c.k===x[0])).sort((a,b)=>tierOf(a[2])-tierOf(b[2])||cur[a[0]].pct-cur[b[0]].pct).slice(0,6-cand.length).forEach(x=>cand.push({k:x[0],n:x[1],pct:cur[x[0]].pct}));
+  const S5=[{h:`اختر عزمك لشهر يبدأ ${L(nx)}`,p:['اختر خطوة إلى ثلاث، تظهر في صفحة تحدياتي طوال الشهر، ويبدأ تقرير الشهر القادم بمراجعتها. والعزم عزمك، فاستعن بالله.'],
+    html:`<div class="chl-chips" style="padding:6px 0">${cand.map(x=>{const on=chosen.some(c=>c.k===x.k);return `<button class="chl-chip" data-res="${x.k}" data-rn="${esc(x.n)}" data-rb="${x.pct}" data-rf="${nx}" aria-pressed="${on}">${on?'✓ ':''}${esc(x.n)} (${x.pct}٪)</button>`}).join('')}</div>`,
+    txt:chosen.length?'العزم المختار: '+chosen.map(c=>c.n).join('، '):'لم يُختر عزم بعد.'}];
+  /* الترتيب النهائي */
+  const fin=pull('💰'),adv=pull('💡'),tiers=['🕋','🌙','✨'].map(pull).filter(Boolean),diary=pull('📔'),rest=out.aspects;
+  out.aspects=[{h:'🧭 شهرك في دقيقة',grades:true,sections:S1}];
+  if(S2.length)out.aspects.push({h:'🎯 عزمك',grades:true,sections:S2});
+  out.aspects.push({h:'📈 مقارنة بالشهر الماضي',grades:true,note:`النسب من الأيام المسجلة: ${cur._t} يوماً هذا الشهر${prv._t?`، و${prv._t} في الشهر الماضي`:''}`,sections:S3});
+  out.aspects.push({h:'🔍 الأنماط وما يسبق النقص',grades:true,sections:S4});
+  if(fin)out.aspects.push(fin);if(adv)out.aspects.push(adv);out.aspects.push(...tiers,...rest);if(diary)out.aspects.push(diary);
+  out.aspects.push({h:'✍️ عزم الشهر القادم',sections:S5});
+}
+function resHtml(){const P=perOf(0),RS=(D.cfg.res||{})[P.from]||[];if(!RS.length)return'';const st=statsOf(perKs(0));
+  return `<div class="list" style="margin-top:10px"><div class="set-row" style="display:block"><div class="t1">🎯 عزمك هذا الشهر</div>${RS.map(x=>{const c=st[x.k];const g=!c?'k':c.pct>=100||c.pct>=x.base+10?'b':c.pct>x.base?'k':'r';return `<div class="t2" style="margin-top:4px">${esc(x.n)}: كان ${x.base}٪ ← <b class="${GC[g]}">${c?c.pct+'٪':'—'}</b></div>`}).join('')}</div></div>`}
+function mrepStripIn(){const pv=perOf(-1);if(D.cfg.repSeen===pv.from||!rangeKs(pv.from,pv.to).some(trk))return'';return `<button class="slh-strip" data-mrep="1" style="margin-top:10px"><span>📊</span><span class="g">تقرير شهرك الماضي جاهز</span><span class="t2">›</span></button>`}
+window.__mrepStrip=function(){D=load();const pv=perOf(-1);if(D.cfg.repSeen===pv.from)return'';if(!rangeKs(pv.from,pv.to).some(trk))return'';
+  return `<button class="slh-strip" data-mrep="1"><span>📊</span><span class="g">تقرير شهرك جاهز</span><span class="t2">${kdate(pv.from).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})} ›</span></button>`};
+document.addEventListener('click',e=>{if(e.target.closest('[data-mrep]')){e.preventDefault();e.stopPropagation();D=load();D.cfg.repSeen=perOf(-1).from;save();rng='month';mOff=-1;openRep()}},true);
+function build(r,off){
+  off=off||0;let n=RANGES[r][0],end=today();const A=api();
+  let start=addDays(end,-(n-1));if(r==='month'){const P_=perOf(off);start=P_.from;if(P_.to<end)end=P_.to;n=Math.max(1,Math.round((kdate(end)-kdate(start))/864e5)+1)}const startFull=start;
   const keys=Object.keys(D.days).sort();if(keys.length&&keys[0]>start&&r!=='day')start=keys[0];
   const ks=[];for(let k=start;k<=end;k=addDays(k,1))ks.push(k);
   const L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long',year:'numeric'});
   const out={title:`التقرير الشامل · ${r==='day'?'اليوم':RANGES[r][1]}`,range:r==='day'?L(end):`من ${L(startFull)} إلى ${L(end)}`,aspects:[]};
   /* المال */
   if(A){let fin;
-    if(r==='month'||r==='q'||r==='year'){fin=A.finReport(r==='month'?1:r==='q'?3:12);fin={range:'حسب الشهر المالي: '+fin.range,sections:fin.sections}}
+    if(r==='month'||r==='q'||r==='year'){fin=r==='month'&&A.finReportAt?A.finReportAt(off):A.finReport(r==='month'?1:r==='q'?3:12);fin={range:'حسب الشهر المالي: '+fin.range,sections:fin.sections}}
     else fin=A.finRange(startFull,end,n);
     out.aspects.push({h:'💰 المال',note:fin.range,sections:fin.sections});
     if(r==='month'||r==='q'||r==='year')out.aspects.push({h:'💡 النصائح المالية',note:'من متوسط آخر ثلاثة أشهر مكتملة',sections:A.advice()});
@@ -1201,6 +1330,7 @@ function build(r){
   if(steps.length&&nd>1)S2.push({h:'خطوة الشهر القادم',p:['استعن بالله، وابدأ بالأولى قبل غيرها. تُختار من كل رتبة بحسب أهمية البند فيها، لا بحسب أقل نسبة.'],b:steps.map((x,i)=>(i===0?'⭐ ':'')+x)});
   if(X.length)S2.push({h:'الربط بين الجوانب',b:X});
   out.aspects.push({h:'🧭 الخلاصة',grades:true,sections:S2});
+  if(r==='month'){try{monthPost(out,ks,end,off)}catch(e){console.error(e)}}
   return out;
 }
 const tokH=t=>t.replace(/⟦([bkr])\|([^⟧]*)⟧/g,(m,g,x)=>`<b class="${GC[g]}">${x}</b>`);
@@ -1395,14 +1525,15 @@ let lastRep=null;
 function renderRep(){
   if($id('rep').hidden)return;
   $id('repSeg').innerHTML=Object.keys(RANGES).map(x=>`<button data-rg="${x}" aria-pressed="${rng===x}">${RANGES[x][1]}</button>`).join('');
-  lastRep=build(rng);
-  $id('repBody').innerHTML=repHTML(lastRep)+`<div class="row2" style="margin-top:14px"><button class="btn ghost slim" style="margin:0" data-r="copy">نسخ النص</button><button class="btn ghost slim" style="margin:0" data-r="save">حفظ ملفاً</button></div>`;
+  lastRep=build(rng,rng==='month'?mOff:0);
+  const nav=rng==='month'?`<div class="chl-day" style="margin:0 0 10px"><button data-mo="-1" aria-label="الشهر السابق">›</button><b>${mOff===0?'الشهر الحالي':mOff===-1?'الشهر الماضي':'قبل '+(-mOff)+' أشهر'}</b><button data-mo="1" aria-label="الشهر التالي"${mOff>=0?' disabled':''}>‹</button></div>`:'';
+  $id('repBody').innerHTML=nav+repHTML(lastRep)+`<div class="row2" style="margin-top:14px"><button class="btn ghost slim" style="margin:0" data-r="copy">نسخ النص</button><button class="btn ghost slim" style="margin:0" data-r="save">حفظ ملفاً</button></div>`;
 }
 function saveRep(){
   const o=lastRep;if(!o)return;
   const css='body{font-family:Tahoma,Arial,sans-serif;max-width:760px;margin:30px auto;padding:0 18px;line-height:1.8;color:#14262b}h1{color:#0F3F45;margin:0}h2{color:#0F3F45;border-top:2px solid #ddd;padding-top:14px;margin-top:26px}h3{margin:14px 0 4px}.t2{color:#666}li{margin:3px 0}.pc-r{color:#C0392B}.pc-b{color:#1D4ED8}.pc-k{color:#000}table{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}th,td{border:1px solid #ddd;padding:5px 6px;text-align:center}th{background:#0F3F45;color:#fff}';
   const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(o.title)}</title><style>${css}</style></head><body>${repHTML(o)}<p class="t2" style="margin-top:30px">رُشد · ${esc(today())}</p></body></html>`;
-  const A=api();if(A)A.save(`rushd-report-${rng}-${today()}.html`,html,'text/html');
+  const A=api();if(A)A.save(`rushd-report-${rng==='month'?'month-'+perOf(mOff).from:rng}-${today()}.html`,html,'text/html');
 }
 
 /* ---------- المزامنة ---------- */
@@ -1624,7 +1755,11 @@ $id('chl').addEventListener('change',e=>{
   else if(id==='chlTarget'){const v=Math.round(+e.target.value||0);if(v>0){D.cfg.wird=v;save();renderDay();updateStrip();toast('تم تحديث هدف الورد')}}
 });
 $id('rep').addEventListener('click',e=>{
-  const g=e.target.closest('[data-rg]');if(g){rng=g.dataset.rg;renderRep();return}
+  const mo=e.target.closest('[data-mo]');if(mo){mOff=Math.min(0,mOff+ +mo.dataset.mo);renderRep();$id('rep').scrollTop=0;return}
+  const rs=e.target.closest('[data-res]');if(rs){const f=rs.dataset.rf;D.cfg.res=D.cfg.res||{};const L_=D.cfg.res[f]=D.cfg.res[f]||[],i=L_.findIndex(x=>x.k===rs.dataset.res);
+    if(i>=0)L_.splice(i,1);else{if(L_.length>=3){toast('ثلاث خطوات تكفي؛ ألغِ واحدة أولاً');return}L_.push({k:rs.dataset.res,n:rs.dataset.rn,base:+rs.dataset.rb})}
+    save();const y=$id('rep').scrollTop;renderRep();$id('rep').scrollTop=y;toast(i>=0?'أُلغيت الخطوة':'أُضيفت إلى عزمك');return}
+  const g=e.target.closest('[data-rg]');if(g){rng=g.dataset.rg;mOff=0;renderRep();return}
   const r=e.target.closest('[data-r]');if(!r)return;
   if(r.dataset.r==='close')closeRep();
   else if(r.dataset.r==='copy'){const t=repText(lastRep);if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('تم نسخ التقرير')).catch(()=>toast('تعذّر النسخ'));}
@@ -2789,7 +2924,7 @@ function viewHome(){
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
   const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
-  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__oblStrip?window.__oblStrip():'')+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+(window.__oblStrip?window.__oblStrip():'')+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
@@ -3722,6 +3857,11 @@ window.__mznApi={
   getCourses:()=>JSON.parse(JSON.stringify(S.settings.courses||[])),
   setCourses:a=>{S.settings.courses=a;saveSettings()},
   finReport:n=>buildReport(curPeriod(),n),
+  finReportAt:off=>buildReport(shiftMonth(curPeriod(),off||0),1),
+  monthMoney:off=>{const k=shiftMonth(curPeriod(),off||0),L=txIn(k),inc=sum(L.filter(t=>t.type==='income')),exp=sum(L.filter(t=>t.type==='expense')),byU={};
+    usual(L).filter(t=>t.type==='expense').forEach(t=>byU[t.cat]=(byU[t.cat]||0)+(+t.amount||0));
+    const over=expenseCats().map(c=>[c.name,byU[c.id]||0,effBudget(c,k)]).filter(x=>x[2]>0&&x[1]>x[2]).sort((a,b)=>(b[1]-b[2])-(a[1]-a[2]));
+    return{inc,exp,over,co:coAccs().length?coClaims().owed:0}},
   finRange:(from,to,days)=>{
     const cur=curInfo()[0],F=v=>fmt(v)+' '+cur,sh=(d,n)=>new Date(Date.parse(d)+n*864e5).toISOString().slice(0,10);
     const inR=(a,b)=>allTx().filter(t=>t.date>=a&&t.date<=b);
