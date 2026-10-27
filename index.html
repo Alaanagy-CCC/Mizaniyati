@@ -1174,7 +1174,7 @@ function monthPost(out,ks,end,off){
     if(h1.length>=5&&h2.length>=5){const a=x=>Math.round(x.reduce((p,k)=>p+heartOf(peek(k)),0)/x.length*100),A1=a(h1),A2=a(h2);
       S4.push({h:'أول الشهر وآخره',p:[`ميزان العبادة في النصف الأول ${A1}٪، وفي النصف الثاني ${tk(A2>=A1?'b':'r',A2+'٪')}.${A2<A1-7?' فتورك يبدأ في النصف الثاني؛ فاجعل عزمك القادم يشدّ آخر الشهر.':A2>A1+7?' تبدأ ثم تشتد، بارك الله لك.':''}`]})}}
   {const st=(test)=>{let best=0,c=0,bk=null,s=null;ks.forEach(k=>{if(trk(k)&&test(peek(k))){c++;if(c===1)s=k;if(c>best){best=c;bk=s}}else c=0});return[best,bk]};
-    const b=[['الجماعة كاملة (5)',x=>x.j.length>=5],['الوتر',x=>x.h.includes('witr')],['الورد كاملاً',x=>wp(x)>=T()],['أذكار ما بعد الصلاة (5)',x=>PA(x)>=5]].map(([n,f])=>{const[v,s]=st(f);return v>=2?`${n}: ${dN(v)} متتالية، بدأت ${L(s)}`:''}).filter(Boolean);
+    const b=[['الجماعة كاملة (5)',x=>x.j.length>=5],['الوتر',x=>x.h.includes('witr')],['الورد كاملاً',x=>wp(x)>=T()],['أذكار ما بعد الصلاة (5)',x=>PA(x)>=5]].map(([n,f])=>{const[v,s]=st(f);return v>=2?`${n}: ${v===2?'يومان متتاليان':dN(v)+' متتالية'}، بدأت ${L(s)}`:''}).filter(Boolean);
     if(b.length)S4.push({h:'أطول مواظبة هذا الشهر',b})}
   {const mins=t=>{if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m};
     const late=r=>{const m=mins(r.slpA);return m==null?null:m<300?1:m>=1080?0:null};
