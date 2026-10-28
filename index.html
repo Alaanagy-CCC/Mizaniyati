@@ -3044,7 +3044,10 @@ function viewTx(){
 /* ---------- analytics helpers ---------- */
 const FONT='IBM Plex Sans Arabic, sans-serif';
 const isEx=t=>t.type==='expense'&&(!!t.ex||!!catById(t.cat).noBudget);
-const usual=l=>l.filter(t=>!isEx(t));
+/* المصروف المعتاد الشخصي: يُستبعد الاستثنائي، وما دُفع من حسابات الشركة، ونصيب الشركة من بنودها (من تاريخ احتساب نفقات الشركة) */
+const usual=l=>{const ids=new Set(S.settings.accounts.filter(a=>a.co).map(a=>a.id));if(!ids.size)return l.filter(t=>!isEx(t));const fr=(S.settings.coCfg||{}).from||'0000-00-00',o=[];
+  l.forEach(t=>{if(isEx(t))return;if(t.type==='expense'){if(ids.has(t.acc))return;const p=Math.min(100,+catById(t.cat).coPct||0);
+    if(p>0&&!t.noCo&&t.date>=fr){if(p>=100)return;o.push(Object.assign({},t,{amount:+((+t.amount||0)*(1-p/100)).toFixed(6),coShare:p}));return}}o.push(t)});return o};
 const isFoodCat=c=>!!c&&(c.id==='food'||/food|drink|restaurant|cafe|coffee|مطاعم|مطعم|طعام|أكل|اكل|وجبات|وجبة|قهوة|كافيه|افطار|إفطار|فطور|غداء|عشاء/i.test(c.name||''));
 const workCat=c=>!!c&&/العمل|work|office/i.test(c.name||'');
 const MEALS=[['b','فطور'],['l','غداء'],['d','عشاء'],['w','وجبة العمل']];
@@ -4284,7 +4287,7 @@ function coSheet(){
     const groups={};C.open.forEach(x=>{(groups[x.t.acc]=groups[x.t.acc]||[]).push(x)});
     const dd=d=>{const[y,m,dy]=d.split('-');return `${+dy}/${+m}`};
     let h=`<h3>💼 نفقات الشركة من مالك الشخصي</h3>
-      <p class="note" style="margin:-4px 0 12px">يحسب التطبيق نصيب الشركة من كل مصروف في بنود لها نسبة للشركة، دفعته من حساب شخصي. ثم يقترح عليك التعويض من حساب الشركة، ولا يسجّل شيئاً إلا بعد موافقتك.</p>`;
+      <p class="note" style="margin:-4px 0 12px">يحسب التطبيق نصيب الشركة من كل مصروف في بنود لها نسبة للشركة، دفعته من حساب شخصي. ثم يقترح عليك التعويض من حساب الشركة، ولا يسجّل شيئاً إلا بعد موافقتك. ونصيب الشركة لا يدخل في مصروفك المعتاد وميزانياتك وتقاريرك الشخصية.</p>`;
     if(!ca.length)h+=`<div class="warnbar" style="margin-bottom:12px">علّم حساب الشركة أولاً: افتح الحساب من شاشة الحسابات، وفعّل «حساب الشركة».</div>`;
     h+=`<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="mrow"><span class="grow">المستحق لك من الشركة</span><b class="num">${coF(C.owed)}</b></div>
       <div class="mrow"><span class="grow">العمليات غير المعوَّضة</span><b class="num">${C.open.length}</b></div>
