@@ -892,7 +892,7 @@ const wp=r=>r.wp!=null?+r.wp:(r.h.includes('wird')?T():0);
 const cnt=(r,k)=>(r.cn&&+r.cn[k])||0;
 const socOk=r=>r.soc!=null&&r.soc<=(+D.cfg.soc||60)*60000;
 function score(k){const r=peek(k),hs=habitsFor(k),hasSoc=r.soc!=null;
-  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=DKT).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0)+(PA(r)>=5?1:0),total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)+1}}
+  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=DKT).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0)+0,total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)}}
 /* حصيلة الشهر المالي الحالي لتحدٍّ: كم مرة وقع من أيام الشهر حتى اليوم (أو من الجُمَع) */
 function monthOf(test,fri){const P=perOf(0),end=today()<P.to?today():P.to;let n=0,t=0;for(let k=P.from;k<=end;k=addDays(k,1)){if(fri&&!isFri(k))continue;t++;if(test(peek(k)))n++}return{n,t}}
 function mtag(test,fri,inline){const m=monthOf(test,fri);if(!m.t)return'';const g=G(m.n,m.t,m.t/2),txt=`${m.n} من ${m.t} ${fri?(m.t>2&&m.t<11?'جُمَع':'جمعة'):(m.t>2&&m.t<11?'أيام':'يوماً')} هذا الشهر`;
@@ -937,7 +937,7 @@ function tally(P){const end=P.to<today()?P.to:today(),ks=[];for(let k=P.from;k<=
     ['🌅 أذكار الصباح',c(x=>x.h.includes('am')),n,'يوماً'],['🌇 أذكار المساء',c(x=>x.h.includes('pm')),n,'يوماً'],
     ['🕌 الجماعة',sm(x=>x.j.length),5*n,'صلاة'],['📖 الورد',sm(x=>wp(x)),T()*n,'صفحة'],['🕋 السنن الرواتب',sm(x=>x.sn.length),4*n,'سنة'],
     ['🌙 الوتر',c(x=>x.h.includes('witr')),n,'يوماً'],['🌌 قيام الليل',c(x=>x.h.includes('qiyam')),n,'يوماً'],['☀️ ركعتا الضحى',c(x=>x.h.includes('duha')),n,'يوماً'],['📖 الكهف يوم الجمعة',ks.filter(k=>isFri(k)&&peek(k).h.includes('kahf')).length,ks.filter(isFri).length,'جمعة'],['🤲 القنوت',c(x=>x.h.includes('qnt')),n,'يوماً'],
-    ['👪 برّ الوالدين',c(brOk),n,'يوماً'],['🛏️ أذكار النوم',c(x=>x.h.includes('nawm')),n,'يوماً'],['📿 أذكار ما بعد الصلاة',sm(PA),5*n,'صلاة'],['⏰ أول الوقت',sm(x=>(x.pt||[]).length),5*n,'صلاة'],['🕌 في المسجد',sm(x=>Object.values(x.pp||{}).filter(v=>v==='m').length),5*n,'صلاة'],...DUA.map(d=>[d.i+' '+d.n,c(x=>x.h.includes(d.k)),n,'يوماً']),['📣 الدعوة',c(x=>x.h.includes('dawa')),n,'يوماً'],...DK.map(([d,nm,i])=>[i+' '+nm,sm(x=>dkv(x,d)),DKT*n,'مرة'])]}}
+    ['👪 برّ الوالدين',c(brOk),n,'يوماً'],['🛏️ أذكار النوم',c(x=>x.h.includes('nawm')),n,'يوماً'],['⏰ أول الوقت',sm(x=>(x.pt||[]).length),5*n,'صلاة'],['🕌 في المسجد',sm(x=>Object.values(x.pp||{}).filter(v=>v==='m').length),5*n,'صلاة'],...DUA.map(d=>[d.i+' '+d.n,c(x=>x.h.includes(d.k)),n,'يوماً']),['📣 الدعوة',c(x=>x.h.includes('dawa')),n,'يوماً'],...DK.map(([d,nm,i])=>[i+' '+nm,sm(x=>dkv(x,d)),DKT*n,'مرة'])]}}
 function tallyHtml(){
   const L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
   const a=tally(perOf(0)),b=tally(perOf(-1));if(!a.n)return'';
@@ -953,7 +953,7 @@ function updateStrip(){const s=$id('chlStrip');if(s)s.innerHTML=stripInner()}
 /* ---------- صفحة اليوم ---------- */
 /* الرتب: 1 الفرائض والواجبات، 2 السنن المؤكدة والأذكار الراتبة، 3 المستحبات والنوافل */
 const ITM=[['pray','الصلوات الخمس',1,1],['birr','برّ الوالدين',1],['dawa','الدعوة والأمر بالمعروف والنهي عن المنكر',1],
-  ['witr','صلاة الوتر',2],['qnt','القنوت',2],['sn','السنن الرواتب',2],['am','أذكار الصباح',2],['pm','أذكار المساء',2],['pa','أذكار ما بعد الصلاة',2],['nawm','أذكار النوم',2],
+  ['witr','صلاة الوتر',2],['qnt','القنوت',2],['sn','السنن الرواتب',2],['am','أذكار الصباح',2],['pm','أذكار المساء',2],['nawm','أذكار النوم',2],
   ['qiyam','قيام الليل',3],['duha','ركعتا الضحى',3],['wird','الورد اليومي',3],['tdb','جلسة التدبر',3],['jm','جلسة الجمعة',3],['kahf','سورة الكهف',3],['dk','الأذكار العشرية',3],['cn','فضائل الصلاة',3],['dua','الدعاء للزوجة والأبناء والمسلمين',3]];
 const TIERS=[[1,'🕋 الفرائض والواجبات','تُقرأ أولاً، ولا يجبر نقصَها كمالُ ما بعدها'],[2,'🌙 السنن المؤكدة والأذكار الراتبة','أعلاها الوتر'],[3,'✨ المستحبات والنوافل','زيادة في القرب']];
 const tierOf=k=>{const it=ITM.find(x=>x[0]===k);if(!it)return 3;if(it[3])return it[2];const o=D.cfg.tier&&+D.cfg.tier[k];return o>=1&&o<=3?o:it[2]};
@@ -1096,7 +1096,6 @@ const MI=[ // [مفتاح، اسم، رتبة البند، دالة: [المنج
   ['sn','السنن الرواتب','sn',r=>[Math.min(r.sn.length,4),4]],
   ['am','أذكار الصباح','am',r=>[r.h.includes('am')?1:0,1]],
   ['pm','أذكار المساء','pm',r=>[r.h.includes('pm')?1:0,1]],
-  ['pa','أذكار ما بعد الصلاة','pa',r=>[PA(r),5]],
   ['nawm','أذكار النوم','nawm',r=>[r.h.includes('nawm')?1:0,1]],
   ['qiyam','قيام الليل','qiyam',r=>[r.h.includes('qiyam')?1:0,1]],
   ['duha','ركعتا الضحى','duha',r=>[r.h.includes('duha')?1:0,1]],
@@ -1174,7 +1173,7 @@ function monthPost(out,ks,end,off){
     if(h1.length>=5&&h2.length>=5){const a=x=>Math.round(x.reduce((p,k)=>p+heartOf(peek(k)),0)/x.length*100),A1=a(h1),A2=a(h2);
       S4.push({h:'أول الشهر وآخره',p:[`ميزان العبادة في النصف الأول ${A1}٪، وفي النصف الثاني ${tk(A2>=A1?'b':'r',A2+'٪')}.${A2<A1-7?' فتورك يبدأ في النصف الثاني؛ فاجعل عزمك القادم يشدّ آخر الشهر.':A2>A1+7?' تبدأ ثم تشتد، بارك الله لك.':''}`]})}}
   {const st=(test)=>{let best=0,c=0,bk=null,s=null;ks.forEach(k=>{if(trk(k)&&test(peek(k))){c++;if(c===1)s=k;if(c>best){best=c;bk=s}}else c=0});return[best,bk]};
-    const b=[['الجماعة كاملة (5)',x=>x.j.length>=5],['الوتر',x=>x.h.includes('witr')],['الورد كاملاً',x=>wp(x)>=T()],['أذكار ما بعد الصلاة (5)',x=>PA(x)>=5]].map(([n,f])=>{const[v,s]=st(f);return v>=2?`${n}: ${v===2?'يومان متتاليان':dN(v)+' متتالية'}، بدأت ${L(s)}`:''}).filter(Boolean);
+    const b=[['الجماعة كاملة (5)',x=>x.j.length>=5],['الوتر',x=>x.h.includes('witr')],['الورد كاملاً',x=>wp(x)>=T()]].map(([n,f])=>{const[v,s]=st(f);return v>=2?`${n}: ${v===2?'يومان متتاليان':dN(v)+' متتالية'}، بدأت ${L(s)}`:''}).filter(Boolean);
     if(b.length)S4.push({h:'أطول مواظبة هذا الشهر',b})}
   {const mins=t=>{if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m};
     const late=r=>{const m=mins(r.slpA);return m==null?null:m<300?1:m>=1080?0:null};
@@ -1266,7 +1265,6 @@ function build(r,off){
     W.push({h:'سورة الكهف',p:[fr.length===1?(kf?tk('b','قرأت سورة الكهف يوم الجمعة.'):tk('r','لم تُسجَّل قراءة الكهف يوم الجمعة.')):`قرأت سورة الكهف في ${tk(gk,`${kf} من ${fr.length}`)} ${fu}، بنسبة ${tk(gk,pc(kf,fr.length)+'٪')}.`]})}
   {const pps=V.flatMap(x=>Object.values(x.pp||{})),m=pps.filter(v=>v==='m').length,hh=pps.filter(v=>v==='h').length,al=pps.filter(v=>v==='a').length,ptc=V.reduce((a,x)=>a+(x.pt||[]).length,0);
     if(pps.length||ptc)W.push({h:'الصلوات وأماكنها',p:[pps.length?`في المسجد ${tk(m?'b':'r',m)}، وجماعة البيت ${tk('k',hh)}، ومنفرداً ${tk(al?'r':'b',al)}، من ${pps.length} ${pps.length>2&&pps.length<11?'صلوات':'صلاة'} حُدِّد مكانها.`:'',`صلّيت في أول الوقت ${tk(gV(ptc,nd*5),`${ptc} من ${nd*5}`)} صلاة، بنسبة ${tk(gV(ptc,nd*5),pc(ptc,nd*5)+'٪')}.`].filter(Boolean)})}
-  {const pa_=V.reduce((a,x)=>a+PA(x),0),g=gV(pa_,nd*5);W.push({h:'أذكار ما بعد الصلاة',p:[pa_?`قلتها بعد ${tk(g,`${pa_} من ${nd*5}`)} صلاة، بنسبة ${tk(g,pc(pa_,nd*5)+'٪')}؛ أي التسبيح والتحميد والتكبير ${nf(33*pa_)} لكلٍّ، والتهليل ${pa_}.`:tk('r','لم تُسجَّل أذكار ما بعد الصلاة.')]})}
   {const WK={'صلاة الجماعة':'pray','الصلوات وأماكنها':'pray','برّ الوالدين':'birr','الدعوة والأمر بالمعروف والنهي عن المنكر':'dawa','صلاة الوتر':'witr','القنوت':'qnt','السنن الرواتب':'sn','أذكار الصباح والمساء':'am','أذكار ما بعد الصلاة':'pa','أذكار النوم':'nawm','قيام الليل':'qiyam','ركعتا الضحى':'duha','الورد اليومي':'wird','التدبر':'tdb','جلسة الجمعة':'jm','سورة الكهف':'kahf','الأذكار العشرية':'dk','فضائل الصلاة':'cn','الدعاء':'dua'};
    const ix=s_=>ITM.findIndex(x=>x[0]===WK[s_.h]);
    TIERS.forEach(([t,h,n_],i)=>{const S_=W.filter(x=>tierOf(WK[x.h]||'cn')===t).sort((a,b)=>ix(a)-ix(b));if(!S_.length)return;
@@ -1316,7 +1314,7 @@ function build(r,off){
   const wdn=V.filter(x=>x.h.includes('witr')).length;
   const pa_=V.reduce((a,x)=>a+PA(x),0),ptc=V.reduce((a,x)=>a+(x.pt||[]).length,0),dwd=V.filter(x=>x.h.includes('dawa')||x.dawa).length,cH=k=>pc(V.filter(x=>x.h.includes(k)).length,nd);
   const items=[['صلاة الجماعة',pc(jd,nd*5),80,'pray'],...(ptc?[['الصلاة في أول الوقت',pc(ptc,nd*5),50,'pray']]:[]),['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50,'birr'],['الدعوة والأمر بالمعروف',pc(dwd,nd),30,'dawa'],
-    ['صلاة الوتر',pc(wdn,nd),50,'witr'],['القنوت',cH('qnt'),50,'qnt'],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50,'sn'],['أذكار الصباح',pc(am,nd),50,'am'],['أذكار المساء',pc(pm,nd),50,'pm'],['أذكار ما بعد الصلاة',pc(pa_,nd*5),50,'pa'],['أذكار النوم',cH('nawm'),50,'nawm'],
+    ['صلاة الوتر',pc(wdn,nd),50,'witr'],['القنوت',cH('qnt'),50,'qnt'],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50,'sn'],['أذكار الصباح',pc(am,nd),50,'am'],['أذكار المساء',pc(pm,nd),50,'pm'],['أذكار النوم',cH('nawm'),50,'nawm'],
     ['قيام الليل',cH('qiyam'),50,'qiyam'],['ركعتا الضحى',cH('duha'),50,'duha'],['الورد',Math.min(100,pc(pages,T()*nd)),50,'wird'],['التدبر',pc(td.length,nd),50,'tdb'],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),DKT*nd),50,'dk']),['الدعاء للأهل والمسلمين',pc(V.reduce((a,x)=>a+DUA.filter(d=>x.h.includes(d.k)).length,0),nd*DUA.length),50,'dua']];
   if(so)items.push(['قلة التواصل الاجتماعي',pc(V.filter(x=>x.soc!=null&&x.soc<=(+D.cfg.soc||60)*60000).length,so.n)]);
   if(st)items.push(['الحركة (8,000 خطوة)',pc(V.filter(x=>x.stp>=8000).length,st.n)]);
@@ -1339,7 +1337,7 @@ const GLEG=`<div class="t2 g-leg"><b class="pc-b">أزرق</b> الهدف كام
 
 /* ميزان الأبعاد الأربعة: القلبي والنفسي والجسدي والاقتصادي */
 function heartOf(r){const W_={1:3,2:2,3:1},on=k=>r.h.includes(k)?1:0;
-  const it=[['pray',Math.min(r.j.length,5)/5],['birr',brOk(r)?1:0],['dawa',on('dawa')],['witr',on('witr')],['sn',Math.min(r.sn.length,4)/4],['am',on('am')],['pm',on('pm')],['pa',PA(r)/5],['nawm',on('nawm')],
+  const it=[['pray',Math.min(r.j.length,5)/5],['birr',brOk(r)?1:0],['dawa',on('dawa')],['witr',on('witr')],['sn',Math.min(r.sn.length,4)/4],['am',on('am')],['pm',on('pm')],['nawm',on('nawm')],
     ['qiyam',on('qiyam')],['duha',on('duha')],['wird',Math.min(wp(r),T())/T()],['dua',DUA.filter(d=>r.h.includes(d.k)).length/DUA.length],['dk',DK.reduce((a,[k])=>a+Math.min(dkv(r,k),DKT)/DKT,0)/DK.length]];
   let a=0,w=0;it.forEach(([k,v])=>{const x=W_[tierOf(k)]||1;a+=x*v;w+=x});return w?a/w:0}
 /* العطاء: الهدايا والهدايا الخاصة والمصروف — يشمل الاستثنائي لأنه عطاء فعلي */
@@ -1590,7 +1588,6 @@ const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.dk&&Object.va
 const MET=[
  {k:'give',n:'العطاء (الهدايا والمصروف)',u:'money',f:k=>giveOf(k),any:true},
  {k:'dua',n:'الدعاء للزوجة والأبناء والمسلمين',u:'من 3',f:k=>trk(k)?DUA.filter(d=>peek(k).h.includes(d.k)).length:null},
- {k:'pa',n:'أذكار ما بعد الصلاة',u:'صلاة',f:k=>trk(k)?PA(peek(k)):null},
  {k:'ptime',n:'الصلاة في أول الوقت',u:'صلاة',f:k=>trk(k)?(peek(k).pt||[]).length:null},
  {k:'masjid',n:'الصلاة في المسجد',u:'صلاة',f:k=>trk(k)?Object.values(peek(k).pp||{}).filter(v=>v==='m').length:null},
  {k:'nawm',n:'أذكار النوم',u:'مرة',f:k=>trk(k)?(peek(k).h.includes('nawm')?1:0):null},
