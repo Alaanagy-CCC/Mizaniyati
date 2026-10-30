@@ -4425,16 +4425,18 @@ function smsParse(body,when){
   const am=b.match(new RegExp('\\b('+CUR+')\\s*([\\d,]+(?:\\.\\d+)?)','i'))||b.match(new RegExp('([\\d,]+(?:\\.\\d+)?)\\s*('+CUR+'|د\\.ك|دينار)','i'));if(!am)return null;
   let cur,amt;if(/^[\d,.]+$/.test(am[1])){amt=num(am[1]);cur=am[2]}else{cur=am[1];amt=num(am[2])}
   cur=SMS_CC[cur]||SMS_CC[cur.toUpperCase()]||cur.toUpperCase();if(!(amt>0))return null;
-  const card=(b.match(/(?:card|account|a\/c|acct|بطاقة|البطاقة|حساب|الحساب)\s*(?:no\.?|number|رقم)?\s*(?:x+|\*+|•+)?\s?(\d{4})\b/i)||b.match(/(?:x{2,}|\*{2,})(\d{4})\b/i)||[])[1]||'';
+  const card=(b.match(/(?:card|account|a\/c|acct|بطاقة|البطاقة|حساب|الحساب)\s*(?:no\.?|number|رقم)?\s*(?:x+|\*+|•+)?\s?(\d{3,4})\b/i)||b.match(/(?:x{2,}|\*{2,})(\d{3,4})\b/i)||[])[1]||'';
   const bal=b.match(/(?:balance|bal\.?|available|الرصيد|رصيدك)[^\d]{0,30}?(?:KWD|KD|د\.ك)?\s*([\d,]+\.\d+)/i);
   let m=b.match(/\b(?:at|from|@)\s+(.+?)\s+in\s+([A-Z][A-Z .'-]{1,30}?)\s+on\b/i);
   let merchant=m?m[1]:(b.match(/\b(?:at|from|@)\s+(.+?)(?=\s+(?:in|on|for|via|using|ref)\b|[.,;]|\s+card|\s+your|$)/i)||b.match(/(?:لدى|عند)\s+(.+?)(?=\s+(?:بتاريخ|بالبطاقة|ببطاقة|من|في)\b|[.,،]|$)/)||[])[1]||'';
   const country=(m?m[2]:(b.match(/\bin\s+([A-Z][A-Z .'-]{1,30}?)\s+on\b/i)||[])[1]||'').trim().toUpperCase();
   merchant=merchant.replace(/\s+/g,' ').trim().slice(0,60);
   const isIn=/refund|reversal|credited|deposit|received|salary|transferred to your|إيداع|ايداع|استرداد|راتب|حوالة واردة|أضيف|تم إضافة/i.test(b),isTr=/transfer|transferred|\btfr\b|تحويل|حوالة/i.test(b);
-  const kind=/withdr|cash withdrawal|\batm\b|سحب/i.test(b)?'wd':isIn?'in':isTr?'tr':'exp';
+  const cardPay=/card\s*payment|credit\s*card\s*payment|سداد\s*(?:بطاقة|البطاقة)|دفعة\s*بطاقة/i.test(b);
+  const kind=/withdr|cash withdrawal|\batm\b|سحب/i.test(b)?'wd':isIn&&!cardPay?'in':isTr||cardPay?'tr':'exp';
   const dest=(b.match(/\bto\s+(?:your\s+)?(?:account|a\/c|acct|card|iban|beneficiary)?\s*(?:no\.?|number)?\s*(?:x+|\*+)?\s?(\d{4})\b/i)||b.match(/(?:إلى|الى)\s+(?:حساب|الحساب|بطاقة)?\s*(?:رقم)?\s*(?:x+|\*+)?\s?(\d{4})\b/)||[])[1]||'';
-  if((kind==='tr'||isTr)&&/\b(account|a\/c|acct|card)\b|x{2,}\d{4}|\*{2,}\d{4}/i.test(merchant))merchant='';
+  if((kind==='tr'||isTr)&&/\b(account|a\/c|acct|card)\b|x{2,}\d{3,4}|\*{2,}\d{3,4}/i.test(merchant))merchant='';
+  if(cardPay&&!merchant)merchant='سداد بطاقة ائتمان';
   return{kind,trIn:isIn&&isTr,dest,amt,cur,merchant,country,card,bal:bal?num(bal[1]):null,date:smsDate(when),t:+when||Date.now()}}
 /* المبلغ بالدينار: للدينار نفسه، وللعملة الأجنبية من فرق رصيد البطاقة بين رسالتين متتاليتين، وإلا فتقديري بسعر الإعدادات */
 function smsKwd(it,c){const prev=it.card&&c.bal[it.card]&&c.bal[it.card].t<it.t?c.bal[it.card]:null;let kwd=null,est=false,gap=null;
@@ -4546,7 +4548,7 @@ function ctrlOpen(){if(!lockCfg().on){toast('فعّل قفل التطبيق أو
     b=>b.querySelector('#ctGo').addEventListener('click',async()=>{if(Date.now()<lockUntil){b.querySelector('#ctE').textContent='محاولات كثيرة، انتظر';b.querySelector('#ctE').hidden=false;return}
       if((await hashPin(b.querySelector('#ctP').value))===lockCfg().hash){lockTries=0;ctrlUntil=Date.now()+120000;ctrlSheet()}else{pinFail();b.querySelector('#ctE').hidden=false}}))}
 function ctrlQuery(q){const c=smsCfg(),H=c.hist.concat(c.q.map(x=>Object.assign({st:'pending'},x,{d:x.date}))).sort((a,b)=>b.t-a.t),s=String(q||'').trim();
-  const cd=(s.match(/\b(\d{4})\b/)||[])[1],fr=(s.match(/(\d{4}-\d{2}-\d{2})/)||[])[1];
+  const cd=(s.match(/\b(\d{3,4})\b/)||[])[1],fr=(s.match(/(\d{4}-\d{2}-\d{2})/)||[])[1];
   let L=H,title='آخر العمليات من الرسائل';
   if(/غير|انتظار|pending/i.test(s)){L=H.filter(x=>x.st==='pending');title='بانتظار المراجعة'}
   else if(/فرق|فروق|رصيد/.test(s))return{title:'فروق الرصيد بين البنك ورُشد',rows:Object.keys(c.bal).map(k=>{const acc=c.cards[k],a=acc?accById(acc):null,rb=a?accBal(a):null,d=rb==null?null:+(c.bal[k].bal-rb).toFixed(3);
@@ -4567,7 +4569,7 @@ function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.sms
       o+=`<div class="list" style="border-right:5px solid ${B.col};margin-bottom:10px"><div class="set-row" style="background:${B.col}1f"><b style="color:${B.col};flex:1">📥 ${esc(B.label||'—')}</b><span class="t2">${B.t?new Date(B.t).toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></div>`}
       o+=`<div class="set-row" style="display:block"><div class="t1" style="white-space:normal">${r.slice(1,3).map(esc).join(' · ')}</div><div class="t2">${[r[0],r[3],r[4]].filter(Boolean).map(esc).join(' · ')}</div></div>`});return o+'</div>'})():'<div class="list"><p class="note" style="padding:10px">لا نتائج.</p></div>'}
     <h4 style="margin:14px 2px 6px">💳 البطاقات</h4><div class="list">${Object.keys(c.cards).length?Object.keys(c.cards).map(k=>`<div class="set-row"><span class="grow">بطاقة ${esc(k)} ← ${esc(accById(c.cards[k]).name)}${c.bal[k]?`<br><span class="t2">آخر رصيد من البنك ${fmt(c.bal[k].bal)} · ${esc(c.bal[k].date)}</span>`:''}</span><button class="chip" data-cun="${esc(k)}">فصل</button></div>`).join(''):'<p class="note" style="padding:10px">لم تُربط بطاقة بعد.</p>'}
-      <div class="set-row" style="gap:6px"><input class="chl-num" id="ctCd" inputmode="numeric" maxlength="4" placeholder="0220" style="width:70px"><select id="ctCa" style="flex:1;min-width:0"><option value="">الحساب…</option>${accOptions('')}</select><button class="chip" id="ctCadd">ربط</button></div></div>
+      <div class="set-row" style="gap:6px"><input class="chl-num" id="ctCd" inputmode="numeric" maxlength="4" placeholder="357" style="width:70px"><select id="ctCa" style="flex:1;min-width:0"><option value="">الحساب…</option>${accOptions('')}</select><button class="chip" id="ctCadd">ربط</button></div></div>
     <h4 style="margin:14px 2px 6px">📨 المرسلون المسموح بهم</h4><div class="list"><div class="set-row"><span class="grow">${c.senders.length?esc(c.senders.join('، ')):'لا أحد'}</span>${NB&&perm?'<button class="chip" data-csnd="1">تعديل</button>':''}</div></div>
     <h4 style="margin:14px 2px 6px">🔐 الأمن</h4><div class="list">
       <div class="set-row"><span class="grow">إذن قراءة الرسائل</span><b>${!NB?'غير متاح':perm?'ممنوح':'غير ممنوح'}</b></div>
@@ -4580,7 +4582,7 @@ function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.sms
   b=>{const go=v=>ctrlSheet(v);b.querySelector('#ctGo2').addEventListener('click',()=>go(b.querySelector('#ctQ').value));b.querySelector('#ctQ').addEventListener('keydown',e=>{if(e.key==='Enter')go(e.target.value)});
     b.querySelectorAll('[data-cq]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.cq)));
     b.querySelectorAll('[data-cun]').forEach(e=>e.addEventListener('click',()=>{delete c.cards[e.dataset.cun];smsLog('card',0,'فصل '+e.dataset.cun);saveSettings();ctrlSheet(q)}));
-    b.querySelector('#ctCadd').addEventListener('click',()=>{const d=(b.querySelector('#ctCd').value||'').trim(),a=b.querySelector('#ctCa').value;if(!/^\d{4}$/.test(d)||!a){toast('اكتب آخر 4 أرقام واختر الحساب');return}c.cards[d]=a;smsLog('card',1,d);saveSettings();toast('رُبطت البطاقة '+d);ctrlSheet(q)});
+    b.querySelector('#ctCadd').addEventListener('click',()=>{const d=(b.querySelector('#ctCd').value||'').trim(),a=b.querySelector('#ctCa').value;if(!/^\d{3,4}$/.test(d)||!a){toast('اكتب آخر 3 أو 4 أرقام كما في رسالة البنك، واختر الحساب');return}c.cards[d]=a;smsLog('card',1,d);saveSettings();toast('رُبطت البطاقة '+d);ctrlSheet(q)});
     const sn=b.querySelector('[data-csnd]');if(sn)sn.addEventListener('click',()=>smsSenderSheet(null));
     b.querySelector('#ctStop').addEventListener('click',()=>{c.senders=[];smsLog('stop',0);saveSettings();toast('أُوقفت القراءة: لا مرسلين مسموح بهم');ctrlSheet(q)});
     const w=b.querySelector('#ctWipe');w.addEventListener('click',()=>{if(w.dataset.c!=='1'){w.dataset.c='1';w.textContent='اضغط مرة أخرى للتأكيد';return}
