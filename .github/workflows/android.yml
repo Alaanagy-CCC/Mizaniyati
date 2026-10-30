@@ -126,6 +126,7 @@ jobs:
             <uses-permission android:name="android.permission.INTERNET" />
           <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
           <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+          <uses-permission android:name="android.permission.READ_SMS" />
             <queries>
               <intent>
                 <action android:name="android.intent.action.MAIN" />
@@ -146,10 +147,16 @@ jobs:
                   android:name=".MainActivity"
                   android:exported="true"
                   android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+                  android:launchMode="singleTask"
                   android:windowSoftInputMode="adjustResize">
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN" />
                   <category android:name="android.intent.category.LAUNCHER" />
+                </intent-filter>
+                <intent-filter android:label="رُشد: عملية من البنك">
+                  <action android:name="android.intent.action.SEND" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <data android:mimeType="text/plain" />
                 </intent-filter>
               </activity>
               <activity-alias
@@ -366,6 +373,7 @@ jobs:
           import android.location.Location;
           import android.location.LocationListener;
           import android.location.LocationManager;
+          import android.database.Cursor;
           import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
@@ -397,7 +405,11 @@ jobs:
           import org.json.JSONObject;
 
           public class MainActivity extends Activity {
-            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5, REQ_BT = 6;
+            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5, REQ_BT = 6, REQ_SMS = 7;
+            private String sharedText;
+            /* رموز التحقق وكلمات المرور لا تُمرَّر إلى التطبيق أبداً */
+            private static final java.util.regex.Pattern OTP = java.util.regex.Pattern.compile("(?i)otp|one[- ]?time|verification|passcode|password|\\bpin\\b|\\bcode\\b|رمز|كلمة (السر|المرور)|التحقق");
+            private static final java.util.regex.Pattern MONEY = java.util.regex.Pattern.compile("(?i)(KWD|USD|SAR|AED|EUR|GBP|EGP|QAR|BHD|OMR|د\\.ك|دينار)\\s*[0-9][0-9,]*");
             private static final String SLEEP_PERM = "android.permission.health.READ_SLEEP";
             private static final String[] HEALTH_PERMS = {SLEEP_PERM, "android.permission.health.READ_STEPS", "android.permission.health.READ_EXERCISE", "android.permission.health.READ_ACTIVE_CALORIES_BURNED", "android.permission.health.READ_NUTRITION"};
             private WebView web;
@@ -469,6 +481,22 @@ jobs:
               });
               web.addJavascriptInterface(new Bridge(), "AndroidBridge");
               web.loadUrl("file:///android_asset/index.html");
+              takeShare(getIntent());
+            }
+
+            @Override
+            protected void onNewIntent(Intent i) {
+              super.onNewIntent(i);
+              setIntent(i);
+              if (takeShare(i)) js("window.__smsShared&&__smsShared()");
+            }
+
+            private boolean takeShare(Intent i) {
+              if (i == null || !Intent.ACTION_SEND.equals(i.getAction())) return false;
+              String t = i.getStringExtra(Intent.EXTRA_TEXT);
+              if (t == null || t.isEmpty()) return false;
+              sharedText = OTP.matcher(t).find() ? "" : t;
+              return true;
             }
 
             @Override
@@ -576,6 +604,39 @@ jobs:
                   if (Build.VERSION.SDK_INT < 31) { js("window.__chlBtPerm&&__chlBtPerm(true)"); return; }
                   requestPermissions(new String[]{"android.permission.BLUETOOTH_CONNECT"}, REQ_BT);
                 });
+              }
+
+              @JavascriptInterface
+              public int smsState() {
+                return checkSelfPermission("android.permission.READ_SMS") == PackageManager.PERMISSION_GRANTED ? 1 : 0;
+              }
+
+              @JavascriptInterface
+              public void requestSms() {
+                runOnUiThread(() -> requestPermissions(new String[]{"android.permission.READ_SMS"}, REQ_SMS));
+              }
+
+              /* رسائل الوارد منذ وقت معين، فيها مبلغ بعملة، وليست رموز تحقق. القراءة على الجهاز فقط. */
+              @JavascriptInterface
+              public String readSms(String since) {
+                JSONArray out = new JSONArray();
+                if (checkSelfPermission("android.permission.READ_SMS") != PackageManager.PERMISSION_GRANTED) return out.toString();
+                long t0 = 0; try { t0 = Long.parseLong(since); } catch (Exception e) { }
+                try (Cursor c = getContentResolver().query(Uri.parse("content://sms/inbox"), new String[]{"_id", "address", "body", "date"},
+                    "date > ?", new String[]{String.valueOf(t0)}, "date ASC")) {
+                  if (c != null) while (c.moveToNext() && out.length() < 400) {
+                    String b = c.getString(2);
+                    if (b == null || OTP.matcher(b).find() || !MONEY.matcher(b).find()) continue;
+                    out.put(new JSONObject().put("id", c.getString(0)).put("a", c.getString(1)).put("b", b).put("d", c.getLong(3)));
+                  }
+                } catch (Exception e) { }
+                return out.toString();
+              }
+
+              @JavascriptInterface
+              public String takeShared() {
+                String t = sharedText; sharedText = null;
+                return t == null ? "" : t;
               }
 
               @JavascriptInterface
@@ -972,6 +1033,8 @@ jobs:
                 js("window.__chlSleepPerm&&__chlSleepPerm(" + ok + ")");
               } else if (req == REQ_BT) {
                 js("window.__chlBtPerm&&__chlBtPerm(" + ok + ")");
+              } else if (req == REQ_SMS) {
+                js("window.__smsPerm&&__smsPerm(" + ok + ")");
               }
             }
 
