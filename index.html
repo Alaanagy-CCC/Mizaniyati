@@ -255,6 +255,18 @@ select.pill{appearance:none;background:var(--chip);border:0;border-radius:999px;
 .sheet h3{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0 0 14px}
 @keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 @keyframes fade{from{opacity:0}}
+/* حركات الواجهة: ظهور من ضبابية، ودخول متتابع للمربعات، وانسياب الصفحات. تتوقف مع «تقليل الحركة» */
+@keyframes rvIn{from{filter:blur(14px) saturate(.6);opacity:.25;transform:scale(1.015)}to{filter:none;opacity:1;transform:none}}
+@keyframes tlIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pgIn{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes pgInR{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+body.reveal #view,body.reveal header{animation:rvIn .55s cubic-bezier(.2,.7,.2,1) both}
+body.reveal .hm-tile,body.reveal .tiles>*{animation:tlIn .45s cubic-bezier(.2,.8,.2,1) both}
+body.reveal .hm-tile:nth-child(2){animation-delay:.05s}body.reveal .hm-tile:nth-child(3){animation-delay:.1s}body.reveal .hm-tile:nth-child(4){animation-delay:.15s}
+body.reveal .hm-tile:nth-child(5){animation-delay:.2s}body.reveal .hm-tile:nth-child(6){animation-delay:.25s}body.reveal .hm-tile:nth-child(n+7){animation-delay:.3s}
+.chl:not([hidden]),.slh:not([hidden]){animation:pgIn .32s cubic-bezier(.2,.8,.2,1)}
+.rep:not([hidden]){animation:pgInR .34s cubic-bezier(.2,.8,.2,1)}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.38s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border-radius:14px;padding:4px;margin-bottom:14px}
 .seg button{padding:9px 6px;border-radius:10px;font-weight:500;color:var(--muted)}
@@ -3720,10 +3732,20 @@ async function lockKey(k){
     if(ok){try{localStorage.removeItem('lk:fails');localStorage.removeItem('lk:until')}catch(e){}unlock()}else{lockEntry='';pinFail();if(Date.now()<lockUntil)drawLock('محاولات كثيرة، انتظر '+Math.ceil((lockUntil-Date.now())/1000)+' ثانية');else drawLock('رمز غير صحيح')}
   }
 }
-function unlock(){document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render();setTimeout(()=>{try{smsAuto()}catch(e){}},600)}
+function unlock(){reveal();document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render();setTimeout(()=>{try{smsAuto()}catch(e){}},600)}
 function bioAuth(){if(!canBio())return;S.noLockUntil=Date.now()+60000;try{window.AndroidBridge.authenticate()}catch(e){}}
 window.__authOk=()=>{if(S.authFor==='ctrl'){S.authFor=null;ctrlUntil=Date.now()+120000;ctrlSheet();return}unlock()};
 window.__authFail=()=>{if(S.authFor==='ctrl'){S.authFor=null;const b=lockCfg().bio;lockCfg().bio=false;ctrlOpen();lockCfg().bio=b;return}if(isLocked())drawLock('استخدم الرمز السري')};
+/* الظهور بعد الفتح: ضبابية تتلاشى، ثم المربعات تباعاً، ثم الأرقام تعدّ صعوداً حتى قيمتها */
+const lowMotion=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
+function reveal(){if(lowMotion())return;const b=document.body;b.classList.remove('reveal');void b.offsetWidth;b.classList.add('reveal');clearTimeout(S.rvT);S.rvT=setTimeout(()=>b.classList.remove('reveal'),1200);setTimeout(countUp,120)}
+function countUp(){if(lowMotion())return;document.querySelectorAll('.hm-tile .hv.num').forEach(el=>{const tn=[...el.childNodes].find(n=>n.nodeType===3&&/\d/.test(n.textContent));if(!tn)return;
+  const raw=tn.textContent,m=raw.match(/^([^\d]*)([\d,]+(?:\.(\d+))?)(.*)$/);if(!m)return;const v=+m[2].replace(/,/g,''),dec=(m[3]||'').length,grp=m[2].includes(',');if(!(v>0))return;
+  const t0=performance.now(),D=700,f=x=>m[1]+(grp?x.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}):x.toFixed(dec))+m[4];
+  const step=t=>{const k=Math.min(1,(t-t0)/D),e=1-Math.pow(1-k,3);tn.textContent=f(v*e);if(k<1)requestAnimationFrame(step);else tn.textContent=raw};requestAnimationFrame(step)})}
+/* فتح الجوال وطيّه: انتقال ناعم إلى العرض الجديد بدل القفز */
+{let lw=window.innerWidth,rt=null;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const w=window.innerWidth;if(Math.abs(w-lw)<160){lw=w;return}lw=w;
+  if(lowMotion()||!document.startViewTransition||document.hidden)return;try{document.startViewTransition(()=>{try{render()}catch(e){}})}catch(e){}},60)})}
 /* محاولات الرمز الخاطئة: تُحفظ على الجهاز، وتطول مدة الانتظار مع كل خمس محاولات */
 function pinFail(){lockTries++;if(lockTries>=5){let n=0;try{n=+localStorage.getItem('lk:fails')||0}catch(e){}n++;try{localStorage.setItem('lk:fails',n)}catch(e){}lockUntil=Date.now()+Math.min(3600e3,30000*2**(n-1));lockTries=0;try{localStorage.setItem('lk:until',lockUntil)}catch(e){}}}
 try{const u=+localStorage.getItem('lk:until')||0;if(u>Date.now())lockUntil=u}catch(e){}
