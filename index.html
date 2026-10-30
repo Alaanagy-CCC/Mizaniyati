@@ -4431,8 +4431,11 @@ function smsParse(body,when){
   let merchant=m?m[1]:(b.match(/\b(?:at|from|@)\s+(.+?)(?=\s+(?:in|on|for|via|using|ref)\b|[.,;]|\s+card|\s+your|$)/i)||b.match(/(?:لدى|عند)\s+(.+?)(?=\s+(?:بتاريخ|بالبطاقة|ببطاقة|من|في)\b|[.,،]|$)/)||[])[1]||'';
   const country=(m?m[2]:(b.match(/\bin\s+([A-Z][A-Z .'-]{1,30}?)\s+on\b/i)||[])[1]||'').trim().toUpperCase();
   merchant=merchant.replace(/\s+/g,' ').trim().slice(0,60);
-  const kind=/withdr|cash withdrawal|atm|سحب/i.test(b)?'wd':/refund|reversal|credited|deposit|received|salary|transferred to your|إيداع|ايداع|استرداد|راتب|حوالة واردة/i.test(b)?'in':'exp';
-  return{kind,amt,cur,merchant,country,card,bal:bal?num(bal[1]):null,date:smsDate(when),t:+when||Date.now()}}
+  const isIn=/refund|reversal|credited|deposit|received|salary|transferred to your|إيداع|ايداع|استرداد|راتب|حوالة واردة|أضيف|تم إضافة/i.test(b),isTr=/transfer|transferred|\btfr\b|تحويل|حوالة/i.test(b);
+  const kind=/withdr|cash withdrawal|\batm\b|سحب/i.test(b)?'wd':isIn?'in':isTr?'tr':'exp';
+  const dest=(b.match(/\bto\s+(?:your\s+)?(?:account|a\/c|acct|card|iban|beneficiary)?\s*(?:no\.?|number)?\s*(?:x+|\*+)?\s?(\d{4})\b/i)||b.match(/(?:إلى|الى)\s+(?:حساب|الحساب|بطاقة)?\s*(?:رقم)?\s*(?:x+|\*+)?\s?(\d{4})\b/)||[])[1]||'';
+  if((kind==='tr'||isTr)&&/\b(account|a\/c|acct|card)\b|x{2,}\d{4}|\*{2,}\d{4}/i.test(merchant))merchant='';
+  return{kind,trIn:isIn&&isTr,dest,amt,cur,merchant,country,card,bal:bal?num(bal[1]):null,date:smsDate(when),t:+when||Date.now()}}
 /* المبلغ بالدينار: للدينار نفسه، وللعملة الأجنبية من فرق رصيد البطاقة بين رسالتين متتاليتين، وإلا فتقديري بسعر الإعدادات */
 function smsKwd(it,c){const prev=it.card&&c.bal[it.card]&&c.bal[it.card].t<it.t?c.bal[it.card]:null;let kwd=null,est=false,gap=null;
   if(it.cur==='KWD'){kwd=it.amt;if(prev&&it.bal!=null&&it.kind!=='in'){const g=+(prev.bal-it.amt-it.bal).toFixed(3);if(Math.abs(g)>0.0005)gap=g}}
@@ -4444,7 +4447,7 @@ const SMS_COL=['#0F7B8A','#B7791F','#6B46C1','#2F855A','#C05621','#2B6CB0','#B83
 function smsBatch(label){const c=smsCfg();c.batches=c.batches||[];const b={id:newId(),t:Date.now(),label:label||'',col:SMS_COL[(c.bn=(c.bn||0)+1)%SMS_COL.length]};c.batches.unshift(b);c.batches=c.batches.slice(0,150);return b}
 const smsB=id=>((smsCfg().batches||[]).find(b=>b.id===id))||{label:'',col:'#718096',t:0};
 function smsIngest(list,src,label){const c=smsCfg();let n=0,bt=null;list.sort((a,b)=>(+a.d||0)-(+b.d||0)).forEach(m=>{const key=m.id?'s'+m.id:'h'+(+m.d||0)+'|'+String(m.b||'').length;if(c.seen.includes(key))return;c.seen.push(key);
-    const it=smsParse(m.b,m.d);if(!it)return;const k=smsKwd(it,c);if(!bt)bt=smsBatch(label||src||'');c.q.push(Object.assign({id:newId(),b:bt.id,src:src||m.a||'مشاركة',foreign:!!(it.country&&it.country!=='KUWAIT')||it.cur!=='KWD'},it,k));n++});
+    const it=smsParse(m.b,m.d);if(!it)return;{const lk=c.kinds&&c.kinds[smsKey(it)];if(lk&&it.kind!=='in'&&it.kind!=='wd')it.kind=lk}const k=smsKwd(it,c);if(!bt)bt=smsBatch(label||src||'');c.q.push(Object.assign({id:newId(),b:bt.id,src:src||m.a||'مشاركة',foreign:!!(it.country&&it.country!=='KUWAIT')||it.cur!=='KWD'},it,k));n++});
   c.seen=c.seen.slice(-3000);return n}
 function smsLog(type,n,extra){const c=smsCfg();c.log.unshift({t:Date.now(),type,n,x:extra||''});c.log=c.log.slice(0,200)}
 function smsFetch(fromT,toT,label,silent){const NB=smsNB(),c=smsCfg();if(!NB){if(!silent)toast('قراءة الرسائل متاحة في تطبيق أندرويد فقط');return 0}
@@ -4464,24 +4467,32 @@ function smsSenderSheet(fromT){const NB=smsNB(),c=smsCfg();let M={};try{M=JSON.p
     <div class="actions"><button class="btn" id="sndOk">حفظ ومتابعة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
   b=>b.querySelector('#sndOk').addEventListener('click',()=>{c.senders=[...b.querySelectorAll('[data-snd]')].filter(x=>x.checked).map(x=>x.dataset.snd);smsLog('senders',c.senders.length,c.senders.join('، '));saveSettings();closeSheet();
     if(c.senders.length&&fromT!=null)smsFetch(fromT,Date.now(),'بعد اختيار المرسل');else smsSheet()}))}
+const smsKey=it=>(it.dest?'#'+it.dest:(it.merchant||'').toLowerCase());
+const smsTo=it=>{const c=smsCfg();if(it.to&&S.settings.accounts.some(a=>a.id===it.to))return it.to;if(it.kind==='wd')return c.cash||'';const k=smsKey(it),t=(c.tto||{})[k]||(it.dest&&c.cards[it.dest]);return t&&S.settings.accounts.some(a=>a.id===t)?t:''};
 const smsAcc=it=>{const c=smsCfg(),id=it.card&&c.cards[it.card];return id&&S.settings.accounts.some(a=>a.id===id)?id:''};
 function smsCat(it){const c=smsCfg(),k=(it.merchant||'').toLowerCase();if(k&&c.rules[k]&&S.settings.categories.some(x=>x.id===c.rules[k]))return c.rules[k];
   if(k){const h=allTx().filter(t=>t.type==='expense'&&(t.note||'').toLowerCase().startsWith(k)).sort((a,b)=>a.date<b.date?1:-1)[0];if(h)return h.cat}return''}
-function smsDup(it,acc){const v=it.kwd;if(v==null)return null;return allTx().find(t=>!t.smsId&&(!acc||t.acc===acc)&&Math.abs((new Date(t.date)-new Date(it.date))/864e5)<=1&&Math.abs((+t.amount||0)-v)<0.0005)}
+function smsDup(it,acc){const v=it.kwd;if(v==null)return null;return allTx().find(t=>!t.smsId&&(!acc||t.acc===acc||t.to===acc)&&Math.abs((new Date(t.date)-new Date(it.date))/864e5)<=1&&Math.abs((+t.amount||0)-v)<0.0005)}
 function smsSave(it,acc,cat){const c=smsCfg(),a=accById(acc);if(accCur(a)!==baseCur()||it.kwd==null)return null;
   const note=(it.merchant||(it.kind==='wd'?'سحب نقدي':''))+(it.cur!=='KWD'?` · ${fmtC(it.amt,it.cur)} ${it.cur}${it.est?' (تقديري)':''}`:'');
-  const rec=it.kind==='wd'?{id:newId(),type:'transfer',amount:it.kwd,cat:'',acc,to:c.cash,date:it.date,note}:{id:newId(),type:it.kind==='in'?'income':'expense',amount:it.kwd,cat,acc,to:'',date:it.date,note};
+  const to=smsTo(it);if((it.kind==='wd'||it.kind==='tr')&&(!to||to===acc))return null;
+  const rec=it.kind==='wd'||it.kind==='tr'?{id:newId(),type:'transfer',amount:it.kwd,cat:'',acc,to,date:it.date,note:note||'تحويل'}:{id:newId(),type:it.kind==='in'?'income':'expense',amount:it.kwd,cat,acc,to:'',date:it.date,note};
   rec.smsId=it.id;const nm=rec.date.slice(0,7);S.months[nm]=txOf(nm).concat(rec);sortMonth(nm);saveMonth(nm);
   if(window.__oblAfterSave){try{window.__oblAfterSave(rec,false)}catch(e){}}
-  if(it.kind==='exp'&&it.merchant&&cat)c.rules[it.merchant.toLowerCase()]=cat;return rec}
+  if(it.kind==='exp'&&it.merchant&&cat)c.rules[it.merchant.toLowerCase()]=cat;
+  if(it.kind==='tr'){c.tto=c.tto||{};c.tto[smsKey(it)]=to;c.kinds=c.kinds||{};c.kinds[smsKey(it)]='tr';
+    /* الطرف الثاني من التحويل نفسه (رسالة الإيداع في الحساب المستلم) لا يُسجَّل مرة أخرى */
+    c.q.filter(x=>x.id!==it.id&&x.kind==='in'&&Math.abs((x.kwd||0)-it.kwd)<0.0005&&Math.abs((new Date(x.date)-new Date(it.date))/864e5)<=1&&smsAcc(x)===to).slice(0,1).forEach(x=>smsDone(x,'pair'))}
+  return rec}
 function smsDone(it,st,rec){const c=smsCfg();c.q=c.q.filter(x=>x.id!==it.id);c.hist.unshift({b:it.b,d:it.date,t:it.t,card:it.card,amt:it.amt,cur:it.cur,kwd:it.kwd,est:it.est,merchant:it.merchant,country:it.country,bal:it.bal,kind:it.kind,gap:it.gap,st,tx:rec?rec.id:''});c.hist=c.hist.slice(0,3000)}
 function smsSheet(){
   const draw=()=>{const c=smsCfg(),NB=smsNB(),Q=c.q,cats=k=>S.settings.categories.filter(x=>x.kind===(k==='in'?'income':'expense'));
-    const card=it=>{const acc=smsAcc(it),cat=it.kind==='wd'?'':smsCat(it),du=smsDup(it,acc),a=acc?accById(acc):null;
-      return `<div class="chart" style="padding:12px 14px;margin-bottom:10px"><div class="mrow"><span class="grow"><b>${it.kind==='in'?'➕':it.kind==='wd'?'🏧':'💳'} ${esc(it.merchant||(it.kind==='wd'?'سحب نقدي':'عملية'))}</b><br><span class="t2">${esc(it.date)}${it.card?' · بطاقة '+esc(it.card):''}${it.country&&it.country!=='KUWAIT'?' · '+esc(it.country):''}</span></span>
+    const card=it=>{const acc=smsAcc(it),cat=it.kind==='wd'||it.kind==='tr'?'':smsCat(it),du=smsDup(it,acc),a=acc?accById(acc):null;
+      return `<div class="chart" style="padding:12px 14px;margin-bottom:10px"><div class="mrow"><span class="grow"><b>${it.kind==='in'?'➕':it.kind==='wd'?'🏧':it.kind==='tr'?'⇄':'💳'} ${esc(it.merchant||(it.kind==='wd'?'سحب نقدي':it.kind==='tr'?'تحويل'+(it.dest?' إلى '+it.dest:''):'عملية'))}</b><br><span class="t2">${esc(it.date)}${it.card?' · بطاقة '+esc(it.card):''}${it.country&&it.country!=='KUWAIT'?' · '+esc(it.country):''}</span></span>
         <b class="num">${it.kwd!=null?fmt(it.kwd):'—'}</b></div>${it.cur!=='KWD'?`<div class="t2">${fmtC(it.amt,it.cur)} ${esc(it.cur)} · ${it.est?'<span class="neg">المبلغ بالدينار تقديري بسعر الإعدادات</span>':'المبلغ بالدينار من فرق رصيد البطاقة ✓'}</div>`:''}
-        <div class="row2" style="margin-top:8px"><label class="field" style="margin:0"><span>الحساب${it.card&&!acc?' (يُحفظ للبطاقة '+esc(it.card)+')':''}</span><select data-sacc="${it.id}"><option value="">اختر…</option>${accOptions(acc)}</select></label>
-        ${it.kind==='wd'?`<label class="field" style="margin:0"><span>إلى حساب النقد</span><select data-scash="1"><option value="">اختر…</option>${accOptions(c.cash||'')}</select></label>`:`<label class="field" style="margin:0"><span>البند</span><select data-scat="${it.id}"><option value="">اختر…</option>${cats(it.kind).map(x=>`<option value="${esc(x.id)}"${x.id===cat?' selected':''}>${esc(x.icon||'')} ${esc(x.name)}</option>`).join('')}</select></label>`}</div>
+        <div class="chl-chips" style="padding:8px 0 0;gap:6px">${[['exp','💳 مصروف'],['tr','⇄ تحويل بين حساباتي'],['in','➕ دخل'],['wd','🏧 سحب نقدي']].map(([k,t])=>`<button class="chl-chip" data-skind="${it.id}" data-v="${k}" aria-pressed="${it.kind===k}">${t}</button>`).join('')}</div>${it.trIn&&it.kind==='in'?`<p class="note" style="margin:6px 2px 0">إيداع بتحويل: إن كان من حساب آخر لك فسجّل التحويل من الحساب المرسِل، ويُستبعد هذا تلقائياً.</p>`:''}
+        <div class="row2" style="margin-top:8px"><label class="field" style="margin:0"><span>${it.kind==='tr'||it.kind==='wd'?'من حساب':'الحساب'}${it.card&&!acc?' (يُحفظ للبطاقة '+esc(it.card)+')':''}</span><select data-sacc="${it.id}"><option value="">اختر…</option>${accOptions(acc)}</select></label>
+        ${it.kind==='wd'||it.kind==='tr'?`<label class="field" style="margin:0"><span>${it.kind==='wd'?'إلى حساب النقد':'إلى حساب'}${it.dest?' ('+esc(it.dest)+')':''}</span><select data-sto="${it.id}"><option value="">اختر…</option>${accOptions(smsTo(it))}</select></label>`:`<label class="field" style="margin:0"><span>البند</span><select data-scat="${it.id}"><option value="">اختر…</option>${cats(it.kind).map(x=>`<option value="${esc(x.id)}"${x.id===cat?' selected':''}>${esc(x.icon||'')} ${esc(x.name)}</option>`).join('')}</select></label>`}</div>
         ${du?`<p class="note" style="margin:6px 2px 0;color:var(--neg,#c0392b)">⚠ ربما مسجّلة: ${esc(du.date)} · ${esc(du.note||catById(du.cat).name||'')} · ${fmt(du.amount)}</p>`:''}
         ${it.gap?`<p class="note" style="margin:6px 2px 0">رصيد البطاقة لا يتسلسل مع الرسالة السابقة بفارق ${fmt(it.gap)}: ربما عملية لم تصل رسالتها.</p>`:''}
         ${it.bal!=null&&a&&accCur(a)===baseCur()?`<p class="note" style="margin:6px 2px 0">رصيد البنك بعدها ${fmt(it.bal)}</p>`:''}
@@ -4505,14 +4516,16 @@ function smsSheet(){
         if(v==='today')smsFetch(d0.getTime()-1,Date.now(),'اليوم');else if(v==='last')smsFetch(c.last||d0.getTime()-1,Date.now(),'منذ آخر تحديث');
         else if(v==='from'){b.querySelector('#sFrom').hidden=false}else if(v==='go'){const d=b.querySelector('#sFromD').value;if(!d){toast('اختر التاريخ');return}smsFetch(new Date(d+'T00:00:00').getTime()-1,Date.now(),'من '+d)}}));
       b.querySelectorAll('[data-sacc]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.sacc);if(it&&it.card&&e.value){c.cards[it.card]=e.value;smsLog('card',1,it.card);saveSettings();draw()}}));
-      b.querySelectorAll('[data-scash]').forEach(e=>e.addEventListener('change',()=>{c.cash=e.value;saveSettings()}));
-      const ok=(it,acc,cat,quiet)=>{if(!acc){if(!quiet)toast('اختر الحساب');return false}if(it.kind!=='wd'&&!cat){if(!quiet)toast('اختر البند');return false}if(it.kind==='wd'&&!c.cash){if(!quiet)toast('اختر حساب النقد');return false}
+      b.querySelectorAll('[data-sto]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.sto);if(!it)return;it.to=e.value;if(it.kind==='wd'){c.cash=e.value}saveSettings()}));
+      b.querySelectorAll('[data-skind]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.skind);if(!it)return;it.kind=e.dataset.v;saveSettings();draw()}));
+      const ok=(it,acc,cat,quiet)=>{if(!acc){if(!quiet)toast('اختر الحساب');return false}const tr=it.kind==='wd'||it.kind==='tr';if(!tr&&!cat){if(!quiet)toast('اختر البند');return false}
+        if(tr){const t=val('data-sto',it.id)||smsTo(it);if(!t){if(!quiet)toast(it.kind==='wd'?'اختر حساب النقد':'اختر الحساب المستلم');return false}if(t===acc){if(!quiet)toast('الحسابان متماثلان');return false}it.to=t;if(it.kind==='wd')c.cash=t}
         if(accCur(accById(acc))!==baseCur()||it.kwd==null){if(!quiet)edit(it,acc,cat);return false}const rec=smsSave(it,acc,cat);if(!rec)return false;smsDone(it,'rec',rec);return true};
-      const edit=(it,acc,cat)=>{smsDone(it,'edit');saveSettings();txSheet(null,{type:it.kind==='in'?'income':it.kind==='wd'?'transfer':'expense',amount:it.kwd!=null?it.kwd:it.amt,acc:acc||'',cat:cat||'',to:it.kind==='wd'?c.cash||'':'',date:it.date,note:(it.merchant||'')+(it.cur!=='KWD'?` · ${it.amt} ${it.cur}`:'')})};
+      const edit=(it,acc,cat)=>{smsDone(it,'edit');saveSettings();txSheet(null,{type:it.kind==='in'?'income':it.kind==='wd'||it.kind==='tr'?'transfer':'expense',amount:it.kwd!=null?it.kwd:it.amt,acc:acc||'',cat:cat||'',to:it.kind==='wd'||it.kind==='tr'?smsTo(it)||'':'',date:it.date,note:(it.merchant||'')+(it.cur!=='KWD'?` · ${it.amt} ${it.cur}`:'')})};
       b.querySelectorAll('[data-sok]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sok);if(!it)return;if(ok(it,val('data-sacc',it.id),val('data-scat',it.id))){saveSettings();toast('سُجّلت العملية');render();draw()}}));
       b.querySelectorAll('[data-sed]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sed);if(it)edit(it,val('data-sacc',it.id),val('data-scat',it.id))}));
       b.querySelectorAll('[data-sno]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sno);if(it){smsDone(it,'ign');saveSettings();draw();render()}}));
-      const all=b.querySelector('[data-sall]');if(all)all.addEventListener('click',()=>{let n=0;c.q.slice().forEach(it=>{const acc=val('data-sacc',it.id)||smsAcc(it),cat=it.kind==='wd'?'':(val('data-scat',it.id)||smsCat(it));if(smsDup(it,acc))return;if(ok(it,acc,cat,true))n++});saveSettings();toast(n?`اعتُمدت ${n} عملية`:'لا عملية مكتملة للاعتماد');render();draw()});
+      const all=b.querySelector('[data-sall]');if(all)all.addEventListener('click',()=>{let n=0;c.q.slice().forEach(it=>{const acc=val('data-sacc',it.id)||smsAcc(it),cat=it.kind==='wd'||it.kind==='tr'?'':(val('data-scat',it.id)||smsCat(it));if(smsDup(it,acc))return;if(ok(it,acc,cat,true))n++});saveSettings();toast(n?`اعتُمدت ${n} عملية`:'لا عملية مكتملة للاعتماد');render();draw()});
       const au=b.querySelector('#sAuto');if(au)au.addEventListener('change',()=>{c.auto=au.checked;saveSettings();toast(au.checked?'ستُقرأ الرسائل الجديدة عند كل فتح':'لن تُقرأ إلا بطلبك');draw()});
       b.querySelector('#smsRead').addEventListener('click',()=>{const n=smsIngest([{b:b.querySelector('#smsPaste').value,d:Date.now()}],'لصق','لصق يدوي');smsLog('paste',1);saveSettings();if(n){toast('قُرئت الرسالة');draw();render()}else toast('لم أجد مبلغاً في هذا النص')});
     });
@@ -4542,7 +4555,7 @@ function ctrlQuery(q){const c=smsCfg(),H=c.hist.concat(c.q.map(x=>Object.assign(
   else if(fr){L=H.filter(x=>x.d>=fr);title='منذ '+fr}
   else if(cd&&!fr){L=H.filter(x=>x.card===cd);title='بطاقة '+cd}
   else if(s){const k=s.toLowerCase().replace(/^تاجر[:\s]*/,'');L=H.filter(x=>(x.merchant||'').toLowerCase().includes(k));title='التاجر: '+s}
-  const st={rec:'مسجّلة',ign:'متجاهلة',edit:'عُدّلت',pending:'بانتظارك'};
+  const st={rec:'مسجّلة',ign:'متجاهلة',edit:'عُدّلت',pair:'طرف تحويل مسجّل',pending:'بانتظارك'};
   return{title,bt:L.slice(0,60).map(x=>x.b||''),rows:L.slice(0,60).map(x=>[x.d,(x.merchant||(x.kind==='wd'?'سحب':''))+(x.card?' · '+x.card:''),x.cur!=='KWD'?`${x.amt} ${x.cur}${x.kwd!=null?' = '+fmt(x.kwd):''}`:fmt(x.amt),x.bal!=null?'رصيد '+fmt(x.bal):'',st[x.st]||''])}}
 function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.smsState()===1:false;let sig='';try{sig=window.AndroidBridge&&window.AndroidBridge.sigSha?window.AndroidBridge.sigSha():''}catch(e){}
   const OK_SIG='63:03:02:69:3A:05:D3:CF:E2:4F:E0:A3:C3:23:13:A2:44:61:DB:CA:ED:6B:08:5D:70:BF:0C:BB:53:C1:DE:20';
