@@ -842,9 +842,10 @@ const HB=[{k:'am',n:'أذكار الصباح',i:'🌅'},{k:'pm',n:'أذكار ا
 const DUA=HB.filter(h=>h.g==='dua');
 const GIVE_RE=/^(gifts?|هدايا.*|هدية|المصروف)$/i;
 const DK=[['salat','الصلاة على النبي صلى الله عليه وسلم','🤍'],['istighfar','الاستغفار','🌿'],['tasbih','التسبيح','📿'],['tahmid','التحميد','🌼'],['tahlil','التهليل','☝️'],['takbir','التكبير','📣']];
-const DKT=10;
+const DKT=10,DKX={salat:30,istighfar:30};
+const dT=k=>DKX[k]||DKT;   // الصلاة على النبي صلى الله عليه وسلم والاستغفار 30، وغيرهما 10
 const dkv=(r,k)=>(r.dk&&+r.dk[k])||0;
-const gDk=(v,n)=>G(v,DKT*n,DKT*n/2);          // الذكر: 10 أزرق، 5 فأكثر أسود
+const gDk=(v,n,k)=>G(v,dT(k)*n,dT(k)*n/2);          // الذكر: 10 أزرق، 5 فأكثر أسود
 const SN=[['fajr','ركعتا الفجر'],['dhuhr','بعد الظهر'],['maghrib','بعد المغرب'],['isha','بعد العشاء']];
 const BR=[['visit','زيارة','🏠'],['call','مكالمة','📞'],['gift','هدية','🎁'],['money','مال','💵'],['serve','خدمة','🤝'],['dua','دعاء','🤲']];
 const MEAL=[['b','الفطور','🌅'],['l','الغداء','☀️'],['d','العشاء','🌙'],['w','وجبة العمل','💼']];
@@ -892,7 +893,7 @@ const wp=r=>r.wp!=null?+r.wp:(r.h.includes('wird')?T():0);
 const cnt=(r,k)=>(r.cn&&+r.cn[k])||0;
 const socOk=r=>r.soc!=null&&r.soc<=(+D.cfg.soc||60)*60000;
 function score(k){const r=peek(k),hs=habitsFor(k),hasSoc=r.soc!=null;
-  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=DKT).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0)+0,total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)}}
+  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=dT(k)).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0)+0,total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)}}
 /* حصيلة الشهر المالي الحالي لتحدٍّ: كم مرة وقع من أيام الشهر حتى اليوم (أو من الجُمَع) */
 function monthOf(test,fri){const P=perOf(0),end=today()<P.to?today():P.to;let n=0,t=0;for(let k=P.from;k<=end;k=addDays(k,1)){if(fri&&!isFri(k))continue;t++;if(test(peek(k)))n++}return{n,t}}
 function mtag(test,fri,inline){const m=monthOf(test,fri);if(!m.t)return'';const g=G(m.n,m.t,m.t/2),txt=`${m.n} من ${m.t} ${fri?(m.t>2&&m.t<11?'جُمَع':'جمعة'):(m.t>2&&m.t<11?'أيام':'يوماً')} هذا الشهر`;
@@ -923,11 +924,11 @@ const hrs=ms=>(ms/36e5).toFixed(1)+'س';
 window.__chlToday=function(){D=load();const k=today(),r=peek(k),c=scr3(r),L=[];
   const w=wp(r);if(w<T())L.push(['الورد',`ناقص ${T()-w} صفحة`]);
   if(r.j.length<5)L.push(['الجماعة',`ناقص ${5-r.j.length}`]);
-  const dl=DK.reduce((a,[d])=>a+Math.max(0,DKT-dkv(r,d)),0);if(dl)L.push(['الأذكار',`ناقص ${dl}`]);
+  const dl=DK.reduce((a,[d])=>a+Math.max(0,dT(d)-dkv(r,d)),0);if(dl)L.push(['الأذكار',`ناقص ${dl}`]);
   if(r.sn.length<4)L.push(['السنن',`ناقص ${4-r.sn.length}`]);
   if(!r.h.includes('am'))L.push(['أذكار الصباح','لم تُسجَّل']);if(!r.h.includes('pm'))L.push(['أذكار المساء','لم تُسجَّل']);
   if(!r.h.includes('witr'))L.push(['الوتر','لم يُسجَّل']);if(!brOk(r))L.push(['برّ الوالدين','لم يُسجَّل']);
-  return{w,T:T(),j:r.j.length,sn:r.sn.length,dk:DK.map(([d,n])=>[n,dkv(r,d)]),dkT:DKT,lag:L,dis:c?c.d:null,disL:DL(),s:score(k)}};
+  return{w,T:T(),j:r.j.length,sn:r.sn.length,dk:DK.map(([d,n])=>[n,dkv(r,d)]),dkT:DKT,dkTs:DK.map(([d])=>dT(d)),lag:L,dis:c?c.d:null,disL:DL(),s:score(k)}};
 /* حصيلة الشهر المالي (مثلاً من 21 إلى 20) */
 function perOf(off){const A=api();if(A&&A.period){const p=A.period(off);return{from:p.from,to:addDays(p.to,-1)}}
   const d=new Date();d.setDate(1);d.setMonth(d.getMonth()+off);const f=dkey(d);d.setMonth(d.getMonth()+1);d.setDate(0);return{from:f,to:dkey(d)}}
@@ -937,7 +938,7 @@ function tally(P){const end=P.to<today()?P.to:today(),ks=[];for(let k=P.from;k<=
     ['🌅 أذكار الصباح',c(x=>x.h.includes('am')),n,'يوماً'],['🌇 أذكار المساء',c(x=>x.h.includes('pm')),n,'يوماً'],
     ['🕌 الجماعة',sm(x=>x.j.length),5*n,'صلاة'],['📖 الورد',sm(x=>wp(x)),T()*n,'صفحة'],['🕋 السنن الرواتب',sm(x=>x.sn.length),4*n,'سنة'],
     ['🌙 الوتر',c(x=>x.h.includes('witr')),n,'يوماً'],['🌌 قيام الليل',c(x=>x.h.includes('qiyam')),n,'يوماً'],['☀️ ركعتا الضحى',c(x=>x.h.includes('duha')),n,'يوماً'],['📖 الكهف يوم الجمعة',ks.filter(k=>isFri(k)&&peek(k).h.includes('kahf')).length,ks.filter(isFri).length,'جمعة'],['🤲 القنوت',c(x=>x.h.includes('qnt')),n,'يوماً'],
-    ['👪 برّ الوالدين',c(brOk),n,'يوماً'],['🛏️ أذكار النوم',c(x=>x.h.includes('nawm')),n,'يوماً'],['⏰ أول الوقت',sm(x=>(x.pt||[]).length),5*n,'صلاة'],['🕌 في المسجد',sm(x=>Object.values(x.pp||{}).filter(v=>v==='m').length),5*n,'صلاة'],...DUA.map(d=>[d.i+' '+d.n,c(x=>x.h.includes(d.k)),n,'يوماً']),['📣 الدعوة',c(x=>x.h.includes('dawa')),n,'يوماً'],...DK.map(([d,nm,i])=>[i+' '+nm,sm(x=>dkv(x,d)),DKT*n,'مرة'])]}}
+    ['👪 برّ الوالدين',c(brOk),n,'يوماً'],['🛏️ أذكار النوم',c(x=>x.h.includes('nawm')),n,'يوماً'],['⏰ أول الوقت',sm(x=>(x.pt||[]).length),5*n,'صلاة'],['🕌 في المسجد',sm(x=>Object.values(x.pp||{}).filter(v=>v==='m').length),5*n,'صلاة'],...DUA.map(d=>[d.i+' '+d.n,c(x=>x.h.includes(d.k)),n,'يوماً']),['📣 الدعوة',c(x=>x.h.includes('dawa')),n,'يوماً'],...DK.map(([d,nm,i])=>[i+' '+nm,sm(x=>dkv(x,d)),dT(d)*n,'مرة'])]}}
 function tallyHtml(){
   const L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
   const a=tally(perOf(0)),b=tally(perOf(-1));if(!a.n)return'';
@@ -962,10 +963,45 @@ const PA=r=>Math.max(0,Math.min(5,+r.pa||0));
 function hbRow(r,hb){const on=r.h.includes(hb.k);
   const extra=hb.k==='tdb'&&on?`<input class="chl-num" id="chlTa" inputmode="numeric" value="${r.ta||''}" placeholder="آيات" aria-label="عدد الآيات" style="width:70px">`:hb.k==='qiyam'&&on?`<input class="chl-num" id="chlQk" inputmode="numeric" value="${r.qk||''}" placeholder="ركعات" aria-label="عدد الركعات" style="width:70px">`:'';
   return `<div class="set-row"><button class="chl-ck${on?' on':''}" data-h="${hb.k}" aria-pressed="${on}" aria-label="${hb.n}">${on?'✓':''}</button><span style="flex:1" data-h="${hb.k}">${hb.i} ${hb.n}${hb.k==='tdb'&&on&&r.ta?` <span class="t2">· ${r.ta} آية</span>`:''}${hb.k==='qiyam'&&on&&r.qk?` <span class="t2">· ${r.qk} ركعة</span>`:''}</span>${extra}${mtag(x=>x.h.includes(hb.k),hb.fri)}</div>`}
+/* ---------- مقياس النجاح في هذه المرحلة ---------- */
+const PRAYERS=['fajr','dhuhr','asr','maghrib','isha'];
+const SC=[
+  ['c1','ثلاث صلوات جماعة في المسجد أول الوقت، واثنتان جماعة في البيت',(r)=>{const pp=r.pp||{},pt=r.pt||[];return PRAYERS.filter(p=>pp[p]==='m'&&pt.includes(p)).length>=3&&PRAYERS.filter(p=>pp[p]==='m'||pp[p]==='h'||r.j.includes(p)).length>=5}],
+  ['c2','ثلاث صلوات جماعة على الأقل',r=>r.j.length>=3],
+  ['c3','الجمعة: التبكير ساعة، وجلسة الجمعة ساعة',(r,k)=>isFri(k)?(r.jEarly==='h'&&r.jmD==='h'):null],
+  ['c4','النوافل: الرواتب الأربع والوتر والضحى وقيام الليل',r=>r.sn.length>=4&&['witr','duha','qiyam'].every(x=>r.h.includes(x))],
+  ['c5','الورد: 55 وجهاً (ختمة كل 11 يوماً)',r=>wp(r)>=T()],
+  ['c6','أذكار الصباح والمساء',r=>r.h.includes('am')&&r.h.includes('pm')],
+  ['c7','أذكار الصلاة بعد الصلوات الخمس',r=>(r.pd||[]).length>=5],
+  ['c8','الصلاة على النبي صلى الله عليه وسلم والاستغفار 30 لكلٍّ',r=>dkv(r,'salat')>=30&&dkv(r,'istighfar')>=30],
+  ['c9','الدعاء للزوجة والأبناء والمسلمين',r=>DUA.every(d=>r.h.includes(d.k))]];
+function scDay(k){const r=peek(k);return SC.map(([id,n,f])=>[id,n,f(r,k)])}
+function scHtml(r){const L=scDay(sel),ap=L.filter(x=>x[2]!=null),ok=ap.filter(x=>x[2]).length;
+  const P=perOf(0),end=today()<P.to?today():P.to,ks=[];for(let k=P.from;k<=end;k=addDays(k,1))if(trk(k))ks.push(k);
+  return `<div class="list" style="margin-top:10px"><details class="set-row" style="display:block"${ok<ap.length?' open':''}><summary style="cursor:pointer;display:flex;align-items:center;gap:8px;list-style:none"><span class="t1" style="flex:1">🎯 مقياس النجاح في هذه المرحلة</span><b class="${GC[G(ok,ap.length,ap.length/2)]}">${ok} من ${ap.length}</b><span class="t2">▾</span></summary>
+    ${L.map(([id,n,v],i)=>{const m=ks.filter(k=>{const x=SC[i][2](peek(k),k);return x!=null}),mk=m.filter(k=>SC[i][2](peek(k),k));
+      return `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;${v==null?'opacity:.5':''}"><b class="${v==null?'':v?'pc-b':'pc-r'}" style="width:18px">${v==null?'·':v?'✓':'✗'}</b><span style="flex:1;white-space:normal;font-size:.9rem">${i+1}. ${n}${v==null?' <span class="t2">(يوم الجمعة)</span>':''}</span>${m.length?`<span class="t2" style="white-space:nowrap"><b class="${GC[G(mk.length,m.length,m.length/2)]}">${mk.length}/${m.length}</b></span>`:''}</div>`}).join('')}
+    <div class="t2" style="margin-top:8px;white-space:normal">الرقم على اليسار: أيام تحقق البند من الأيام المسجلة هذا الشهر.</div></details></div>`}
+/* ---------- الختمة ---------- */
+const khCfg=()=>{const c=D.cfg.kh||{};if(!c.from){const ks=Object.keys(D.days).filter(k=>D.days[k].wp!=null).sort();c.from=ks[0]||today()}return{from:c.from,page:+c.page||1}};
+function khState(upTo){const c=khCfg();let tot=(c.page-1),done=[],start=c.from,last=null;
+  for(let k=c.from;k<=upTo;k=addDays(k,1)){const p=wp(peek(k));if(!p)continue;const before=tot;tot+=p;last=k;
+    if(Math.floor(tot/604)>Math.floor(before/604)){done.push({end:k,start,days:Math.round((kdate(k)-kdate(start))/864e5)+1});start=addDays(k,1)}}
+  const pos=tot%604,juz=pos<=21?1:Math.min(30,Math.floor((pos-2)/20)+1);
+  return{n:done.length+1,pos,juz,start,done,day:Math.round((kdate(upTo)-kdate(start))/864e5)+1,left:604-pos}}
+function khHtml(){const s=khState(sel),eta=Math.ceil(s.left/T());
+  return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">📗</span><span style="flex:1;min-width:0"><span class="t1" style="display:block">الختمة ${s.n}</span>
+    <span class="t2" style="white-space:normal">وصلت صفحة <b>${s.pos}</b> · الجزء <b>${s.juz}</b> · اليوم <b class="${s.day<=11?'pc-b':'pc-r'}">${s.day}</b> من 11${s.left?` · تتمها بعد ${eta} ${eta===1?'يوم':eta===2?'يومين':eta<=10?'أيام':'يوماً'} بهذا الورد`:''}</span></span></div>
+    <div class="chl-pbar" style="margin-top:8px"><i style="width:${s.pos/604*100}%"></i></div>
+    ${s.done.length?`<div class="t2" style="margin-top:6px;white-space:normal">الختمات المتمّة: ${s.done.slice(-4).map(d=>`${kdate(d.end).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'short'})} في ${d.days} يوماً`).join(' · ')}</div>`:''}</div>`}
+/* ---------- يوم الجمعة ---------- */
+function friHtml(r){const row=(f,lbl,opts)=>`<div style="margin-top:8px"><div class="t2">${lbl}</div><div class="chl-chips" style="padding:6px 0 0;gap:6px">${opts.map(([v,t])=>`<button class="chl-chip" data-fe="${f}" data-v="${v}" aria-pressed="${r[f]===v}">${t}</button>`).join('')}</div></div>`;
+  return `<div class="set-row" style="display:block">${row('jEarly','🕐 التبكير إلى صلاة الجمعة',[['h','ساعة فأكثر'],['half','نصف ساعة'],['less','أقل'],['late','بعد دخول الخطيب']])}
+    ${row('jmD','💭 جلسة الجمعة',[['h','ساعة'],['half','نصف ساعة'],['less','أقل']])}<div class="t2" style="margin-top:6px">التبكير ساعة${mtag(x=>x.jEarly==='h',true,true)} · الجلسة ساعة${mtag(x=>x.jmD==='h',true,true)}</div></div>`}
 function prayHtml(r){const pp=r.pp||{},pt=r.pt||[];
   return PR.map(([k,n])=>{const v=pp[k],jm=r.j.includes(k),nm=k==='dhuhr'&&isFri(sel)?'الجمعة':n;
     const ch=(val,lbl)=>`<button class="chl-chip" data-pp="${k}" data-pv="${val}" aria-pressed="${v===val}">${lbl}</button>`;
-    return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:8px"><span class="t1" style="flex:1">${nm}</span>${jm&&!v?'<span class="t2">✓ جماعة</span>':v==='m'?'<span class="t2">جماعة المسجد</span>':v==='h'?'<span class="t2">جماعة البيت</span>':v==='a'?'<span class="t2">منفرداً</span>':''}</div><div class="chl-chips pr-chips" style="padding:6px 0 0;gap:5px">${ch('m','🕌 مسجد')}${ch('h','🏠 بيت')}${ch('a','👤 منفرد')}<button class="chl-chip" data-pt="${k}" aria-pressed="${pt.includes(k)}">⏰ أول الوقت</button></div></div>`}).join('')}
+    return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:8px"><span class="t1" style="flex:1">${nm}</span>${jm&&!v?'<span class="t2">✓ جماعة</span>':v==='m'?'<span class="t2">جماعة المسجد</span>':v==='h'?'<span class="t2">جماعة البيت</span>':v==='a'?'<span class="t2">منفرداً</span>':''}</div><div class="chl-chips pr-chips" style="padding:6px 0 0;gap:5px">${ch('m','🕌 مسجد')}${ch('h','🏠 بيت')}${ch('a','👤 منفرد')}</div><div class="chl-chips pr-chips" style="padding:6px 0 0;gap:5px"><button class="chl-chip" data-pt="${k}" aria-pressed="${pt.includes(k)}">${pt.includes(k)?'⏰ في وقتها':'⏰ أول الوقت'}</button><button class="chl-chip" data-pd="${k}" aria-pressed="${(r.pd||[]).includes(k)}">📿 أذكار الصلاة</button></div></div>`}).join('')}
 function paHtml(r){const n=PA(r);
   return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">📿</span><span style="flex:1;min-width:0"><span class="t1" style="display:block">أذكار ما بعد الصلاة</span><span class="t2" style="white-space:normal">${n?`بعد ${n} من 5 · التسبيح والتحميد والتكبير ${33*n} لكلٍّ، والتهليل ${n}`:'اختر عدد الصلوات: 33 لكل صلاة'}</span></span>${mtag(x=>PA(x)>=5)}</div>
     <div class="chl-chips" style="padding:8px 0 0;gap:6px">${[1,2,3,4,5].map(i=>`<button class="chl-chip" data-pa="${i}" aria-pressed="${n===i}">×${i}</button>`).join('')}</div></div>`}
@@ -985,9 +1021,10 @@ function blockOf(k,r){
   if(k==='dawa')return['',dawaHtml(r)];
   if(k==='sn')return[`السنن الرواتب <b class="${GC[gS(r.sn.length,1)]}" style="font-size:.85rem">${r.sn.length} من 4</b>`,`<div class="chl-chips">${SN.map(([s,n])=>{const on=r.sn.includes(s);return `<button class="chl-chip" data-sn="${s}" aria-pressed="${on}">${on?'✓ ':''}${n}</button>`}).join('')}</div>`];
   if(k==='pa')return['',paHtml(r)];
-  if(k==='wird')return['',wirdHtml(r)];
-  if(k==='dk')return[`الأذكار العشرية <span class="t2" style="font-size:.8rem">(${DKT} مرات لكلٍّ)</span>`,DK.map(([d,n,i])=>{const v=dkv(r,d),g=gDk(v,1);
-    return `<div class="set-row" style="gap:6px"><span class="ic">${i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${n}</span><span class="t2"><b class="${GC[g]}">${v} من ${DKT}</b>${mtag(x=>dkv(x,d)>=DKT,false,true)}</span></span><button class="chl-pm" data-dk="${d}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-dkin="${d}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-dk="${d}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')];
+  if(k==='wird')return['',wirdHtml(r)+khHtml()];
+  if(k==='jm'){if(!isFri(sel))return null;return['🕌 يوم الجمعة',friHtml(r)]}
+  if(k==='dk')return[`الأذكار اليومية`,DK.map(([d,n,i])=>{const v=dkv(r,d),g=gDk(v,1,d);
+    return `<div class="set-row" style="gap:6px"><span class="ic">${i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${n}</span><span class="t2"><b class="${GC[g]}">${v} من ${dT(d)}</b>${mtag(x=>dkv(x,d)>=dT(d),false,true)}</span></span><button class="chl-pm" data-dk="${d}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-dkin="${d}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-dk="${d}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')];
   if(k==='cn')return['فضائل الصلاة',CN.map(c=>{const v=cnt(r,c.k);
     return `<div class="set-row" style="gap:6px"><span class="ic">${c.i}</span><span style="flex:1;min-width:0"><span class="t1" style="display:block;white-space:normal">${c.n}</span><span class="t2">${v?`<span class="num">${v}</span> ${v===1?'مرة':v===2?'مرتان':v<=10?'مرات':'مرة'}`:'لم تُسجَّل اليوم'}${mtag(x=>cnt(x,c.k)>0,false,true)}</span></span><button class="chl-pm" data-cn="${c.k}" data-d="-1" aria-label="إنقاص">−</button><input class="chl-num" data-cnin="${c.k}" inputmode="numeric" value="${v||''}" placeholder="0" aria-label="${c.n}" style="width:40px;padding:7px 2px"><button class="chl-pm" data-cn="${c.k}" data-d="1" aria-label="زيادة">+</button></div>`}).join('')];
   if(k==='dua')return['الدعاء',DUA.map(d=>hbRow(r,d)).join('')];
@@ -1002,7 +1039,7 @@ function dayHtml(){
   const lbl=sel===t?'اليوم':sel===addDays(t,-1)?'أمس':kdate(sel).toLocaleDateString('ar-u-nu-latn',{weekday:'long',day:'numeric',month:'long'});
   const msg=s.done===s.total?'أتممت يومك كاملاً، تقبّل الله منك':s.done?'بارك الله في سعيك، وما تيسّر خير':'ابدأ بما تيسّر';
   let h=`<div class="chl-day"><button data-c="prev" aria-label="اليوم السابق"${sel<=addDays(t,-30)?' disabled':''}>›</button><b>${lbl}</b><button data-c="next" aria-label="اليوم التالي"${sel>=t?' disabled':''}>‹</button></div>
-  <div class="chl-hero"><small>أنجزت</small><b class="num">${s.done}</b> <span>من <span class="num">${s.total}</span></span><div class="chl-bar"><i style="width:${s.done/s.total*100}%"></i></div><div class="chl-msg">${msg}</div></div>${mrepStripIn()}${resHtml()}${tallyHtml()}`;
+  <div class="chl-hero"><small>أنجزت</small><b class="num">${s.done}</b> <span>من <span class="num">${s.total}</span></span><div class="chl-bar"><i style="width:${s.done/s.total*100}%"></i></div><div class="chl-msg">${msg}</div></div>${scHtml(r)}${mrepStripIn()}${resHtml()}${tallyHtml()}`;
   h+=tierHtml(1,r)+tierHtml(2,r)+tierHtml(3,r);
   h+=`<section class="tier tzD">${diaryHtml(r)}</section><section class="tier tzH">${healthHtml(r)}</section>`;const tm=timeHtml(r);if(tm)h+=`<section class="tier tzT">${tm}</section>`;
   h+=`<button class="chl-big" data-c="report">📊 التقرير الشامل</button><button class="chl-big" data-c="ask" style="margin-top:10px;background:var(--surface);color:var(--ink);border:1px solid var(--line)">🔎 اسأل عن العلاقات</button>`;
@@ -1072,6 +1109,8 @@ function setHtml(){
   return `<h2>الإعدادات</h2><div class="list">
     ${gc.length?`<div class="set-row" style="display:block"><div class="t1">🎁 بنود العطاء في التقرير</div><div class="t2" style="white-space:normal">يربط التقرير بين أيام الصرف من هذه البنود وسلوك اليوم من كل النواحي</div><details><summary class="t2" style="cursor:pointer;padding-top:8px;white-space:normal">المختار: <b>${esc(gc.filter(c=>gi.includes(c.id)).map(c=>c.name).join('، ')||'لا شيء')}</b> · تعديل ▾</summary><div class="chl-chips" style="padding:8px 0 0">${gc.map(c=>`<button class="chl-chip${gi.includes(c.id)?' on':''}" data-gv="${esc(c.id)}" aria-pressed="${gi.includes(c.id)}">${esc(c.icon||'')} ${esc(c.name)}</button>`).join('')}</div></details></div>`:''}
     <div class="set-row" style="display:block"><div class="t1">🏷️ رتب البنود</div><div class="t2" style="white-space:normal">الصلوات الخمس ثابتة في الفرائض، وتقدر تنقل غيرها</div><details><summary class="t2" style="cursor:pointer;padding-top:8px">تعديل ▾</summary>${ITM.filter(x=>!x[3]).map(([k,n,d])=>`<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span style="flex:1;min-width:0;white-space:normal">${n}</span><select class="pill" data-tier="${k}" aria-label="${n}">${[1,2,3].map(t=>`<option value="${t}"${tierOf(k)===t?' selected':''}>${['','الفرائض والواجبات','السنن المؤكدة','المستحبات'][t]}${t===d?' ✓':''}</option>`).join('')}</select></div>`).join('')}</details></div>
+    <div class="set-row" style="display:block"><div class="t1">📖 الختمة الحالية</div><div class="t2" style="white-space:normal">من أي يوم بدأت، ومن أي صفحة. تُحسب منها الختمات والجزء الذي وصلته</div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><input type="date" class="fin-in" id="khFrom" value="${esc(khCfg().from)}" style="margin:0;flex:1"><span class="t2">صفحة</span><input class="chl-num" id="khPage" inputmode="numeric" value="${khCfg().page||1}" style="width:64px"></div></div>
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">هدف الورد اليومي</span><span class="t2">عدد الصفحات</span></span><input class="chl-num" id="chlTarget" inputmode="numeric" value="${T()}"></div>
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">حد التواصل الاجتماعي اليومي</span><span class="t2">يُحسب نصف وقت سامسونج إنترنت (تويتر ويوتيوب)</span></span><select class="pill" id="chlSoc">${[15,30,45,60,90,120,180].map(v=>`<option value="${v}"${+D.cfg.soc===v?' selected':''}>${v<60?v+' د':(v/60)+' س'}</option>`).join('')}</select></div>
     <div class="set-row"><span style="flex:1"><span class="t1" style="display:block">حد التشتت اليومي</span><span class="t2">التواصل وسامسونج إنترنت ويوتيوب وتويتر كاملة</span></span><select class="pill" id="chlDis">${[30,60,90,120,150,180,240].map(v=>`<option value="${v}"${+D.cfg.dis===v?' selected':''}>${v<60?v+' د':(v/60)+' س'}</option>`).join('')}</select></div>
@@ -1102,7 +1141,7 @@ const MI=[ // [مفتاح، اسم، رتبة البند، دالة: [المنج
   ['wird','الورد اليومي','wird',r=>[Math.min(wp(r),T()),T()]],
   ['tdb','جلسة التدبر','tdb',r=>[r.h.includes('tdb')?1:0,1]],
   ['kahf','سورة الكهف','kahf',(r,k)=>isFri(k)?[r.h.includes('kahf')?1:0,1]:null],
-  ['dk','الأذكار العشرية','dk',r=>[DK.reduce((a,[d])=>a+Math.min(dkv(r,d),DKT),0),DK.length*DKT]],
+  ['dk','الأذكار العشرية','dk',r=>[DK.reduce((a,[d])=>a+Math.min(dkv(r,d),dT(d)),0),DK.reduce((a,[d])=>a+dT(d),0)]],
   ['dua','الدعاء للأهل والمسلمين','dua',r=>[DUA.filter(d=>r.h.includes(d.k)).length,DUA.length]]];
 const MH=[ // الصحة والوقت: متوسطات، low=الأقل أفضل
   ['slp','متوسط النوم',r=>r.slp!=null?+r.slp:null,v=>fmtH(v),0],
@@ -1196,6 +1235,12 @@ function monthPost(out,ks,end,off){
   /* الترتيب النهائي */
   const fin=pull('💰'),adv=pull('💡'),tiers=['🕋','🌙','✨'].map(pull).filter(Boolean),diary=pull('📔'),rest=out.aspects;
   out.aspects=[{h:'🧭 شهرك في دقيقة',grades:true,sections:S1}];
+  {const tr=ks.filter(trk),pk=perKs(off-1).filter(trk),rate=(L_,i)=>{const m=L_.filter(k=>SC[i][2](peek(k),k)!=null);return m.length?[m.filter(k=>SC[i][2](peek(k),k)).length,m.length]:null};
+   const b=SC.map(([id,n],i)=>{const a=rate(tr,i),p=rate(pk,i);if(!a)return'';const pc_=Math.round(a[0]/a[1]*100),pp_=p?Math.round(p[0]/p[1]*100):null;
+     return `${i+1}. ${n}: ${tk(G(a[0],a[1],a[1]/2),`${a[0]} من ${a[1]}`)} ${id==='c3'?'جمعة':'يوماً'} (${pc_}٪)${pp_!=null?` · الشهر الماضي ${pp_}٪ ${tk(dGrade(pc_-pp_),arrow(pc_-pp_))}`:''}`}).filter(Boolean);
+   const kh=khState(end),kb=kh.done.filter(d=>d.end>=perOf(off).from&&d.end<=end).map(d=>`ختمة أُتمّت ${L(d.end)} في ${dN(d.days)}${d.days<=11?' ✓':''}`);
+   kb.push(`الختمة الحالية رقم ${kh.n}: الصفحة ${kh.pos}، الجزء ${kh.juz}، اليوم ${kh.day} من 11.`);
+   if(b.length)out.aspects.push({h:'🎯 مقياس النجاح في هذه المرحلة',grades:true,note:'من الأيام المسجلة فقط؛ وبند الجمعة من الجُمَع',sections:[{h:'البنود التسعة',b},{h:'📗 الختمات',b:kb}]})}
   if(S2.length)out.aspects.push({h:'🎯 عزمك',grades:true,sections:S2});
   out.aspects.push({h:'📈 مقارنة بالشهر الماضي',grades:true,note:`النسب من الأيام المسجلة: ${cur._t} يوماً هذا الشهر${prv._t?`، و${prv._t} في الشهر الماضي`:''}`,sections:S3});
   out.aspects.push({h:'🔍 الأنماط وما يسبق النقص',grades:true,sections:S4});
@@ -1247,9 +1292,9 @@ function build(r,off){
    const notes=nd<=31?bd.map(k=>{const b=peek(k).br;const ty=(b.t||[]).map(t=>(BR.find(x=>x[0]===t)||[0,t])[1]).join('، ');return `${kdate(k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})}: ${[ty,b.n].filter(Boolean).join(' · ')}`}):[];
    W.push({h:'برّ الوالدين',p:[nd===1?(bd.length?tk('b','بررت والديك اليوم، تقبّل الله منك.'):tk('r','لم يُسجَّل البر اليوم.')):`بررت والديك في ${tk(g,`${bd.length} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(bd.length,nd)+'٪')}.`,
      Object.keys(tc).length?`الأنواع: ${BR.filter(x=>tc[x[0]]).map(x=>`${x[1]} ${tc[x[0]]}`).join('، ')}.`:''].filter(Boolean),b:notes})}
-  {const b=DK.map(([k,n])=>{const t=V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),full=V.filter(x=>dkv(x,k)>=DKT).length,raw=V.reduce((a,x)=>a+dkv(x,k),0);
-      return nd===1?`${n}: ${tk(gDk(dkv(V[0],k),1),`${dkv(V[0],k)} من ${DKT}`)}`:`${n}: ${tk(gDk(t,nd),`${raw} من ${DKT*nd}`)} (${pc(t,DKT*nd)}٪)، وأتممت العشر في ${tk(gV(full,nd),`${full} من ${nd}`)} يوماً`});
-    W.push({h:'الأذكار العشرية',p:[`الهدف ${DKT} مرات لكل ذكر يومياً${nd>1?`، أي ${DKT*nd} في المدة`:''}.`],b})}
+  {const b=DK.map(([k,n])=>{const t=V.reduce((a,x)=>a+Math.min(dkv(x,k),dT(k)),0),full=V.filter(x=>dkv(x,k)>=dT(k)).length,raw=V.reduce((a,x)=>a+dkv(x,k),0);
+      return nd===1?`${n}: ${tk(gDk(dkv(V[0],k),1,k),`${dkv(V[0],k)} من ${dT(k)}`)}`:`${n}: ${tk(gDk(t,nd,k),`${raw} من ${dT(k)*nd}`)} (${pc(t,dT(k)*nd)}٪)، وأتممت الهدف في ${tk(gV(full,nd),`${full} من ${nd}`)} يوماً`});
+    W.push({h:'الأذكار اليومية',p:['الهدف اليومي: الصلاة على النبي صلى الله عليه وسلم والاستغفار 30 لكلٍّ، وبقية الأذكار 10.'],b})}
   const am=V.filter(x=>x.h.includes('am')).length,pm=V.filter(x=>x.h.includes('pm')).length;
   W.push({h:'أذكار الصباح والمساء',p:[`أذكار الصباح ${tk(gV(am,nd),`${am} من ${nd}`)} (${pc(am,nd)}٪)، وأذكار المساء ${tk(gV(pm,nd),`${pm} من ${nd}`)} (${pc(pm,nd)}٪).`]});
   {const nw=V.filter(x=>x.h.includes('nawm')).length;W.push({h:'أذكار النوم',p:[nd===1?(nw?tk('b','قلت أذكار النوم.'):tk('r','لم تُسجَّل أذكار النوم.')):`قلت أذكار النوم في ${tk(gV(nw,nd),`${nw} من ${nd}`)} يوماً (${pc(nw,nd)}٪).`]})}
@@ -1315,7 +1360,7 @@ function build(r,off){
   const pa_=V.reduce((a,x)=>a+PA(x),0),ptc=V.reduce((a,x)=>a+(x.pt||[]).length,0),dwd=V.filter(x=>x.h.includes('dawa')||x.dawa).length,cH=k=>pc(V.filter(x=>x.h.includes(k)).length,nd);
   const items=[['صلاة الجماعة',pc(jd,nd*5),80,'pray'],...(ptc?[['الصلاة في أول الوقت',pc(ptc,nd*5),50,'pray']]:[]),['برّ الوالدين',pc(ks.filter(k=>brOk(peek(k))).length,nd),50,'birr'],['الدعوة والأمر بالمعروف',pc(dwd,nd),30,'dawa'],
     ['صلاة الوتر',pc(wdn,nd),50,'witr'],['القنوت',cH('qnt'),50,'qnt'],['السنن الرواتب',pc(V.reduce((a,x)=>a+x.sn.length,0),nd*4),50,'sn'],['أذكار الصباح',pc(am,nd),50,'am'],['أذكار المساء',pc(pm,nd),50,'pm'],['أذكار النوم',cH('nawm'),50,'nawm'],
-    ['قيام الليل',cH('qiyam'),50,'qiyam'],['ركعتا الضحى',cH('duha'),50,'duha'],['الورد',Math.min(100,pc(pages,T()*nd)),50,'wird'],['التدبر',pc(td.length,nd),50,'tdb'],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),DKT),0),DKT*nd),50,'dk']),['الدعاء للأهل والمسلمين',pc(V.reduce((a,x)=>a+DUA.filter(d=>x.h.includes(d.k)).length,0),nd*DUA.length),50,'dua']];
+    ['قيام الليل',cH('qiyam'),50,'qiyam'],['ركعتا الضحى',cH('duha'),50,'duha'],['الورد',Math.min(100,pc(pages,T()*nd)),50,'wird'],['التدبر',pc(td.length,nd),50,'tdb'],...DK.map(([k,n])=>[n,pc(V.reduce((a,x)=>a+Math.min(dkv(x,k),dT(k)),0),dT(k)*nd),50,'dk']),['الدعاء للأهل والمسلمين',pc(V.reduce((a,x)=>a+DUA.filter(d=>x.h.includes(d.k)).length,0),nd*DUA.length),50,'dua']];
   if(so)items.push(['قلة التواصل الاجتماعي',pc(V.filter(x=>x.soc!=null&&x.soc<=(+D.cfg.soc||60)*60000).length,so.n)]);
   if(st)items.push(['الحركة (8,000 خطوة)',pc(V.filter(x=>x.stp>=8000).length,st.n)]);
   if(sl)items.push(['النوم (6 ساعات فأكثر)',pc(V.filter(x=>x.slp>=6*36e5).length,sl.n)]);
@@ -1338,7 +1383,7 @@ const GLEG=`<div class="t2 g-leg"><b class="pc-b">أزرق</b> الهدف كام
 /* ميزان الأبعاد الأربعة: القلبي والنفسي والجسدي والاقتصادي */
 function heartOf(r){const W_={1:3,2:2,3:1},on=k=>r.h.includes(k)?1:0;
   const it=[['pray',Math.min(r.j.length,5)/5],['birr',brOk(r)?1:0],['dawa',on('dawa')],['witr',on('witr')],['sn',Math.min(r.sn.length,4)/4],['am',on('am')],['pm',on('pm')],['nawm',on('nawm')],
-    ['qiyam',on('qiyam')],['duha',on('duha')],['wird',Math.min(wp(r),T())/T()],['dua',DUA.filter(d=>r.h.includes(d.k)).length/DUA.length],['dk',DK.reduce((a,[k])=>a+Math.min(dkv(r,k),DKT)/DKT,0)/DK.length]];
+    ['qiyam',on('qiyam')],['duha',on('duha')],['wird',Math.min(wp(r),T())/T()],['dua',DUA.filter(d=>r.h.includes(d.k)).length/DUA.length],['dk',DK.reduce((a,[k])=>a+Math.min(dkv(r,k),dT(k))/dT(k),0)/DK.length]];
   let a=0,w=0;it.forEach(([k,v])=>{const x=W_[tierOf(k)]||1;a+=x*v;w+=x});return w?a/w:0}
 /* العطاء: الهدايا والهدايا الخاصة والمصروف — يشمل الاستثنائي لأنه عطاء فعلي */
 function giveIds(){if(Array.isArray(D.cfg.give))return D.cfg.give;const A=api();return A&&A.expCats?A.expCats().filter(c=>GIVE_RE.test(String(c.name||'').trim())).map(c=>c.id):[]}
@@ -1584,7 +1629,7 @@ window.__chlSleepPerm=function(ok){if(ok){toast('تم ربط بيانات الس
 function syncAll(){syncJam();syncUsage();syncHeadset();syncHealth();updateStrip();renderDay()}
 
 /* ---------- اسأل عن العلاقات ---------- */
-const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.dk&&Object.values(r.dk).some(v=>+v>0))||(r.h&&r.h.length)||(r.sn&&r.sn.length)||brOk(r)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0))||!!r.word||!!r.dawa||(r.ev&&r.ev.some(Boolean))||+r.pa>0||(r.pp&&Object.keys(r.pp).length>0)||(r.pt&&r.pt.length>0))};
+const trk=k=>{const r=D.days[k];return !!r&&((r.j&&r.j.length)||(r.dk&&Object.values(r.dk).some(v=>+v>0))||(r.h&&r.h.length)||(r.sn&&r.sn.length)||brOk(r)||r.wp!=null||(r.cn&&Object.values(r.cn).some(v=>+v>0))||!!r.word||!!r.dawa||(r.ev&&r.ev.some(Boolean))||+r.pa>0||(r.pp&&Object.keys(r.pp).length>0)||(r.pt&&r.pt.length>0)||(r.pd&&r.pd.length>0)||!!r.jEarly||!!r.jmD)};
 const MET=[
  {k:'give',n:'العطاء (الهدايا والمصروف)',u:'money',f:k=>giveOf(k),any:true},
  {k:'dua',n:'الدعاء للزوجة والأبناء والمسلمين',u:'من 3',f:k=>trk(k)?DUA.filter(d=>peek(k).h.includes(d.k)).length:null},
@@ -1708,7 +1753,7 @@ $id('chl').addEventListener('click',e=>{
   const hb=e.target.closest('[data-h]');
   if(hb){const r=day(sel),k=hb.dataset.h,i=r.h.indexOf(k);if(i>=0)r.h.splice(i,1);else{r.h.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
   const dk=e.target.closest('[data-dk]');
-  if(dk){const r=day(sel);r.dk=r.dk||{};const k=dk.dataset.dk,nv=Math.max(0,(+r.dk[k]||0)+ +dk.dataset.d);r.dk[k]=nv;if(navigator.vibrate)navigator.vibrate(nv===DKT?[30,40,30]:12);if(nv===DKT)toast('أتممت '+DKT+' مرات، تقبّل الله منك');save();renderDay();updateStrip();return}
+  if(dk){const r=day(sel);r.dk=r.dk||{};const k=dk.dataset.dk,nv=Math.max(0,(+r.dk[k]||0)+ +dk.dataset.d);r.dk[k]=nv;if(navigator.vibrate)navigator.vibrate(nv===dT(k)?[30,40,30]:12);if(nv===dT(k))toast('أتممت '+dT(k)+' مرة، تقبّل الله منك');save();renderDay();updateStrip();return}
   const sn=e.target.closest('[data-sn]');
   if(sn){const r=day(sel),k=sn.dataset.sn,i=r.sn.indexOf(k);if(i>=0)r.sn.splice(i,1);else{r.sn.push(k);if(navigator.vibrate)navigator.vibrate(15)}save();renderDay();updateStrip();return}
   const br=e.target.closest('[data-br]');
@@ -1723,6 +1768,10 @@ $id('chl').addEventListener('click',e=>{
   if(gv){const L=giveIds().slice(),id=gv.dataset.gv,i=L.indexOf(id);if(i>=0)L.splice(i,1);else L.push(id);D.cfg.give=L;save();renderDay();return}
   const pq=e.target.closest('[data-pp]');
   if(pq){const r=day(sel),k=pq.dataset.pp,v=pq.dataset.pv;r.pp=r.pp||{};if(r.pp[k]===v)delete r.pp[k];else r.pp[k]=v;const inJ=r.pp[k]==='m'||r.pp[k]==='h',ix=r.j.indexOf(k);if(inJ&&ix<0)r.j.push(k);if(!inJ&&ix>=0&&r.pp[k]==='a')r.j.splice(ix,1);if(!inJ&&ix>=0&&r.pp[k]==null)r.j.splice(ix,1);if(navigator.vibrate)navigator.vibrate(12);save();renderDay();updateStrip();return}
+  const pdb=e.target.closest('[data-pd]');
+  if(pdb){const r=day(sel),k=pdb.dataset.pd;r.pd=r.pd||[];const ix=r.pd.indexOf(k);if(ix>=0)r.pd.splice(ix,1);else{r.pd.push(k);if(navigator.vibrate)navigator.vibrate(r.pd.length===5?[30,40,30]:12)}save();renderDay();updateStrip();return}
+  const fe=e.target.closest('[data-fe]');
+  if(fe){const r=day(sel),f=fe.dataset.fe,v=fe.dataset.v;r[f]=r[f]===v?undefined:v;if(r[f]===undefined)delete r[f];if(f==='jmD'){const i=r.h.indexOf('jm');if(r.jmD&&i<0)r.h.push('jm');if(!r.jmD&&i>=0)r.h.splice(i,1)}save();renderDay();updateStrip();return}
   const pt=e.target.closest('[data-pt]');
   if(pt){const r=day(sel),k=pt.dataset.pt;r.pt=r.pt||[];const ix=r.pt.indexOf(k);if(ix>=0)r.pt.splice(ix,1);else r.pt.push(k);save();renderDay();return}
   const pa=e.target.closest('[data-pa]');
@@ -1748,6 +1797,8 @@ $id('chl').addEventListener('change',e=>{
     if(np){const ch=r.slpM!==tot*6e4;r.slpM=tot*6e4;r.slpP=np;if(ch)toast('سُجّل النوم: '+fmtH(r.slpM)+(np>1?' في '+np+' فترات':''))}else{delete r.slpM;delete r.slpP}
     save();renderDay()}
   else if(e.target.dataset.tier){D.cfg.tier=D.cfg.tier||{};D.cfg.tier[e.target.dataset.tier]=+e.target.value;save();renderDay()}
+  else if(id==='khFrom'){if(e.target.value){D.cfg.kh=Object.assign(khCfg(),{from:e.target.value});save();renderDay()}}
+  else if(id==='khPage'){const v=Math.max(1,Math.min(604,Math.round(+e.target.value||1)));D.cfg.kh=Object.assign(khCfg(),{page:v});save();renderDay()}
   else if(id==='chlWork'){D.cfg.work=+e.target.value;save()}
   else if(id==='chlTarget'){const v=Math.round(+e.target.value||0);if(v>0){D.cfg.wird=v;save();renderDay();updateStrip();toast('تم تحديث هدف الورد')}}
 });
@@ -3953,7 +4004,7 @@ function tileInner(x,ctx){
   if(t==='wird')return `<div class="hl">📖 الورد اليوم</div><div class="hv num ${gc(W.w,W.T,W.T/2)}">${W.w}<small>من ${W.T}</small></div>${bar(W.w/W.T)}<div class="hs">${W.w>=W.T?'✓ أتممت الورد':`ناقص ${W.T-W.w} صفحة`}</div>`;
   if(t==='jama')return `<div class="hl">🕌 الجماعة اليوم</div><div class="hv num ${gc(W.j,5,3)}">${W.j}<small>من 5</small></div>${bar(W.j/5)}<div class="hs">${W.j>=5?'✓ الخمس في جماعة':`ناقص ${5-W.j}`}</div>`;
   if(t==='sn')return `<div class="hl">🕋 السنن الرواتب</div><div class="hv num ${gc(W.sn,4,2)}">${W.sn}<small>من 4</small></div>${bar(W.sn/4)}<div class="hs">${W.sn>=4?'✓ اكتملت':`ناقص ${4-W.sn}`}</div>`;
-  if(t==='dk'){const left=W.dk.filter(d=>d[1]<W.dkT);return `<div class="hl">📿 الأذكار اليومية</div><div class="hv num ${left.length?'':'g-b'}">${W.dk.length-left.length}<small>من ${W.dk.length}</small></div><div class="hlist">${left.length?left.slice(0,3).map(d=>`${esc(d[0])}: ناقص ${W.dkT-d[1]}`).join('<br>')+(left.length>3?'<br>…':''):'✓ أتممت الأذكار'}</div>`}
+  if(t==='dk'){const tg=i=>W.dkTs?W.dkTs[i]:W.dkT,left=W.dk.map((d,i)=>[d[0],d[1],tg(i)]).filter(d=>d[1]<d[2]);return `<div class="hl">📿 الأذكار اليومية</div><div class="hv num ${left.length?'':'g-b'}">${W.dk.length-left.length}<small>من ${W.dk.length}</small></div><div class="hlist">${left.length?left.slice(0,3).map(d=>`${esc(d[0])}: ناقص ${d[2]-d[1]}`).join('<br>')+(left.length>3?'<br>…':''):'✓ أتممت الأذكار'}</div>`}
   if(t==='dis'){if(W.dis==null)return `<div class="hl">🌀 التشتت اليوم</div><div class="hv">—</div><div class="hs">يحتاج إذن وقت الشاشة</div>`;const m=Math.round(W.dis/6e4),lm=Math.round(W.disL/6e4);
     return `<div class="hl">🌀 التشتت اليوم</div><div class="hv num ${m<=lm?'g-b':m<=2*lm?'':'g-r'}">${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}<small>س</small></div>${bar(m/lm)}<div class="hs">الحد ${lm/60} س</div>`}
   if(t==='lag'){const L=W.lag;return `<div class="hl">⏳ المتبقي اليوم</div>${L.length?`<div class="hlist">${L.slice(0,5).map(([a,b])=>`${esc(a)}: <b>${esc(b)}</b>`).join('<br>')}${L.length>5?`<br>و${L.length-5} غيرها`:''}</div>`:`<div class="hv g-b">✓</div><div class="hs">أتممت عبادات اليوم</div>`}`}
