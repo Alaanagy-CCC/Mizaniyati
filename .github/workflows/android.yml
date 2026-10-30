@@ -85,9 +85,10 @@ jobs:
               release {
                 storeFile file('release.p12')
                 storeType 'pkcs12'
-                storePassword 'mizaniyati2026'
-                keyAlias 'mizaniyati'
-                keyPassword 'mizaniyati2026'
+                def np = System.getenv('RUSHD_KEY_PASS') ?: ''
+                storePassword np ? np : 'mizaniyati2026'
+                keyAlias np ? 'rushd' : 'mizaniyati'
+                keyPassword np ? np : 'mizaniyati2026'
               }
             }
             buildTypes {
@@ -1010,7 +1011,15 @@ jobs:
           X
 
       - name: Build APK
+        env:
+          RUSHD_KEY_PASS: ${{ secrets.RUSHD_KEY_PASS }}
         run: |
+          if [ -n "$RUSHD_KEY_PASS" ]; then
+            cp keys/rushd-release.p12 android/app/release.p12
+            echo "::notice::Signed with the NEW key (keys/rushd-release.p12)"
+          else
+            echo "::warning::RUSHD_KEY_PASS secret missing: signed with the OLD key"
+          fi
           cd android
           gradle assembleRelease -Pvc=${{ github.run_number }} --no-daemon
           cp app/build/outputs/apk/release/app-release.apk ../Mizaniyati.apk
