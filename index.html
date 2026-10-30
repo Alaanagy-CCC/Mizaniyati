@@ -2828,6 +2828,7 @@ function localLoad(){
   return out;
 }
 function init(){
+  try{const L=S.settings&&S.settings.lock;if(L&&L.on&&!L.migA){if(L.after==null||L.after===60)L.after=0;L.migA=1}}catch(e){}
   try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{})}catch(e){}
   const data=localLoad();
   const st=data.settings&&Array.isArray(data.settings.categories)?data.settings:{currency:'KWD',categories:DEFAULT_CATS.map(c=>({...c}))};
@@ -3719,7 +3720,7 @@ async function lockKey(k){
     if(ok){try{localStorage.removeItem('lk:fails');localStorage.removeItem('lk:until')}catch(e){}unlock()}else{lockEntry='';pinFail();if(Date.now()<lockUntil)drawLock('محاولات كثيرة، انتظر '+Math.ceil((lockUntil-Date.now())/1000)+' ثانية');else drawLock('رمز غير صحيح')}
   }
 }
-function unlock(){document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render()}
+function unlock(){document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render();setTimeout(()=>{try{smsAuto()}catch(e){}},600)}
 function bioAuth(){if(!canBio())return;S.noLockUntil=Date.now()+60000;try{window.AndroidBridge.authenticate()}catch(e){}}
 window.__authOk=()=>{if(S.authFor==='ctrl'){S.authFor=null;ctrlUntil=Date.now()+120000;ctrlSheet();return}unlock()};
 window.__authFail=()=>{if(S.authFor==='ctrl'){S.authFor=null;const b=lockCfg().bio;lockCfg().bio=false;ctrlOpen();lockCfg().bio=b;return}if(isLocked())drawLock('استخدم الرمز السري')};
@@ -3871,7 +3872,7 @@ function viewSettings(){
   <h2>الأمان</h2><div class="list">
     ${lockCfg().on?`<div class="set-row"><span class="ic">🔒</span><span class="grow"><span class="t1">قفل التطبيق مفعّل</span><span class="t2">رمز من ${lockCfg().len||4} أرقام${lockCfg().bio&&canBio()?' مع البصمة':''}</span></span><button class="pill" style="background:var(--chip);border-radius:999px;padding:6px 12px" data-action="lockoff">إيقاف</button></div>
     ${canBio()?`<div class="set-row"><span class="grow">الفتح بالبصمة أو قفل الجهاز</span><select class="pill" id="bioSel"><option value="1"${lockCfg().bio?' selected':''}>مفعّل</option><option value="0"${!lockCfg().bio?' selected':''}>معطّل</option></select></div>`:''}
-    <div class="set-row"><span class="grow">القفل عند العودة بعد</span><select class="pill" id="lockAfter">${[[0,'فوراً'],[60,'دقيقة'],[300,'5 دقائق'],[900,'15 دقيقة']].map(([v,l])=>`<option value="${v}"${(lockCfg().after??60)===v?' selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="set-row"><span class="grow">القفل عند العودة بعد</span><select class="pill" id="lockAfter">${[[0,'فوراً'],[60,'دقيقة'],[300,'5 دقائق'],[900,'15 دقيقة']].map(([v,l])=>`<option value="${v}"${(lockCfg().after??0)===v?' selected':''}>${l}</option>`).join('')}</select></div>
     <button class="set-row" data-action="lockchg"><span class="ic">🔑</span><span class="grow t1">تغيير الرمز السري</span></button>`
     :`<button class="set-row" data-action="lockon"><span class="ic">🔓</span><span class="grow"><span class="t1">تفعيل قفل التطبيق</span><span class="t2">${canBio()?'بالبصمة أو قفل الجهاز، مع رمز سري احتياطي':'برمز سري؛ والبصمة متاحة في تطبيق الأندرويد'}</span></span></button>`}
     <button class="set-row" data-action="health"><span class="ic">🩺</span><span class="grow"><span class="t1">صحة البيانات</span><span class="t2">فحص التكرار والتحويلات والمطابقة وأسعار الصرف</span></span>${(()=>{const n=dataHealth().length;return n?`<span class="badge">${n}</span>`:'<span class="pos">✓</span>'})()}</button>
@@ -4439,15 +4440,19 @@ function smsKwd(it,c){const prev=it.card&&c.bal[it.card]&&c.bal[it.card].t<it.t?
     if(kwd==null){kwd=r>0?+(it.amt*r).toFixed(3):null;est=true}}
   if(it.card&&it.bal!=null&&(!c.bal[it.card]||c.bal[it.card].t<it.t))c.bal[it.card]={bal:it.bal,t:it.t,date:it.date};
   return{kwd,est,gap}}
-function smsIngest(list,src){const c=smsCfg();let n=0;list.sort((a,b)=>(+a.d||0)-(+b.d||0)).forEach(m=>{const key=m.id?'s'+m.id:'h'+(+m.d||0)+'|'+String(m.b||'').length;if(c.seen.includes(key))return;c.seen.push(key);
-    const it=smsParse(m.b,m.d);if(!it)return;const k=smsKwd(it,c);c.q.push(Object.assign({id:newId(),src:src||m.a||'مشاركة',foreign:!!(it.country&&it.country!=='KUWAIT')||it.cur!=='KWD'},it,k));n++});
+const SMS_COL=['#0F7B8A','#B7791F','#6B46C1','#2F855A','#C05621','#2B6CB0','#B83280','#4A5568'];
+function smsBatch(label){const c=smsCfg();c.batches=c.batches||[];const b={id:newId(),t:Date.now(),label:label||'',col:SMS_COL[(c.bn=(c.bn||0)+1)%SMS_COL.length]};c.batches.unshift(b);c.batches=c.batches.slice(0,150);return b}
+const smsB=id=>((smsCfg().batches||[]).find(b=>b.id===id))||{label:'',col:'#718096',t:0};
+function smsIngest(list,src,label){const c=smsCfg();let n=0,bt=null;list.sort((a,b)=>(+a.d||0)-(+b.d||0)).forEach(m=>{const key=m.id?'s'+m.id:'h'+(+m.d||0)+'|'+String(m.b||'').length;if(c.seen.includes(key))return;c.seen.push(key);
+    const it=smsParse(m.b,m.d);if(!it)return;const k=smsKwd(it,c);if(!bt)bt=smsBatch(label||src||'');c.q.push(Object.assign({id:newId(),b:bt.id,src:src||m.a||'مشاركة',foreign:!!(it.country&&it.country!=='KUWAIT')||it.cur!=='KWD'},it,k));n++});
   c.seen=c.seen.slice(-3000);return n}
 function smsLog(type,n,extra){const c=smsCfg();c.log.unshift({t:Date.now(),type,n,x:extra||''});c.log=c.log.slice(0,200)}
-function smsFetch(fromT,toT,label){const NB=smsNB(),c=smsCfg();if(!NB){toast('قراءة الرسائل متاحة في تطبيق أندرويد فقط');return}
-  if(NB.smsState()!==1){S.smsPending=[fromT,toT,label];NB.requestSms();return}
-  if(!c.senders.length){smsSenderSheet(fromT);return}
+function smsFetch(fromT,toT,label,silent){const NB=smsNB(),c=smsCfg();if(!NB){if(!silent)toast('قراءة الرسائل متاحة في تطبيق أندرويد فقط');return 0}
+  if(NB.smsState()!==1){if(silent)return 0;S.smsPending=[fromT,toT,label];NB.requestSms();return 0}
+  if(!c.senders.length){if(silent)return 0;smsSenderSheet(fromT);return 0}
   let L=[];try{L=JSON.parse(NB.readSms(String(fromT),String(toT),c.senders.join('|')))||[]}catch(e){}
-  const n=smsIngest(L);c.last=Math.max(c.last||0,toT);smsLog('read',L.length,label);saveSettings();
+  const n=smsIngest(L,'',label);c.last=Math.max(c.last||0,toT);smsLog(silent?'auto':'read',L.length,label);saveSettings();
+  if(silent){if(n){toast(`📩 ${n} عملية جديدة من البنك بانتظار مراجعتك`);render()}return n}
   toast(n?`${n} عملية جديدة من ${L.length} رسالة`:L.length?'لا جديد: كل الرسائل قُرئت من قبل':'لا رسائل من البنك في هذه المدة');smsSheet();render()}
 window.__smsPerm=ok=>{if(!ok){toast('لم يُمنح الإذن، فلن تُقرأ الرسائل');return}const p=S.smsPending;S.smsPending=null;if(p)smsFetch(p[0],p[1],p[2]);else smsSheet()};
 window.__smsShared=()=>{const NB=window.AndroidBridge;if(!NB||typeof NB.takeShared!=='function')return;let t='';try{t=NB.takeShared()}catch(e){}if(!t){toast('لم تُقرأ الرسالة (قد تكون رمز تحقق)');return}
@@ -4469,7 +4474,7 @@ function smsSave(it,acc,cat){const c=smsCfg(),a=accById(acc);if(accCur(a)!==base
   rec.smsId=it.id;const nm=rec.date.slice(0,7);S.months[nm]=txOf(nm).concat(rec);sortMonth(nm);saveMonth(nm);
   if(window.__oblAfterSave){try{window.__oblAfterSave(rec,false)}catch(e){}}
   if(it.kind==='exp'&&it.merchant&&cat)c.rules[it.merchant.toLowerCase()]=cat;return rec}
-function smsDone(it,st,rec){const c=smsCfg();c.q=c.q.filter(x=>x.id!==it.id);c.hist.unshift({d:it.date,t:it.t,card:it.card,amt:it.amt,cur:it.cur,kwd:it.kwd,est:it.est,merchant:it.merchant,country:it.country,bal:it.bal,kind:it.kind,gap:it.gap,st,tx:rec?rec.id:''});c.hist=c.hist.slice(0,3000)}
+function smsDone(it,st,rec){const c=smsCfg();c.q=c.q.filter(x=>x.id!==it.id);c.hist.unshift({b:it.b,d:it.date,t:it.t,card:it.card,amt:it.amt,cur:it.cur,kwd:it.kwd,est:it.est,merchant:it.merchant,country:it.country,bal:it.bal,kind:it.kind,gap:it.gap,st,tx:rec?rec.id:''});c.hist=c.hist.slice(0,3000)}
 function smsSheet(){
   const draw=()=>{const c=smsCfg(),NB=smsNB(),Q=c.q,cats=k=>S.settings.categories.filter(x=>x.kind===(k==='in'?'income':'expense'));
     const card=it=>{const acc=smsAcc(it),cat=it.kind==='wd'?'':smsCat(it),du=smsDup(it,acc),a=acc?accById(acc):null;
@@ -4482,13 +4487,16 @@ function smsSheet(){
         ${it.bal!=null&&a&&accCur(a)===baseCur()?`<p class="note" style="margin:6px 2px 0">رصيد البنك بعدها ${fmt(it.bal)}</p>`:''}
         <div style="display:flex;gap:6px;margin-top:8px"><button class="btn slim" style="flex:2;margin:0" data-sok="${it.id}">اعتماد</button><button class="btn ghost slim" style="flex:1;margin:0" data-sed="${it.id}">تعديل</button><button class="btn ghost slim" style="flex:1;margin:0" data-sno="${it.id}">تجاهل</button></div></div>`};
     const kw=Q.filter(x=>!x.foreign),fr=Q.filter(x=>x.foreign);
-    let h=`<h3>📩 رسائل البنك</h3><p class="note" style="margin:-4px 0 10px">تُقرأ بطلبك فقط، ومن ${c.senders.length?esc(c.senders.join('، ')):'المرسل الذي تختاره'} فقط. لا يُحفظ نص الرسالة، ولا تُسجَّل عملية إلا باعتمادك.</p>`;
+    let h=`<h3>📩 رسائل البنك</h3><p class="note" style="margin:-4px 0 10px">تُقرأ ${c.auto!==false?'تلقائياً عند فتح التطبيق وبطلبك':'بطلبك فقط'}، ومن ${c.senders.length?esc(c.senders.join('، ')):'المرسل الذي تختاره'} فقط. لا يُحفظ نص الرسالة، ولا تُسجَّل عملية إلا باعتمادك.</p>`;
     if(NB)h+=`<div class="chl-chips" style="padding:0 0 10px;gap:6px"><button class="chl-chip" data-sget="today">تحديث اليوم</button><button class="chl-chip" data-sget="last">منذ آخر تحديث${c.last?' ('+esc(smsDate(c.last))+')':''}</button><button class="chl-chip" data-sget="from">من تاريخ…</button></div><div id="sFrom" hidden><input type="date" class="fin-in" id="sFromD" style="margin:0 0 10px"><button class="btn slim" data-sget="go">اقرأ من هذا التاريخ</button></div>`;
     else h+=`<p class="note">قراءة الرسائل متاحة في تطبيق أندرويد. ويمكنك هنا لصق نص الرسالة.</p>`;
-    if(kw.length)h+=`<h4 style="margin:10px 2px 6px">🇰🇼 عمليات الكويت (${kw.length})</h4>`+kw.map(card).join('');
-    if(fr.length)h+=`<h4 style="margin:10px 2px 6px">🌐 عمليات بعملة أجنبية أو خارج الكويت (${fr.length})</h4>`+fr.map(card).join('');
+    {const ids=[...new Set(Q.map(x=>x.b||''))].sort((a,b)=>(smsB(b).t||0)-(smsB(a).t||0));
+     ids.forEach(id=>{const B=smsB(id),L_=Q.filter(x=>(x.b||'')===id),k_=L_.filter(x=>!x.foreign),f_=L_.filter(x=>x.foreign);
+       h+=`<div style="border-right:5px solid ${B.col};background:${B.col}14;border-radius:14px;padding:8px 10px 2px;margin:14px 0 10px"><div style="display:flex;align-items:center;gap:8px;padding:2px 2px 8px;border-bottom:2px dashed ${B.col}66;margin-bottom:10px"><b style="color:${B.col}">📥 ${esc(B.label||'قراءة')}</b><span class="t2" style="flex:1;text-align:left">${B.t?new Date(B.t).toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''} · ${L_.length}</span></div>
+         ${k_.length?`<div class="t2" style="margin:0 2px 6px">🇰🇼 الكويت (${k_.length})</div>`+k_.map(card).join(''):''}${f_.length?`<div class="t2" style="margin:6px 2px">🌐 عملة أجنبية أو خارج الكويت (${f_.length})</div>`+f_.map(card).join(''):''}</div>`})}
     if(Q.length)h+=`<button class="btn ghost" data-sall="1" style="width:100%">اعتماد كل ما اكتمل حسابه وبنده وليس مكرراً</button>`;
     else h+=`<p class="note">لا عمليات بانتظار المراجعة.</p>`;
+    if(NB)h+=`<label class="set-row" style="margin-top:12px"><input type="checkbox" id="sAuto" ${c.auto!==false?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">اقرأ الجديد تلقائياً عند فتح رُشد</span><span class="t2" style="white-space:normal">يقرأ ما وصل منذ آخر تحديث ويضعه للمراجعة، ولا يسجّل شيئاً دون اعتمادك</span></span></label>`;
     h+=`<details style="margin-top:12px"><summary class="set-row" style="cursor:pointer"><span class="grow">لصق رسالة يدوياً</span><span class="t2">▾</span></summary><textarea id="smsPaste" rows="3" class="fin-in" style="width:100%;font:inherit;direction:ltr;text-align:left" placeholder="You Purchased KWD 5.400 at …"></textarea><button class="btn slim" id="smsRead">اقرأ الرسالة</button>
       <p class="note">أو من تطبيق الرسائل: اضغط مطولاً على رسالة البنك ← مشاركة ← رُشد.</p></details>
       <button class="btn ghost" data-action="ctrl" style="width:100%;margin-top:10px">🛡️ غرفة التحكم</button>`;
@@ -4505,11 +4513,16 @@ function smsSheet(){
       b.querySelectorAll('[data-sed]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sed);if(it)edit(it,val('data-sacc',it.id),val('data-scat',it.id))}));
       b.querySelectorAll('[data-sno]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sno);if(it){smsDone(it,'ign');saveSettings();draw();render()}}));
       const all=b.querySelector('[data-sall]');if(all)all.addEventListener('click',()=>{let n=0;c.q.slice().forEach(it=>{const acc=val('data-sacc',it.id)||smsAcc(it),cat=it.kind==='wd'?'':(val('data-scat',it.id)||smsCat(it));if(smsDup(it,acc))return;if(ok(it,acc,cat,true))n++});saveSettings();toast(n?`اعتُمدت ${n} عملية`:'لا عملية مكتملة للاعتماد');render();draw()});
-      b.querySelector('#smsRead').addEventListener('click',()=>{const n=smsIngest([{b:b.querySelector('#smsPaste').value,d:Date.now()}],'لصق');smsLog('paste',1);saveSettings();if(n){toast('قُرئت الرسالة');draw();render()}else toast('لم أجد مبلغاً في هذا النص')});
+      const au=b.querySelector('#sAuto');if(au)au.addEventListener('change',()=>{c.auto=au.checked;saveSettings();toast(au.checked?'ستُقرأ الرسائل الجديدة عند كل فتح':'لن تُقرأ إلا بطلبك');draw()});
+      b.querySelector('#smsRead').addEventListener('click',()=>{const n=smsIngest([{b:b.querySelector('#smsPaste').value,d:Date.now()}],'لصق','لصق يدوي');smsLog('paste',1);saveSettings();if(n){toast('قُرئت الرسالة');draw();render()}else toast('لم أجد مبلغاً في هذا النص')});
     });
   };
   draw();
 }
+function smsAuto(){try{const c=S.settings&&S.settings.sms;if(!c||c.auto===false||!(c.senders||[]).length||isLocked())return;if(Date.now()-(S.smsAutoAt||0)<60000)return;S.smsAutoAt=Date.now();
+  smsFetch(c.last||Date.now()-864e5,Date.now(),'قراءة تلقائية',true)}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(smsAuto,700)});
+window.addEventListener('load',()=>setTimeout(smsAuto,2500));
 function smsStrip(){const n=(S.settings.sms&&S.settings.sms.q||[]).length;if(!n)return'';return `<button class="slh-strip" data-action="smsq"><span>📩</span><span class="g">من رسائل البنك</span><span class="t2"><span class="num">${n}</span> بانتظار مراجعتك ›</span></button>`}
 /* ---------- غرفة التحكم ---------- */
 let ctrlUntil=0;
@@ -4530,19 +4543,22 @@ function ctrlQuery(q){const c=smsCfg(),H=c.hist.concat(c.q.map(x=>Object.assign(
   else if(cd&&!fr){L=H.filter(x=>x.card===cd);title='بطاقة '+cd}
   else if(s){const k=s.toLowerCase().replace(/^تاجر[:\s]*/,'');L=H.filter(x=>(x.merchant||'').toLowerCase().includes(k));title='التاجر: '+s}
   const st={rec:'مسجّلة',ign:'متجاهلة',edit:'عُدّلت',pending:'بانتظارك'};
-  return{title,rows:L.slice(0,60).map(x=>[x.d,(x.merchant||(x.kind==='wd'?'سحب':''))+(x.card?' · '+x.card:''),x.cur!=='KWD'?`${x.amt} ${x.cur}${x.kwd!=null?' = '+fmt(x.kwd):''}`:fmt(x.amt),x.bal!=null?'رصيد '+fmt(x.bal):'',st[x.st]||''])}}
+  return{title,bt:L.slice(0,60).map(x=>x.b||''),rows:L.slice(0,60).map(x=>[x.d,(x.merchant||(x.kind==='wd'?'سحب':''))+(x.card?' · '+x.card:''),x.cur!=='KWD'?`${x.amt} ${x.cur}${x.kwd!=null?' = '+fmt(x.kwd):''}`:fmt(x.amt),x.bal!=null?'رصيد '+fmt(x.bal):'',st[x.st]||''])}}
 function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.smsState()===1:false;let sig='';try{sig=window.AndroidBridge&&window.AndroidBridge.sigSha?window.AndroidBridge.sigSha():''}catch(e){}
   const OK_SIG='63:03:02:69:3A:05:D3:CF:E2:4F:E0:A3:C3:23:13:A2:44:61:DB:CA:ED:6B:08:5D:70:BF:0C:BB:53:C1:DE:20';
-  const LT={read:'قراءة رسائل',share:'رسالة بالمشاركة',paste:'لصق رسالة',senders:'تعديل المرسلين',card:'ربط بطاقة',stop:'إيقاف القراءة',wipe:'مسح بيانات الرسائل',backup:'نسخة احتياطية'};
+  const LT={auto:'قراءة تلقائية عند الفتح',read:'قراءة رسائل',share:'رسالة بالمشاركة',paste:'لصق رسالة',senders:'تعديل المرسلين',card:'ربط بطاقة',stop:'إيقاف القراءة',wipe:'مسح بيانات الرسائل',backup:'نسخة احتياطية'};
   openSheet(`<h3>🛡️ غرفة التحكم</h3><p class="note" style="margin:-4px 0 10px">تُغلق بعد دقيقتين. كل ما هنا من جوالك فقط.</p>
     <div class="row2" style="grid-template-columns:1fr auto;gap:8px"><input class="fin-in" id="ctQ" value="${esc(q||'')}" placeholder="مثلاً: 0220 · ROSEMARY · فروق · دولار · غير المسجل · 2026-10-01" style="margin:0"><button class="btn slim" id="ctGo2" style="margin:0">اسأل</button></div>
     <div class="chl-chips" style="padding:8px 0;gap:6px">${Object.keys(c.cards).map(k=>`<button class="chl-chip" data-cq="${k}">بطاقة ${k}</button>`).join('')}<button class="chl-chip" data-cq="غير المسجل">غير المسجل</button><button class="chl-chip" data-cq="فروق الرصيد">فروق الرصيد</button><button class="chl-chip" data-cq="دولار">الاشتراكات الأجنبية</button></div>
-    <h4 style="margin:8px 2px">${esc(R_.title)}</h4><div class="list">${R_.rows.length?R_.rows.map(r=>`<div class="set-row" style="display:block"><div class="t1" style="white-space:normal">${r.slice(1,3).map(esc).join(' · ')}</div><div class="t2">${[r[0],r[3],r[4]].filter(Boolean).map(esc).join(' · ')}</div></div>`).join(''):'<p class="note" style="padding:10px">لا نتائج.</p>'}</div>
-    <h4 style="margin:14px 2px 6px">💳 البطاقات</h4><div class="list">${Object.keys(c.cards).length?Object.keys(c.cards).map(k=>`<div class="set-row"><span class="grow">بطاقة ${esc(k)} ← ${esc(accById(c.cards[k]).name)}${c.bal[k]?`<br><span class="t2">آخر رصيد من البنك ${fmt(c.bal[k].bal)} · ${esc(c.bal[k].date)}</span>`:''}</span><button class="chip" data-cun="${esc(k)}">فصل</button></div>`).join(''):'<p class="note" style="padding:10px">لم تُربط بطاقة بعد.</p>'}</div>
+    <h4 style="margin:8px 2px">${esc(R_.title)}</h4>${R_.rows.length?(()=>{let o='',cur=null;R_.rows.forEach((r,i)=>{const id=R_.bt?R_.bt[i]:'';if(id!==cur){if(cur!==null)o+='</div>';cur=id;const B=smsB(id);
+      o+=`<div class="list" style="border-right:5px solid ${B.col};margin-bottom:10px"><div class="set-row" style="background:${B.col}1f"><b style="color:${B.col};flex:1">📥 ${esc(B.label||'—')}</b><span class="t2">${B.t?new Date(B.t).toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span></div>`}
+      o+=`<div class="set-row" style="display:block"><div class="t1" style="white-space:normal">${r.slice(1,3).map(esc).join(' · ')}</div><div class="t2">${[r[0],r[3],r[4]].filter(Boolean).map(esc).join(' · ')}</div></div>`});return o+'</div>'})():'<div class="list"><p class="note" style="padding:10px">لا نتائج.</p></div>'}
+    <h4 style="margin:14px 2px 6px">💳 البطاقات</h4><div class="list">${Object.keys(c.cards).length?Object.keys(c.cards).map(k=>`<div class="set-row"><span class="grow">بطاقة ${esc(k)} ← ${esc(accById(c.cards[k]).name)}${c.bal[k]?`<br><span class="t2">آخر رصيد من البنك ${fmt(c.bal[k].bal)} · ${esc(c.bal[k].date)}</span>`:''}</span><button class="chip" data-cun="${esc(k)}">فصل</button></div>`).join(''):'<p class="note" style="padding:10px">لم تُربط بطاقة بعد.</p>'}
+      <div class="set-row" style="gap:6px"><input class="chl-num" id="ctCd" inputmode="numeric" maxlength="4" placeholder="0220" style="width:70px"><select id="ctCa" style="flex:1;min-width:0"><option value="">الحساب…</option>${accOptions('')}</select><button class="chip" id="ctCadd">ربط</button></div></div>
     <h4 style="margin:14px 2px 6px">📨 المرسلون المسموح بهم</h4><div class="list"><div class="set-row"><span class="grow">${c.senders.length?esc(c.senders.join('، ')):'لا أحد'}</span>${NB&&perm?'<button class="chip" data-csnd="1">تعديل</button>':''}</div></div>
     <h4 style="margin:14px 2px 6px">🔐 الأمن</h4><div class="list">
       <div class="set-row"><span class="grow">إذن قراءة الرسائل</span><b>${!NB?'غير متاح':perm?'ممنوح':'غير ممنوح'}</b></div>
-      <div class="set-row"><span class="grow">القفل التلقائي</span><b>بعد ${lockCfg().after??60} ثانية</b></div>
+      <div class="set-row"><span class="grow">القفل التلقائي</span><b>بعد ${lockCfg().after??0} ثانية</b></div>
       <div class="set-row"><span class="grow">حماية الشاشة من التصوير</span><b>${NB?'مفعّلة':'—'}</b></div>
       <div class="set-row" style="display:block"><div class="t1">بصمة توقيع التطبيق</div><div class="t2" style="direction:ltr;text-align:left;white-space:normal;font-size:.7rem">${esc(sig||'—')}</div><div class="${sig===OK_SIG?'pos':'neg'}" style="font-size:.85rem">${!sig?'':sig===OK_SIG?'✓ هذا رُشد الأصلي':'⚠ التوقيع لا يطابق رُشد الأصلي؛ لا تُدخل بياناتك واحذفه'}</div></div></div>
     <h4 style="margin:14px 2px 6px">📜 سجل الوصول</h4><div class="list">${c.log.slice(0,15).map(l=>`<div class="set-row"><span class="grow">${esc(LT[l.type]||l.type)}${l.x?' · '+esc(l.x):''}</span><span class="t2">${new Date(l.t).toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${l.n?' · '+l.n:''}</span></div>`).join('')||'<p class="note" style="padding:10px">لا شيء بعد.</p>'}</div>
@@ -4551,6 +4567,7 @@ function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.sms
   b=>{const go=v=>ctrlSheet(v);b.querySelector('#ctGo2').addEventListener('click',()=>go(b.querySelector('#ctQ').value));b.querySelector('#ctQ').addEventListener('keydown',e=>{if(e.key==='Enter')go(e.target.value)});
     b.querySelectorAll('[data-cq]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.cq)));
     b.querySelectorAll('[data-cun]').forEach(e=>e.addEventListener('click',()=>{delete c.cards[e.dataset.cun];smsLog('card',0,'فصل '+e.dataset.cun);saveSettings();ctrlSheet(q)}));
+    b.querySelector('#ctCadd').addEventListener('click',()=>{const d=(b.querySelector('#ctCd').value||'').trim(),a=b.querySelector('#ctCa').value;if(!/^\d{4}$/.test(d)||!a){toast('اكتب آخر 4 أرقام واختر الحساب');return}c.cards[d]=a;smsLog('card',1,d);saveSettings();toast('رُبطت البطاقة '+d);ctrlSheet(q)});
     const sn=b.querySelector('[data-csnd]');if(sn)sn.addEventListener('click',()=>smsSenderSheet(null));
     b.querySelector('#ctStop').addEventListener('click',()=>{c.senders=[];smsLog('stop',0);saveSettings();toast('أُوقفت القراءة: لا مرسلين مسموح بهم');ctrlSheet(q)});
     const w=b.querySelector('#ctWipe');w.addEventListener('click',()=>{if(w.dataset.c!=='1'){w.dataset.c='1';w.textContent='اضغط مرة أخرى للتأكيد';return}
@@ -4925,7 +4942,7 @@ window.__onBack=goBack;
 init();
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){S.hiddenAt=Date.now();return}
-  if(S.settings&&lockCfg().on&&!isLocked()&&S.hiddenAt&&Date.now()>(S.noLockUntil||0)&&Date.now()-S.hiddenAt>=(lockCfg().after??60)*1000){showLock();return}
+  if(S.settings&&lockCfg().on&&!isLocked()&&S.hiddenAt&&Date.now()>(S.noLockUntil||0)&&Date.now()-S.hiddenAt>=(lockCfg().after??0)*1000){showLock();return}
   if(document.visibilityState==='visible'&&S.settings){const n=runRecurring();if(n){render();toast('تمت إضافة '+n+' عملية متكررة')}}});
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
