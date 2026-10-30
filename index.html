@@ -3003,7 +3003,7 @@ function viewHome(){
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
   const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
-  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+(window.__oblStrip?window.__oblStrip():'')+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+(window.__oblStrip?window.__oblStrip():'')+smsStrip()+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
@@ -3716,13 +3716,16 @@ async function lockKey(k){
   const len=lockCfg().len||4;
   if(lockEntry.length>=len){
     const ok=(await hashPin(lockEntry))===lockCfg().hash;
-    if(ok){unlock()}else{lockTries++;lockEntry='';if(lockTries>=5){lockUntil=Date.now()+30000;lockTries=0;drawLock('محاولات كثيرة، انتظر 30 ثانية')}else drawLock('رمز غير صحيح')}
+    if(ok){try{localStorage.removeItem('lk:fails');localStorage.removeItem('lk:until')}catch(e){}unlock()}else{lockEntry='';pinFail();if(Date.now()<lockUntil)drawLock('محاولات كثيرة، انتظر '+Math.ceil((lockUntil-Date.now())/1000)+' ثانية');else drawLock('رمز غير صحيح')}
   }
 }
 function unlock(){document.body.classList.remove('locked');S.coverLock=false;lockEntry='';lockTries=0;$('#lockScreen').innerHTML='';S.noLockUntil=Date.now()+4000;render()}
 function bioAuth(){if(!canBio())return;S.noLockUntil=Date.now()+60000;try{window.AndroidBridge.authenticate()}catch(e){}}
-window.__authOk=()=>{unlock()};
-window.__authFail=()=>{if(isLocked())drawLock('استخدم الرمز السري')};
+window.__authOk=()=>{if(S.authFor==='ctrl'){S.authFor=null;ctrlUntil=Date.now()+120000;ctrlSheet();return}unlock()};
+window.__authFail=()=>{if(S.authFor==='ctrl'){S.authFor=null;const b=lockCfg().bio;lockCfg().bio=false;ctrlOpen();lockCfg().bio=b;return}if(isLocked())drawLock('استخدم الرمز السري')};
+/* محاولات الرمز الخاطئة: تُحفظ على الجهاز، وتطول مدة الانتظار مع كل خمس محاولات */
+function pinFail(){lockTries++;if(lockTries>=5){let n=0;try{n=+localStorage.getItem('lk:fails')||0}catch(e){}n++;try{localStorage.setItem('lk:fails',n)}catch(e){}lockUntil=Date.now()+Math.min(3600e3,30000*2**(n-1));lockTries=0;try{localStorage.setItem('lk:until',lockUntil)}catch(e){}}}
+try{const u=+localStorage.getItem('lk:until')||0;if(u>Date.now())lockUntil=u}catch(e){}
 function pinSheet(mode){ // mode: 'set' | 'off' | 'change'
   let step=mode==='set'?1:0,first='';
   const draw=(msg)=>{
@@ -3851,6 +3854,8 @@ function viewSettings(){
     <button class="set-row" data-action="myayat"><span class="ic">📝</span><span class="grow">آياتي الخاصة</span><span class="t2">${(S.settings.myAyat||[]).length} ›</span></button>
     <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">أقسام الصافي</span><span class="t2" style="white-space:normal">${netGroups().filter(g=>g.ids.length).map((g,i)=>esc(g.n||netCash(i).name)).join(' · ')}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-obl-open="1"><span class="ic">📑</span><span class="grow">التزاماتي</span><span class="t2">›</span></button>
+    <button class="set-row" data-action="smsq"><span class="ic">📩</span><span class="grow"><span style="display:block">رسائل البنك</span><span class="t2">${((S.settings.sms||{}).q||[]).length?S.settings.sms.q.length+' بانتظار المراجعة':'اقرأ عملياتك من رسائل البنك بطلبك'}</span></span><span class="t2">›</span></button>
+    <button class="set-row" data-action="ctrl"><span class="ic">🛡️</span><span class="grow"><span style="display:block">غرفة التحكم</span><span class="t2">الاستعلام والبطاقات والأمن وسجل الوصول</span></span><span class="t2">›</span></button>
     <button class="set-row" data-action="coclaims"><span class="ic">💼</span><span class="grow"><span style="display:block">نفقات الشركة وتعويضها</span><span class="t2">${coAccs().length?'المستحق لك: '+esc(coF(coClaims().owed)):'لم يُعلَّم حساب للشركة بعد'}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-fin-open="1"><span class="ic">💡</span><span class="grow">خطتي المالية</span><span class="t2">›</span></button>
     <button class="set-row" data-slh-open="1"><span class="ic">🕋</span><span class="grow">القبلة ومواقيت الصلاة</span><span class="t2">›</span></button>
@@ -4405,6 +4410,152 @@ function coSheet(){
   };
   draw();
 }
+/* ---------- رسائل البنك ----------
+   القراءة بطلبك فقط (اليوم، أو منذ آخر تحديث، أو من تاريخ)، ومن المرسلين الذين تحددهم فقط.
+   رموز التحقق تُرفض في الجزء الأصلي من التطبيق. نص الرسالة لا يُحفظ: يُستخرج منه المبلغ والتاجر والبطاقة والرصيد ثم يُترك.
+   لا تُسجَّل عملية ولا يتغير رصيد إلا باعتمادك. */
+const smsCfg=()=>{const c=S.settings.sms||(S.settings.sms={});c.senders=c.senders||[];c.cards=c.cards||{};c.rules=c.rules||{};c.q=c.q||[];c.seen=c.seen||[];c.bal=c.bal||{};c.hist=c.hist||[];c.log=c.log||[];return c};
+const smsNB=()=>window.AndroidBridge&&typeof window.AndroidBridge.readSms==='function'?window.AndroidBridge:null;
+const SMS_CC={KD:'KWD','د.ك':'KWD','دينار':'KWD'};
+const smsDate=t=>{const d=new Date(+t||Date.now());return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function smsParse(body,when){
+  const b=String(body||'').replace(/\s+/g,' ').trim();if(!b||/otp|one[- ]?time|verification|passcode|password|رمز|التحقق/i.test(b))return null;
+  const num=x=>+String(x).replace(/,/g,''),CUR='KWD|USD|SAR|AED|EUR|GBP|EGP|QAR|BHD|OMR|KD';
+  const am=b.match(new RegExp('\\b('+CUR+')\\s*([\\d,]+(?:\\.\\d+)?)','i'))||b.match(new RegExp('([\\d,]+(?:\\.\\d+)?)\\s*('+CUR+'|د\\.ك|دينار)','i'));if(!am)return null;
+  let cur,amt;if(/^[\d,.]+$/.test(am[1])){amt=num(am[1]);cur=am[2]}else{cur=am[1];amt=num(am[2])}
+  cur=SMS_CC[cur]||SMS_CC[cur.toUpperCase()]||cur.toUpperCase();if(!(amt>0))return null;
+  const card=(b.match(/(?:card|account|a\/c|acct|بطاقة|البطاقة|حساب|الحساب)\s*(?:no\.?|number|رقم)?\s*(?:x+|\*+|•+)?\s?(\d{4})\b/i)||b.match(/(?:x{2,}|\*{2,})(\d{4})\b/i)||[])[1]||'';
+  const bal=b.match(/(?:balance|bal\.?|available|الرصيد|رصيدك)[^\d]{0,30}?(?:KWD|KD|د\.ك)?\s*([\d,]+\.\d+)/i);
+  let m=b.match(/\b(?:at|from|@)\s+(.+?)\s+in\s+([A-Z][A-Z .'-]{1,30}?)\s+on\b/i);
+  let merchant=m?m[1]:(b.match(/\b(?:at|from|@)\s+(.+?)(?=\s+(?:in|on|for|via|using|ref)\b|[.,;]|\s+card|\s+your|$)/i)||b.match(/(?:لدى|عند)\s+(.+?)(?=\s+(?:بتاريخ|بالبطاقة|ببطاقة|من|في)\b|[.,،]|$)/)||[])[1]||'';
+  const country=(m?m[2]:(b.match(/\bin\s+([A-Z][A-Z .'-]{1,30}?)\s+on\b/i)||[])[1]||'').trim().toUpperCase();
+  merchant=merchant.replace(/\s+/g,' ').trim().slice(0,60);
+  const kind=/withdr|cash withdrawal|atm|سحب/i.test(b)?'wd':/refund|reversal|credited|deposit|received|salary|transferred to your|إيداع|ايداع|استرداد|راتب|حوالة واردة/i.test(b)?'in':'exp';
+  return{kind,amt,cur,merchant,country,card,bal:bal?num(bal[1]):null,date:smsDate(when),t:+when||Date.now()}}
+/* المبلغ بالدينار: للدينار نفسه، وللعملة الأجنبية من فرق رصيد البطاقة بين رسالتين متتاليتين، وإلا فتقديري بسعر الإعدادات */
+function smsKwd(it,c){const prev=it.card&&c.bal[it.card]&&c.bal[it.card].t<it.t?c.bal[it.card]:null;let kwd=null,est=false,gap=null;
+  if(it.cur==='KWD'){kwd=it.amt;if(prev&&it.bal!=null&&it.kind!=='in'){const g=+(prev.bal-it.amt-it.bal).toFixed(3);if(Math.abs(g)>0.0005)gap=g}}
+  else{const r=rateOf(it.cur);if(prev&&it.bal!=null&&it.kind==='exp'){const d=+(prev.bal-it.bal).toFixed(3);if(d>0&&(!(r>0)||(d/(it.amt*r)>0.8&&d/(it.amt*r)<1.3)))kwd=d}
+    if(kwd==null){kwd=r>0?+(it.amt*r).toFixed(3):null;est=true}}
+  if(it.card&&it.bal!=null&&(!c.bal[it.card]||c.bal[it.card].t<it.t))c.bal[it.card]={bal:it.bal,t:it.t,date:it.date};
+  return{kwd,est,gap}}
+function smsIngest(list,src){const c=smsCfg();let n=0;list.sort((a,b)=>(+a.d||0)-(+b.d||0)).forEach(m=>{const key=m.id?'s'+m.id:'h'+(+m.d||0)+'|'+String(m.b||'').length;if(c.seen.includes(key))return;c.seen.push(key);
+    const it=smsParse(m.b,m.d);if(!it)return;const k=smsKwd(it,c);c.q.push(Object.assign({id:newId(),src:src||m.a||'مشاركة',foreign:!!(it.country&&it.country!=='KUWAIT')||it.cur!=='KWD'},it,k));n++});
+  c.seen=c.seen.slice(-3000);return n}
+function smsLog(type,n,extra){const c=smsCfg();c.log.unshift({t:Date.now(),type,n,x:extra||''});c.log=c.log.slice(0,200)}
+function smsFetch(fromT,toT,label){const NB=smsNB(),c=smsCfg();if(!NB){toast('قراءة الرسائل متاحة في تطبيق أندرويد فقط');return}
+  if(NB.smsState()!==1){S.smsPending=[fromT,toT,label];NB.requestSms();return}
+  if(!c.senders.length){smsSenderSheet(fromT);return}
+  let L=[];try{L=JSON.parse(NB.readSms(String(fromT),String(toT),c.senders.join('|')))||[]}catch(e){}
+  const n=smsIngest(L);c.last=Math.max(c.last||0,toT);smsLog('read',L.length,label);saveSettings();
+  toast(n?`${n} عملية جديدة من ${L.length} رسالة`:L.length?'لا جديد: كل الرسائل قُرئت من قبل':'لا رسائل من البنك في هذه المدة');smsSheet();render()}
+window.__smsPerm=ok=>{if(!ok){toast('لم يُمنح الإذن، فلن تُقرأ الرسائل');return}const p=S.smsPending;S.smsPending=null;if(p)smsFetch(p[0],p[1],p[2]);else smsSheet()};
+window.__smsShared=()=>{const NB=window.AndroidBridge;if(!NB||typeof NB.takeShared!=='function')return;let t='';try{t=NB.takeShared()}catch(e){}if(!t){toast('لم تُقرأ الرسالة (قد تكون رمز تحقق)');return}
+  const n=smsIngest([{b:t,d:Date.now()}],'مشاركة');smsLog('share',1);saveSettings();if(n){toast('قُرئت الرسالة، راجعها');smsSheet()}else toast('لم أجد مبلغاً في هذه الرسالة');render()};
+function smsSenderSheet(fromT){const NB=smsNB(),c=smsCfg();let M={};try{M=JSON.parse(NB.smsSenders(String(Date.now()-90*864e5)))||{}}catch(e){}
+  const L=Object.keys(M).sort((a,b)=>M[b]-M[a]);
+  openSheet(`<h3>من أي مرسل تُقرأ رسائل البنك؟</h3><p class="note" style="margin:-4px 0 12px">هذه المرسلون الذين وصلت منهم رسائل فيها مبالغ في آخر 90 يوماً. اختر مرسل بنكك فقط، ولن يُقرأ غيره. لم يُقرأ نص أي رسالة بعد.</p>
+    <div class="list">${L.length?L.map(a=>`<label class="set-row"><input type="checkbox" data-snd="${esc(a)}" ${c.senders.includes(a)?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow">${esc(a)}</span><span class="t2">${M[a]} رسالة</span></label>`).join(''):'<p class="note">لم أجد رسائل فيها مبالغ.</p>'}</div>
+    <div class="actions"><button class="btn" id="sndOk">حفظ ومتابعة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>b.querySelector('#sndOk').addEventListener('click',()=>{c.senders=[...b.querySelectorAll('[data-snd]')].filter(x=>x.checked).map(x=>x.dataset.snd);smsLog('senders',c.senders.length,c.senders.join('، '));saveSettings();closeSheet();
+    if(c.senders.length&&fromT!=null)smsFetch(fromT,Date.now(),'بعد اختيار المرسل');else smsSheet()}))}
+const smsAcc=it=>{const c=smsCfg(),id=it.card&&c.cards[it.card];return id&&S.settings.accounts.some(a=>a.id===id)?id:''};
+function smsCat(it){const c=smsCfg(),k=(it.merchant||'').toLowerCase();if(k&&c.rules[k]&&S.settings.categories.some(x=>x.id===c.rules[k]))return c.rules[k];
+  if(k){const h=allTx().filter(t=>t.type==='expense'&&(t.note||'').toLowerCase().startsWith(k)).sort((a,b)=>a.date<b.date?1:-1)[0];if(h)return h.cat}return''}
+function smsDup(it,acc){const v=it.kwd;if(v==null)return null;return allTx().find(t=>!t.smsId&&(!acc||t.acc===acc)&&Math.abs((new Date(t.date)-new Date(it.date))/864e5)<=1&&Math.abs((+t.amount||0)-v)<0.0005)}
+function smsSave(it,acc,cat){const c=smsCfg(),a=accById(acc);if(accCur(a)!==baseCur()||it.kwd==null)return null;
+  const note=(it.merchant||(it.kind==='wd'?'سحب نقدي':''))+(it.cur!=='KWD'?` · ${fmtC(it.amt,it.cur)} ${it.cur}${it.est?' (تقديري)':''}`:'');
+  const rec=it.kind==='wd'?{id:newId(),type:'transfer',amount:it.kwd,cat:'',acc,to:c.cash,date:it.date,note}:{id:newId(),type:it.kind==='in'?'income':'expense',amount:it.kwd,cat,acc,to:'',date:it.date,note};
+  rec.smsId=it.id;const nm=rec.date.slice(0,7);S.months[nm]=txOf(nm).concat(rec);sortMonth(nm);saveMonth(nm);
+  if(window.__oblAfterSave){try{window.__oblAfterSave(rec,false)}catch(e){}}
+  if(it.kind==='exp'&&it.merchant&&cat)c.rules[it.merchant.toLowerCase()]=cat;return rec}
+function smsDone(it,st,rec){const c=smsCfg();c.q=c.q.filter(x=>x.id!==it.id);c.hist.unshift({d:it.date,t:it.t,card:it.card,amt:it.amt,cur:it.cur,kwd:it.kwd,est:it.est,merchant:it.merchant,country:it.country,bal:it.bal,kind:it.kind,gap:it.gap,st,tx:rec?rec.id:''});c.hist=c.hist.slice(0,3000)}
+function smsSheet(){
+  const draw=()=>{const c=smsCfg(),NB=smsNB(),Q=c.q,cats=k=>S.settings.categories.filter(x=>x.kind===(k==='in'?'income':'expense'));
+    const card=it=>{const acc=smsAcc(it),cat=it.kind==='wd'?'':smsCat(it),du=smsDup(it,acc),a=acc?accById(acc):null;
+      return `<div class="chart" style="padding:12px 14px;margin-bottom:10px"><div class="mrow"><span class="grow"><b>${it.kind==='in'?'➕':it.kind==='wd'?'🏧':'💳'} ${esc(it.merchant||(it.kind==='wd'?'سحب نقدي':'عملية'))}</b><br><span class="t2">${esc(it.date)}${it.card?' · بطاقة '+esc(it.card):''}${it.country&&it.country!=='KUWAIT'?' · '+esc(it.country):''}</span></span>
+        <b class="num">${it.kwd!=null?fmt(it.kwd):'—'}</b></div>${it.cur!=='KWD'?`<div class="t2">${fmtC(it.amt,it.cur)} ${esc(it.cur)} · ${it.est?'<span class="neg">المبلغ بالدينار تقديري بسعر الإعدادات</span>':'المبلغ بالدينار من فرق رصيد البطاقة ✓'}</div>`:''}
+        <div class="row2" style="margin-top:8px"><label class="field" style="margin:0"><span>الحساب${it.card&&!acc?' (يُحفظ للبطاقة '+esc(it.card)+')':''}</span><select data-sacc="${it.id}"><option value="">اختر…</option>${accOptions(acc)}</select></label>
+        ${it.kind==='wd'?`<label class="field" style="margin:0"><span>إلى حساب النقد</span><select data-scash="1"><option value="">اختر…</option>${accOptions(c.cash||'')}</select></label>`:`<label class="field" style="margin:0"><span>البند</span><select data-scat="${it.id}"><option value="">اختر…</option>${cats(it.kind).map(x=>`<option value="${esc(x.id)}"${x.id===cat?' selected':''}>${esc(x.icon||'')} ${esc(x.name)}</option>`).join('')}</select></label>`}</div>
+        ${du?`<p class="note" style="margin:6px 2px 0;color:var(--neg,#c0392b)">⚠ ربما مسجّلة: ${esc(du.date)} · ${esc(du.note||catById(du.cat).name||'')} · ${fmt(du.amount)}</p>`:''}
+        ${it.gap?`<p class="note" style="margin:6px 2px 0">رصيد البطاقة لا يتسلسل مع الرسالة السابقة بفارق ${fmt(it.gap)}: ربما عملية لم تصل رسالتها.</p>`:''}
+        ${it.bal!=null&&a&&accCur(a)===baseCur()?`<p class="note" style="margin:6px 2px 0">رصيد البنك بعدها ${fmt(it.bal)}</p>`:''}
+        <div style="display:flex;gap:6px;margin-top:8px"><button class="btn slim" style="flex:2;margin:0" data-sok="${it.id}">اعتماد</button><button class="btn ghost slim" style="flex:1;margin:0" data-sed="${it.id}">تعديل</button><button class="btn ghost slim" style="flex:1;margin:0" data-sno="${it.id}">تجاهل</button></div></div>`};
+    const kw=Q.filter(x=>!x.foreign),fr=Q.filter(x=>x.foreign);
+    let h=`<h3>📩 رسائل البنك</h3><p class="note" style="margin:-4px 0 10px">تُقرأ بطلبك فقط، ومن ${c.senders.length?esc(c.senders.join('، ')):'المرسل الذي تختاره'} فقط. لا يُحفظ نص الرسالة، ولا تُسجَّل عملية إلا باعتمادك.</p>`;
+    if(NB)h+=`<div class="chl-chips" style="padding:0 0 10px;gap:6px"><button class="chl-chip" data-sget="today">تحديث اليوم</button><button class="chl-chip" data-sget="last">منذ آخر تحديث${c.last?' ('+esc(smsDate(c.last))+')':''}</button><button class="chl-chip" data-sget="from">من تاريخ…</button></div><div id="sFrom" hidden><input type="date" class="fin-in" id="sFromD" style="margin:0 0 10px"><button class="btn slim" data-sget="go">اقرأ من هذا التاريخ</button></div>`;
+    else h+=`<p class="note">قراءة الرسائل متاحة في تطبيق أندرويد. ويمكنك هنا لصق نص الرسالة.</p>`;
+    if(kw.length)h+=`<h4 style="margin:10px 2px 6px">🇰🇼 عمليات الكويت (${kw.length})</h4>`+kw.map(card).join('');
+    if(fr.length)h+=`<h4 style="margin:10px 2px 6px">🌐 عمليات بعملة أجنبية أو خارج الكويت (${fr.length})</h4>`+fr.map(card).join('');
+    if(Q.length)h+=`<button class="btn ghost" data-sall="1" style="width:100%">اعتماد كل ما اكتمل حسابه وبنده وليس مكرراً</button>`;
+    else h+=`<p class="note">لا عمليات بانتظار المراجعة.</p>`;
+    h+=`<details style="margin-top:12px"><summary class="set-row" style="cursor:pointer"><span class="grow">لصق رسالة يدوياً</span><span class="t2">▾</span></summary><textarea id="smsPaste" rows="3" class="fin-in" style="width:100%;font:inherit;direction:ltr;text-align:left" placeholder="You Purchased KWD 5.400 at …"></textarea><button class="btn slim" id="smsRead">اقرأ الرسالة</button>
+      <p class="note">أو من تطبيق الرسائل: اضغط مطولاً على رسالة البنك ← مشاركة ← رُشد.</p></details>
+      <button class="btn ghost" data-action="ctrl" style="width:100%;margin-top:10px">🛡️ غرفة التحكم</button>`;
+    openSheet(h,b=>{const q=id=>c.q.find(x=>x.id===id),val=(sel,id)=>{const e=b.querySelector(`[${sel}="${id}"]`);return e?e.value:''};
+      b.querySelectorAll('[data-sget]').forEach(e=>e.addEventListener('click',()=>{const v=e.dataset.sget,d0=new Date();d0.setHours(0,0,0,0);
+        if(v==='today')smsFetch(d0.getTime()-1,Date.now(),'اليوم');else if(v==='last')smsFetch(c.last||d0.getTime()-1,Date.now(),'منذ آخر تحديث');
+        else if(v==='from'){b.querySelector('#sFrom').hidden=false}else if(v==='go'){const d=b.querySelector('#sFromD').value;if(!d){toast('اختر التاريخ');return}smsFetch(new Date(d+'T00:00:00').getTime()-1,Date.now(),'من '+d)}}));
+      b.querySelectorAll('[data-sacc]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.sacc);if(it&&it.card&&e.value){c.cards[it.card]=e.value;smsLog('card',1,it.card);saveSettings();draw()}}));
+      b.querySelectorAll('[data-scash]').forEach(e=>e.addEventListener('change',()=>{c.cash=e.value;saveSettings()}));
+      const ok=(it,acc,cat,quiet)=>{if(!acc){if(!quiet)toast('اختر الحساب');return false}if(it.kind!=='wd'&&!cat){if(!quiet)toast('اختر البند');return false}if(it.kind==='wd'&&!c.cash){if(!quiet)toast('اختر حساب النقد');return false}
+        if(accCur(accById(acc))!==baseCur()||it.kwd==null){if(!quiet)edit(it,acc,cat);return false}const rec=smsSave(it,acc,cat);if(!rec)return false;smsDone(it,'rec',rec);return true};
+      const edit=(it,acc,cat)=>{smsDone(it,'edit');saveSettings();txSheet(null,{type:it.kind==='in'?'income':it.kind==='wd'?'transfer':'expense',amount:it.kwd!=null?it.kwd:it.amt,acc:acc||'',cat:cat||'',to:it.kind==='wd'?c.cash||'':'',date:it.date,note:(it.merchant||'')+(it.cur!=='KWD'?` · ${it.amt} ${it.cur}`:'')})};
+      b.querySelectorAll('[data-sok]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sok);if(!it)return;if(ok(it,val('data-sacc',it.id),val('data-scat',it.id))){saveSettings();toast('سُجّلت العملية');render();draw()}}));
+      b.querySelectorAll('[data-sed]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sed);if(it)edit(it,val('data-sacc',it.id),val('data-scat',it.id))}));
+      b.querySelectorAll('[data-sno]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sno);if(it){smsDone(it,'ign');saveSettings();draw();render()}}));
+      const all=b.querySelector('[data-sall]');if(all)all.addEventListener('click',()=>{let n=0;c.q.slice().forEach(it=>{const acc=val('data-sacc',it.id)||smsAcc(it),cat=it.kind==='wd'?'':(val('data-scat',it.id)||smsCat(it));if(smsDup(it,acc))return;if(ok(it,acc,cat,true))n++});saveSettings();toast(n?`اعتُمدت ${n} عملية`:'لا عملية مكتملة للاعتماد');render();draw()});
+      b.querySelector('#smsRead').addEventListener('click',()=>{const n=smsIngest([{b:b.querySelector('#smsPaste').value,d:Date.now()}],'لصق');smsLog('paste',1);saveSettings();if(n){toast('قُرئت الرسالة');draw();render()}else toast('لم أجد مبلغاً في هذا النص')});
+    });
+  };
+  draw();
+}
+function smsStrip(){const n=(S.settings.sms&&S.settings.sms.q||[]).length;if(!n)return'';return `<button class="slh-strip" data-action="smsq"><span>📩</span><span class="g">من رسائل البنك</span><span class="t2"><span class="num">${n}</span> بانتظار مراجعتك ›</span></button>`}
+/* ---------- غرفة التحكم ---------- */
+let ctrlUntil=0;
+function ctrlOpen(){if(!lockCfg().on){toast('فعّل قفل التطبيق أولاً من الإعدادات، فالغرفة لا تُفتح إلا به');return}
+  if(Date.now()<ctrlUntil){ctrlSheet();return}
+  if(canBio()&&lockCfg().bio){S.authFor='ctrl';bioAuth();return}
+  openSheet(`<h3>🛡️ غرفة التحكم</h3><p class="note">أدخل رمز التطبيق.</p><input type="password" inputmode="numeric" id="ctP" class="fin-in" style="direction:ltr" autocomplete="off"><div class="err" id="ctE" hidden>رمز غير صحيح</div><div class="actions"><button class="btn" id="ctGo">دخول</button></div>`,
+    b=>b.querySelector('#ctGo').addEventListener('click',async()=>{if(Date.now()<lockUntil){b.querySelector('#ctE').textContent='محاولات كثيرة، انتظر';b.querySelector('#ctE').hidden=false;return}
+      if((await hashPin(b.querySelector('#ctP').value))===lockCfg().hash){lockTries=0;ctrlUntil=Date.now()+120000;ctrlSheet()}else{pinFail();b.querySelector('#ctE').hidden=false}}))}
+function ctrlQuery(q){const c=smsCfg(),H=c.hist.concat(c.q.map(x=>Object.assign({st:'pending'},x,{d:x.date}))).sort((a,b)=>b.t-a.t),s=String(q||'').trim();
+  const cd=(s.match(/\b(\d{4})\b/)||[])[1],fr=(s.match(/(\d{4}-\d{2}-\d{2})/)||[])[1];
+  let L=H,title='آخر العمليات من الرسائل';
+  if(/غير|انتظار|pending/i.test(s)){L=H.filter(x=>x.st==='pending');title='بانتظار المراجعة'}
+  else if(/فرق|فروق|رصيد/.test(s))return{title:'فروق الرصيد بين البنك ورُشد',rows:Object.keys(c.bal).map(k=>{const acc=c.cards[k],a=acc?accById(acc):null,rb=a?accBal(a):null,d=rb==null?null:+(c.bal[k].bal-rb).toFixed(3);
+      return[`بطاقة ${k}`,a?a.name:'غير مربوطة',`البنك ${fmt(c.bal[k].bal)} (${c.bal[k].date})`,rb==null?'—':`رُشد ${fmt(rb)}`,d==null?'':Math.abs(d)<0.0005?'✓ مطابق':`الفرق ${fmt(d)}`]})};
+  else if(/دولار|usd|أجنب|اشتراك/i.test(s)){L=H.filter(x=>x.cur!=='KWD');title='العمليات بعملة أجنبية'}
+  else if(fr){L=H.filter(x=>x.d>=fr);title='منذ '+fr}
+  else if(cd&&!fr){L=H.filter(x=>x.card===cd);title='بطاقة '+cd}
+  else if(s){const k=s.toLowerCase().replace(/^تاجر[:\s]*/,'');L=H.filter(x=>(x.merchant||'').toLowerCase().includes(k));title='التاجر: '+s}
+  const st={rec:'مسجّلة',ign:'متجاهلة',edit:'عُدّلت',pending:'بانتظارك'};
+  return{title,rows:L.slice(0,60).map(x=>[x.d,(x.merchant||(x.kind==='wd'?'سحب':''))+(x.card?' · '+x.card:''),x.cur!=='KWD'?`${x.amt} ${x.cur}${x.kwd!=null?' = '+fmt(x.kwd):''}`:fmt(x.amt),x.bal!=null?'رصيد '+fmt(x.bal):'',st[x.st]||''])}}
+function ctrlSheet(q){const c=smsCfg(),NB=smsNB(),R_=ctrlQuery(q),perm=NB?NB.smsState()===1:false;let sig='';try{sig=window.AndroidBridge&&window.AndroidBridge.sigSha?window.AndroidBridge.sigSha():''}catch(e){}
+  const OK_SIG='63:03:02:69:3A:05:D3:CF:E2:4F:E0:A3:C3:23:13:A2:44:61:DB:CA:ED:6B:08:5D:70:BF:0C:BB:53:C1:DE:20';
+  const LT={read:'قراءة رسائل',share:'رسالة بالمشاركة',paste:'لصق رسالة',senders:'تعديل المرسلين',card:'ربط بطاقة',stop:'إيقاف القراءة',wipe:'مسح بيانات الرسائل',backup:'نسخة احتياطية'};
+  openSheet(`<h3>🛡️ غرفة التحكم</h3><p class="note" style="margin:-4px 0 10px">تُغلق بعد دقيقتين. كل ما هنا من جوالك فقط.</p>
+    <div class="row2" style="grid-template-columns:1fr auto;gap:8px"><input class="fin-in" id="ctQ" value="${esc(q||'')}" placeholder="مثلاً: 0220 · ROSEMARY · فروق · دولار · غير المسجل · 2026-10-01" style="margin:0"><button class="btn slim" id="ctGo2" style="margin:0">اسأل</button></div>
+    <div class="chl-chips" style="padding:8px 0;gap:6px">${Object.keys(c.cards).map(k=>`<button class="chl-chip" data-cq="${k}">بطاقة ${k}</button>`).join('')}<button class="chl-chip" data-cq="غير المسجل">غير المسجل</button><button class="chl-chip" data-cq="فروق الرصيد">فروق الرصيد</button><button class="chl-chip" data-cq="دولار">الاشتراكات الأجنبية</button></div>
+    <h4 style="margin:8px 2px">${esc(R_.title)}</h4><div class="list">${R_.rows.length?R_.rows.map(r=>`<div class="set-row" style="display:block"><div class="t1" style="white-space:normal">${r.slice(1,3).map(esc).join(' · ')}</div><div class="t2">${[r[0],r[3],r[4]].filter(Boolean).map(esc).join(' · ')}</div></div>`).join(''):'<p class="note" style="padding:10px">لا نتائج.</p>'}</div>
+    <h4 style="margin:14px 2px 6px">💳 البطاقات</h4><div class="list">${Object.keys(c.cards).length?Object.keys(c.cards).map(k=>`<div class="set-row"><span class="grow">بطاقة ${esc(k)} ← ${esc(accById(c.cards[k]).name)}${c.bal[k]?`<br><span class="t2">آخر رصيد من البنك ${fmt(c.bal[k].bal)} · ${esc(c.bal[k].date)}</span>`:''}</span><button class="chip" data-cun="${esc(k)}">فصل</button></div>`).join(''):'<p class="note" style="padding:10px">لم تُربط بطاقة بعد.</p>'}</div>
+    <h4 style="margin:14px 2px 6px">📨 المرسلون المسموح بهم</h4><div class="list"><div class="set-row"><span class="grow">${c.senders.length?esc(c.senders.join('، ')):'لا أحد'}</span>${NB&&perm?'<button class="chip" data-csnd="1">تعديل</button>':''}</div></div>
+    <h4 style="margin:14px 2px 6px">🔐 الأمن</h4><div class="list">
+      <div class="set-row"><span class="grow">إذن قراءة الرسائل</span><b>${!NB?'غير متاح':perm?'ممنوح':'غير ممنوح'}</b></div>
+      <div class="set-row"><span class="grow">القفل التلقائي</span><b>بعد ${lockCfg().after??60} ثانية</b></div>
+      <div class="set-row"><span class="grow">حماية الشاشة من التصوير</span><b>${NB?'مفعّلة':'—'}</b></div>
+      <div class="set-row" style="display:block"><div class="t1">بصمة توقيع التطبيق</div><div class="t2" style="direction:ltr;text-align:left;white-space:normal;font-size:.7rem">${esc(sig||'—')}</div><div class="${sig===OK_SIG?'pos':'neg'}" style="font-size:.85rem">${!sig?'':sig===OK_SIG?'✓ هذا رُشد الأصلي':'⚠ التوقيع لا يطابق رُشد الأصلي؛ لا تُدخل بياناتك واحذفه'}</div></div></div>
+    <h4 style="margin:14px 2px 6px">📜 سجل الوصول</h4><div class="list">${c.log.slice(0,15).map(l=>`<div class="set-row"><span class="grow">${esc(LT[l.type]||l.type)}${l.x?' · '+esc(l.x):''}</span><span class="t2">${new Date(l.t).toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${l.n?' · '+l.n:''}</span></div>`).join('')||'<p class="note" style="padding:10px">لا شيء بعد.</p>'}</div>
+    <div class="actions" style="margin-top:12px"><button class="btn ghost" id="ctStop">إيقاف قراءة الرسائل</button><button class="btn danger" id="ctWipe">مسح كل ما استُخرج من الرسائل</button></div>
+    <p class="note">لسحب إذن الرسائل نهائياً: إعدادات أندرويد ← التطبيقات ← رُشد ← الأذونات.</p>`,
+  b=>{const go=v=>ctrlSheet(v);b.querySelector('#ctGo2').addEventListener('click',()=>go(b.querySelector('#ctQ').value));b.querySelector('#ctQ').addEventListener('keydown',e=>{if(e.key==='Enter')go(e.target.value)});
+    b.querySelectorAll('[data-cq]').forEach(e=>e.addEventListener('click',()=>go(e.dataset.cq)));
+    b.querySelectorAll('[data-cun]').forEach(e=>e.addEventListener('click',()=>{delete c.cards[e.dataset.cun];smsLog('card',0,'فصل '+e.dataset.cun);saveSettings();ctrlSheet(q)}));
+    const sn=b.querySelector('[data-csnd]');if(sn)sn.addEventListener('click',()=>smsSenderSheet(null));
+    b.querySelector('#ctStop').addEventListener('click',()=>{c.senders=[];smsLog('stop',0);saveSettings();toast('أُوقفت القراءة: لا مرسلين مسموح بهم');ctrlSheet(q)});
+    const w=b.querySelector('#ctWipe');w.addEventListener('click',()=>{if(w.dataset.c!=='1'){w.dataset.c='1';w.textContent='اضغط مرة أخرى للتأكيد';return}
+      Object.assign(c,{q:[],hist:[],bal:{},seen:[],cards:{},rules:{},last:0});smsLog('wipe',0);saveSettings();toast('مُسحت بيانات الرسائل. العمليات المسجّلة في حساباتك باقية');render();ctrlSheet()})});
+  ctrlUntil=Date.now()+120000}
 function accExportSheet(a){
   const d=accExportData(a),c=d.account.currency,slug=(a.name||'account').replace(/[^\w\u0600-\u06FF-]+/g,'-');
   openSheet(`<h3>تصدير الحساب: ${esc(a.name)}</h3>
@@ -4455,7 +4606,7 @@ function backup(){
       const btn=ev.currentTarget;btn.disabled=true;btn.textContent='جارٍ التشفير…';
       try{const f=await bkSeal(backupData(),p1);S.pendingBackup=true;S.noLockUntil=Date.now()+120000;
         const saved=saveFile('rushd-backup-'+todayStr()+'.rushd.json',JSON.stringify(f),'application/json');
-        S.settings.lastBackup=todayStr();S.settings.lastBackupEnc=1;S.pendingBackup=false;saveSettings();closeSheet();toast(saved?'حُفظت النسخة المشفّرة':'حُفظت النسخة المشفّرة في التنزيلات');render()}
+        S.settings.lastBackup=todayStr();S.settings.lastBackupEnc=1;try{smsLog('backup',0,'مشفّرة')}catch(e){}S.pendingBackup=false;saveSettings();closeSheet();toast(saved?'حُفظت النسخة المشفّرة':'حُفظت النسخة المشفّرة في التنزيلات');render()}
       catch(e){btn.disabled=false;btn.textContent='تشفير وحفظ النسخة';err('تعذّر التشفير')}})});
 }
 function restoreEnc(f){
@@ -4728,6 +4879,8 @@ document.addEventListener('click',e=>{
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
     else if(act==='coclaims'){coSheet()}
+    else if(act==='smsq'){smsSheet()}
+    else if(act==='ctrl'){ctrlOpen()}
     else if(act==='import'){S.noLockUntil=Date.now()+120000;$('#fileIn').click()}
     else if(act==='health'){healthSheet()}
     else if(act==='lockon'){pinSheet('set')}

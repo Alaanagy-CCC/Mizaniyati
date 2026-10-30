@@ -30,28 +30,7 @@ jobs:
           cp index.html manifest.json icon-192.png $A/assets/
           cp icon-512.png $A/res/mipmap-xxxhdpi/ic_launcher.png
 
-          cat > ks.b64 <<'KEY'
-          MIIEGAIBAzCCA8IGCSqGSIb3DQEHAaCCA7MEggOvMIIDqzCCATIGCSqGSIb3DQEHAaCCASMEggEf
-          MIIBGzCCARcGCyqGSIb3DQEMCgECoIG9MIG6MGYGCSqGSIb3DQEFDTBZMDgGCSqGSIb3DQEFDDAr
-          BBSYlRdBrDAYo3cG5JsVuhi8aU3YTQICJxACASAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoE
-          EDdEYgaiQKFPJMXLE+D+Df0EUAtuhHwzyeoes2h8sHM8Vg1wWs5FsuJOcUUTfMVuZXC1j/trrRkC
-          Qewu2Ye5/6dYI7e3CuCIZXVefoRgnaW/rvF9Xhi1eWKk7N4iPdJB1af+MUgwIwYJKoZIhvcNAQkU
-          MRYeFABtAGkAegBhAG4AaQB5AGEAdABpMCEGCSqGSIb3DQEJFTEUBBJUaW1lIDE3OTA1NzM1Mjgz
-          OTQwggJxBgkqhkiG9w0BBwagggJiMIICXgIBADCCAlcGCSqGSIb3DQEHATBmBgkqhkiG9w0BBQ0w
-          WTA4BgkqhkiG9w0BBQwwKwQUwNX71HmcubeObNbg95eBWsJGGnICAicQAgEgMAwGCCqGSIb3DQIJ
-          BQAwHQYJYIZIAWUDBAEqBBA3mtNiC3g+3MR5isrC8uRrgIIB4GEhYHD0BDboLdwqMFe0W8h19AVm
-          qfvj43mnTxswy59TUGmgDzG0dE3eX4E/bYdRgvnL3Ir2H669djOrXx8HPRpV3d7pJNkS5EbIifVQ
-          yhSHAfUYgo/45AW21w3iJ3ipItPn4jGIzKN60UMWSsoXJR/bqhDlreh0mQLNYxGSygv7BRgqR4Qh
-          DzEm2LS8/EaZ0qfd/x07RsXJuJEXSCdt2uFli+rBtjBKQipuRSCUdgKFYjJyHihxksAPfEAasSK+
-          7BKU3LJzS0+o3sSISNXdmE23nrL1vknYiW3wVsDhq/f5EfP8DDXhkNuL7s4uAIDOe28EeJBSxrUs
-          rrKTa9bhDOU9pkz6+1J0j7ukusYGoW6tPLgg+qs3xcnP074u90MkDO9kBuUFpHZmqjVQOxKl5MYz
-          Xdoa3YSGFa4wRPjXzxoOgTDiQ7WiIxQS94X+VAbs84ejaj5xJH/gWDSQjRzeRnh12FKTAWemtKd2
-          U/gFi9wsa1L1Die4CORwsYkqKaLt/uAx6N8UYDwQ4fMZLK7BpOJ6/1aOGNS94mmSsTf99lMS5wRU
-          Sq48SOvxaIG53APsjD4T189Eq5D6poocZP8AdMRLG2ZUovnrK2N0zbGlTkDST7KZF13PvDvjiGB8
-          RtCVCzBNMDEwDQYJYIZIAWUDBAIBBQAEID6GHiGpdusQspOw0y/W5y0C8czUEYLrEMUwIW78Zv87
-          BBSOPVIPNK3PfQTDt4QY860y5Fv/9AICJxA=
-          KEY
-          base64 -d ks.b64 > android/app/release.p12
+          cp keys/rushd-release.p12 android/app/release.p12
 
           cat > android/settings.gradle <<'X'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
@@ -85,10 +64,9 @@ jobs:
               release {
                 storeFile file('release.p12')
                 storeType 'pkcs12'
-                def np = System.getenv('RUSHD_KEY_PASS') ?: ''
-                storePassword np ? np : 'mizaniyati2026'
-                keyAlias np ? 'rushd' : 'mizaniyati'
-                keyPassword np ? np : 'mizaniyati2026'
+                storePassword System.getenv('RUSHD_KEY_PASS')
+                keyAlias 'rushd'
+                keyPassword System.getenv('RUSHD_KEY_PASS')
               }
             }
             buildTypes {
@@ -127,6 +105,7 @@ jobs:
             <uses-permission android:name="android.permission.INTERNET" />
           <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
           <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+          <uses-permission android:name="android.permission.READ_SMS" />
             <queries>
               <intent>
                 <action android:name="android.intent.action.MAIN" />
@@ -149,10 +128,16 @@ jobs:
                   android:name=".MainActivity"
                   android:exported="true"
                   android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+                  android:launchMode="singleTask"
                   android:windowSoftInputMode="adjustResize">
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN" />
                   <category android:name="android.intent.category.LAUNCHER" />
+                </intent-filter>
+                <intent-filter android:label="رُشد: عملية من البنك">
+                  <action android:name="android.intent.action.SEND" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <data android:mimeType="text/plain" />
                 </intent-filter>
               </activity>
               <activity-alias
@@ -399,6 +384,9 @@ jobs:
           import android.os.OutcomeReceiver;
           import android.provider.Settings;
           import android.view.Surface;
+          import android.view.WindowManager;
+          import android.database.Cursor;
+          import java.security.MessageDigest;
           import android.webkit.JavascriptInterface;
           import android.webkit.ValueCallback;
           import android.webkit.WebChromeClient;
@@ -421,7 +409,11 @@ jobs:
           import org.json.JSONObject;
 
           public class MainActivity extends Activity {
-            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5, REQ_BT = 6;
+            private static final int REQ_OPEN = 1, REQ_SAVE = 2, REQ_LOC = 3, REQ_NOTIF = 4, REQ_SLEEP = 5, REQ_BT = 6, REQ_SMS = 7;
+            private String sharedText;
+            /* رموز التحقق وكلمات المرور تُرفض هنا، فلا تصل إلى واجهة التطبيق أبداً */
+            private static final java.util.regex.Pattern OTP = java.util.regex.Pattern.compile("(?i)otp|one[- ]?time|verification|passcode|password|\\bpin\\b|\\bcode\\b|رمز|كلمة (السر|المرور)|التحقق");
+            private static final java.util.regex.Pattern MONEY = java.util.regex.Pattern.compile("(?i)(KWD|USD|SAR|AED|EUR|GBP|EGP|QAR|BHD|OMR|KD|د\\.ك|دينار)\\s*[0-9]");
             private static final String SLEEP_PERM = "android.permission.health.READ_SLEEP";
             private static final String[] HEALTH_PERMS = {SLEEP_PERM, "android.permission.health.READ_STEPS", "android.permission.health.READ_EXERCISE", "android.permission.health.READ_ACTIVE_CALORIES_BURNED", "android.permission.health.READ_NUTRITION"};
             private WebView web;
@@ -461,6 +453,8 @@ jobs:
             @Override
             protected void onCreate(Bundle state) {
               super.onCreate(state);
+              /* لا لقطات شاشة ولا تسجيل، ولا معاينة للمحتوى في قائمة التطبيقات المفتوحة */
+              getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
               getWindow().setStatusBarColor(Color.parseColor("#0F3F45"));
               web = new WebView(this);
               setContentView(web);
@@ -493,6 +487,22 @@ jobs:
               });
               web.addJavascriptInterface(new Bridge(), "AndroidBridge");
               web.loadUrl("file:///android_asset/index.html");
+              takeShare(getIntent());
+            }
+
+            @Override
+            protected void onNewIntent(Intent i) {
+              super.onNewIntent(i);
+              setIntent(i);
+              if (takeShare(i)) js("window.__smsShared&&__smsShared()");
+            }
+
+            private boolean takeShare(Intent i) {
+              if (i == null || !Intent.ACTION_SEND.equals(i.getAction())) return false;
+              String t = i.getStringExtra(Intent.EXTRA_TEXT);
+              if (t == null || t.isEmpty()) return false;
+              sharedText = OTP.matcher(t).find() ? "" : t;
+              return true;
             }
 
             @Override
@@ -600,6 +610,70 @@ jobs:
                   if (Build.VERSION.SDK_INT < 31) { js("window.__chlBtPerm&&__chlBtPerm(true)"); return; }
                   requestPermissions(new String[]{"android.permission.BLUETOOTH_CONNECT"}, REQ_BT);
                 });
+              }
+
+              @JavascriptInterface
+              public int smsState() {
+                return checkSelfPermission("android.permission.READ_SMS") == PackageManager.PERMISSION_GRANTED ? 1 : 0;
+              }
+
+              @JavascriptInterface
+              public void requestSms() {
+                runOnUiThread(() -> requestPermissions(new String[]{"android.permission.READ_SMS"}, REQ_SMS));
+              }
+
+              /* المرسلون الذين وصلت منهم رسائل فيها مبلغ (بلا نصوص)، ليختار المستخدم مرسل البنك */
+              @JavascriptInterface
+              public String smsSenders(String since) {
+                JSONObject out = new JSONObject();
+                if (checkSelfPermission("android.permission.READ_SMS") != PackageManager.PERMISSION_GRANTED) return out.toString();
+                long t0 = 0; try { t0 = Long.parseLong(since); } catch (Exception e) { }
+                try (Cursor c = getContentResolver().query(Uri.parse("content://sms/inbox"), new String[]{"address", "body"}, "date > ?", new String[]{String.valueOf(t0)}, null)) {
+                  if (c != null) while (c.moveToNext()) {
+                    String a = c.getString(0), b = c.getString(1);
+                    if (a == null || b == null || OTP.matcher(b).find() || !MONEY.matcher(b).find()) continue;
+                    out.put(a, out.optInt(a, 0) + 1);
+                  }
+                } catch (Exception e) { }
+                return out.toString();
+              }
+
+              /* رسائل المرسلين المسموح بهم فقط، بين وقتين، وليست رموز تحقق. تُقرأ على الجهاز ولا تُرسل إلى أي مكان */
+              @JavascriptInterface
+              public String readSms(String since, String until, String senders) {
+                JSONArray out = new JSONArray();
+                if (checkSelfPermission("android.permission.READ_SMS") != PackageManager.PERMISSION_GRANTED || senders == null || senders.isEmpty()) return out.toString();
+                java.util.HashSet<String> ok = new java.util.HashSet<>();
+                for (String x : senders.split("\\|")) if (!x.trim().isEmpty()) ok.add(x.trim().toLowerCase());
+                long t0 = 0, t1 = Long.MAX_VALUE; try { t0 = Long.parseLong(since); t1 = Long.parseLong(until); } catch (Exception e) { }
+                try (Cursor c = getContentResolver().query(Uri.parse("content://sms/inbox"), new String[]{"_id", "address", "body", "date"},
+                    "date > ? AND date <= ?", new String[]{String.valueOf(t0), String.valueOf(t1)}, "date ASC")) {
+                  if (c != null) while (c.moveToNext() && out.length() < 1000) {
+                    String a = c.getString(1), b = c.getString(2);
+                    if (a == null || b == null || !ok.contains(a.toLowerCase()) || OTP.matcher(b).find() || !MONEY.matcher(b).find()) continue;
+                    out.put(new JSONObject().put("id", c.getString(0)).put("a", a).put("b", b).put("d", c.getLong(3)));
+                  }
+                } catch (Exception e) { }
+                return out.toString();
+              }
+
+              @JavascriptInterface
+              public String takeShared() {
+                String t = sharedText; sharedText = null;
+                return t == null ? "" : t;
+              }
+
+              /* بصمة شهادة التوقيع، ليتأكد المستخدم أن التطبيق هو رُشد الأصلي */
+              @JavascriptInterface
+              public String sigSha() {
+                try {
+                  android.content.pm.PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+                  android.content.pm.Signature[] sg = pi.signingInfo.getApkContentsSigners();
+                  byte[] d = MessageDigest.getInstance("SHA-256").digest(sg[0].toByteArray());
+                  StringBuilder sb = new StringBuilder();
+                  for (int i = 0; i < d.length; i++) { if (i > 0) sb.append(':'); sb.append(String.format("%02X", d[i])); }
+                  return sb.toString();
+                } catch (Exception e) { return ""; }
               }
 
               @JavascriptInterface
@@ -996,6 +1070,8 @@ jobs:
                 js("window.__chlSleepPerm&&__chlSleepPerm(" + ok + ")");
               } else if (req == REQ_BT) {
                 js("window.__chlBtPerm&&__chlBtPerm(" + ok + ")");
+              } else if (req == REQ_SMS) {
+                js("window.__smsPerm&&__smsPerm(" + ok + ")");
               }
             }
 
@@ -1014,12 +1090,7 @@ jobs:
         env:
           RUSHD_KEY_PASS: ${{ secrets.RUSHD_KEY_PASS }}
         run: |
-          if [ -n "$RUSHD_KEY_PASS" ]; then
-            cp keys/rushd-release.p12 android/app/release.p12
-            echo "::notice::Signed with the NEW key (keys/rushd-release.p12)"
-          else
-            echo "::warning::RUSHD_KEY_PASS secret missing: signed with the OLD key"
-          fi
+          if [ -z "$RUSHD_KEY_PASS" ]; then echo "::error::RUSHD_KEY_PASS secret is missing; refusing to build"; exit 1; fi
           cd android
           gradle assembleRelease -Pvc=${{ github.run_number }} --no-daemon
           cp app/build/outputs/apk/release/app-release.apk ../Mizaniyati.apk
