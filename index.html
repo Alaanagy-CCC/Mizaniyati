@@ -4346,12 +4346,46 @@ function saveFile(name,text,mime){
   a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);
   return false;
 }
+/* ---------- النسخة الاحتياطية المشفّرة ----------
+   AES-256-GCM بمفتاح مشتق من كلمة مرور المستخدم (PBKDF2-SHA256، 310,000 دورة). كلمة المرور لا تُحفظ في أي مكان. */
+const BK_ITER=310000,b64e=u=>{let s='';const a=new Uint8Array(u);for(let i=0;i<a.length;i+=0x8000)s+=String.fromCharCode.apply(null,a.subarray(i,i+0x8000));return btoa(s)},b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function bkKey(pw,salt,iter){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw.normalize('NFC')),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function bkSeal(obj,pw){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await bkKey(pw,salt,BK_ITER),new TextEncoder().encode(JSON.stringify(obj)));
+  return{app:'mizaniyati',enc:1,v:3,date:obj.date,alg:'AES-256-GCM',kdf:{name:'PBKDF2-SHA256',iter:BK_ITER,salt:b64e(salt)},iv:b64e(iv),ct:b64e(ct)}}
+async function bkOpen(f,pw){const k=await bkKey(pw,b64d(f.kdf.salt),+f.kdf.iter||BK_ITER);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(f.iv)},k,b64d(f.ct));return JSON.parse(new TextDecoder().decode(pt))}
+function backupData(){return{app:'mizaniyati',v:2,date:todayStr(),settings:S.settings,months:S.months,extra:(()=>{const o={};['salah:cfg','chl:data','aud:bank','obl:data'].forEach(k=>{try{const v=localStorage.getItem(k);if(v)o[k]=v}catch(e){}});return o})()}}
 function backup(){
-  S.pendingBackup=true;S.noLockUntil=Date.now()+120000;
-  if(!saveFile('mizaniyati-backup-'+todayStr()+'.json',JSON.stringify({app:'mizaniyati',v:2,date:todayStr(),settings:S.settings,months:S.months,extra:(()=>{const o={};['salah:cfg','chl:data','aud:bank','obl:data'].forEach(k=>{try{const v=localStorage.getItem(k);if(v)o[k]=v}catch(e){}});return o})()}),'application/json'))
-    {toast('تم حفظ النسخة الاحتياطية في التنزيلات');S.settings.lastBackup=todayStr();S.pendingBackup=false;saveSettings();render()}
+  if(!(window.crypto&&crypto.subtle)){toast('التشفير غير متاح على هذا الجهاز، فلم تُنشأ النسخة');return}
+  openSheet(`<h3>💾 نسخة احتياطية مشفّرة</h3>
+    <p class="note" style="margin:-4px 0 12px">تُشفَّر النسخة بكلمة مرور تختارها، فلا يقرؤها أحد دونها ولو وصل إليه الملف. كلمة المرور لا تُحفظ في التطبيق ولا في الملف، <b>فإن نسيتها لا يمكن فتح النسخة أبداً</b>. اكتبها في مكان آمن بعيد عن الجوال.</p>
+    <label class="field"><span>كلمة المرور (10 أحرف على الأقل)</span><input type="password" id="bkP1" autocomplete="new-password" style="direction:ltr"></label>
+    <label class="field"><span>أعد كتابتها</span><input type="password" id="bkP2" autocomplete="new-password" style="direction:ltr"></label>
+    <div class="err" id="bkErr" hidden></div>
+    <div class="actions"><button class="btn" id="bkGo">تشفير وحفظ النسخة</button><button class="btn ghost" data-action="close">إلغاء</button></div>
+    <p class="note">لا ترسل الملف عبر واتساب أو البريد، واحفظه في مكان تملكه أنت.</p>`,
+  b=>{const err=t=>{const e=b.querySelector('#bkErr');e.textContent=t;e.hidden=false};
+    b.querySelector('#bkGo').addEventListener('click',async ev=>{const p1=b.querySelector('#bkP1').value,p2=b.querySelector('#bkP2').value;
+      if(p1.length<10){err('كلمة المرور أقصر من 10 أحرف');return}if(p1!==p2){err('الكلمتان غير متطابقتين');return}
+      if(/^(\d)\1+$|^0123456789|^1234567890/.test(p1)){err('كلمة المرور سهلة التخمين');return}
+      const btn=ev.currentTarget;btn.disabled=true;btn.textContent='جارٍ التشفير…';
+      try{const f=await bkSeal(backupData(),p1);S.pendingBackup=true;S.noLockUntil=Date.now()+120000;
+        const saved=saveFile('rushd-backup-'+todayStr()+'.rushd.json',JSON.stringify(f),'application/json');
+        S.settings.lastBackup=todayStr();S.settings.lastBackupEnc=1;S.pendingBackup=false;saveSettings();closeSheet();toast(saved?'حُفظت النسخة المشفّرة':'حُفظت النسخة المشفّرة في التنزيلات');render()}
+      catch(e){btn.disabled=false;btn.textContent='تشفير وحفظ النسخة';err('تعذّر التشفير')}})});
+}
+function restoreEnc(f){
+  openSheet(`<h3>🔐 فتح نسخة مشفّرة</h3><p class="note" style="margin:-4px 0 12px">النسخة بتاريخ ${esc(f.date||'')}. اكتب كلمة المرور التي اخترتها عند إنشائها.</p>
+    <label class="field"><span>كلمة المرور</span><input type="password" id="rsP" autocomplete="current-password" style="direction:ltr"></label><div class="err" id="rsErr" hidden></div>
+    <div class="actions"><button class="btn" id="rsGo">فتح النسخة</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>{let tries=0;b.querySelector('#rsGo').addEventListener('click',async ev=>{const btn=ev.currentTarget;btn.disabled=true;
+      try{const o=await bkOpen(f,b.querySelector('#rsP').value);closeSheet();restoreSheet(o)}
+      catch(e){tries++;const er=b.querySelector('#rsErr');er.textContent='كلمة المرور غير صحيحة أو الملف تالف';er.hidden=false;setTimeout(()=>{btn.disabled=false},Math.min(30000,1000*2**tries))}})});
 }
 function restoreSheet(obj){
+  if(obj&&obj.app==='mizaniyati'&&obj.enc===1&&obj.ct){restoreEnc(obj);return}
   if(!obj||obj.app!=='mizaniyati'||!obj.settings||!obj.months){toast('هذا الملف ليس نسخة احتياطية من رُشد');return}
   const n=Object.values(obj.months).reduce((a,l)=>a+(l||[]).length,0);
   openSheet(`<h3>استعادة نسخة احتياطية</h3><p class="note" style="margin:0 0 14px">النسخة بتاريخ ${esc(obj.date||'')} وفيها <span class="num">${n}</span> عملية. الاستعادة تستبدل كل البيانات الموجودة الآن على الجهاز.</p>

@@ -26,7 +26,7 @@ jobs:
       - name: Create Android project
         run: |
           A=android/app/src/main
-          mkdir -p $A/java/com/mizaniyati/app $A/assets $A/res/mipmap-xxxhdpi $A/res/values $A/res/drawable
+          mkdir -p $A/java/com/mizaniyati/app $A/assets $A/res/mipmap-xxxhdpi $A/res/values $A/res/drawable $A/res/xml
           cp index.html manifest.json icon-192.png $A/assets/
           cp icon-512.png $A/res/mipmap-xxxhdpi/ic_launcher.png
 
@@ -139,7 +139,9 @@ jobs:
             <application
                 android:label="رُشد"
                 android:icon="@mipmap/ic_launcher"
-                android:allowBackup="true"
+                android:allowBackup="false"
+                android:fullBackupContent="false"
+                android:dataExtractionRules="@xml/no_backup"
                 android:supportsRtl="true"
                 android:theme="@style/AppTheme">
               <activity
@@ -176,6 +178,27 @@ jobs:
               </receiver>
             </application>
           </manifest>
+          X
+
+          cat > $A/res/xml/no_backup.xml <<'X'
+          <?xml version="1.0" encoding="utf-8"?>
+          <!-- لا نسخ سحابي ولا نقل من جهاز إلى جهاز لبيانات رُشد. النسخة الوحيدة: ملف مشفّر يصدّره المستخدم بنفسه. -->
+          <data-extraction-rules>
+            <cloud-backup>
+              <exclude domain="root" path="." />
+              <exclude domain="file" path="." />
+              <exclude domain="database" path="." />
+              <exclude domain="sharedpref" path="." />
+              <exclude domain="external" path="." />
+            </cloud-backup>
+            <device-transfer>
+              <exclude domain="root" path="." />
+              <exclude domain="file" path="." />
+              <exclude domain="database" path="." />
+              <exclude domain="sharedpref" path="." />
+              <exclude domain="external" path="." />
+            </device-transfer>
+          </data-extraction-rules>
           X
 
           cat > $A/res/values/styles.xml <<'X'
