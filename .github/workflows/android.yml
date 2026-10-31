@@ -509,7 +509,7 @@ jobs:
             protected void onPause() { super.onPause(); unregCompass(); if (web != null) web.onPause(); }
 
             @Override
-            protected void onResume() { super.onResume(); if (compassOn) regCompass(); if (web != null) web.onResume(); }
+            protected void onResume() { super.onResume(); if (compassOn) regCompass(); if (web != null) { web.onResume(); js("window.__resumed&&__resumed()"); } }
 
             class Bridge {
               @JavascriptInterface

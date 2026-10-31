@@ -4498,7 +4498,8 @@ function smsCat(it){const c=smsCfg(),k=(it.merchant||'').toLowerCase();if(k&&c.r
   if(k){const h=allTx().filter(t=>t.type==='expense'&&(t.note||'').toLowerCase().startsWith(k)).sort((a,b)=>a.date<b.date?1:-1)[0];if(h)return h.cat}return''}
 function smsDup(it,acc){const v=it.kwd;if(v==null)return null;return allTx().find(t=>!t.smsId&&(!acc||t.acc===acc||t.to===acc)&&Math.abs((new Date(t.date)-new Date(it.date))/864e5)<=1&&Math.abs((+t.amount||0)-v)<0.0005)}
 function smsSave(it,acc,cat){const c=smsCfg(),a=accById(acc);if(accCur(a)!==baseCur()||it.kwd==null)return null;
-  const note=(it.merchant||(it.kind==='wd'?'سحب نقدي':''))+(it.cur!=='KWD'?` · ${fmtC(it.amt,it.cur)} ${it.cur}${it.est?' (تقديري)':''}`:'');
+  const base_=[it.merchant&&it.merchant!=='سداد بطاقة ائتمان'||!it.note?(it.merchant||(it.kind==='wd'?'سحب نقدي':'')):'',it.note||''].filter(Boolean).join(' · ');
+  const note=base_+(it.cur!=='KWD'?` · ${fmtC(it.amt,it.cur)} ${it.cur}${it.est?' (تقديري)':''}`:'');
   const to=smsTo(it);if((it.kind==='wd'||it.kind==='tr')&&(!to||to===acc))return null;
   const rec=it.kind==='wd'||it.kind==='tr'?{id:newId(),type:'transfer',amount:it.kwd,cat:'',acc,to,date:it.date,note:note||'تحويل'}:{id:newId(),type:it.kind==='in'?'income':'expense',amount:it.kwd,cat,acc,to:'',date:it.date,note};
   rec.smsId=it.id;const nm=rec.date.slice(0,7);S.months[nm]=txOf(nm).concat(rec);sortMonth(nm);saveMonth(nm);
@@ -4517,6 +4518,7 @@ function smsSheet(){
         <div class="chl-chips" style="padding:8px 0 0;gap:6px">${[['exp','💳 مصروف'],['tr','⇄ تحويل بين حساباتي'],['in','➕ دخل'],['wd','🏧 سحب نقدي']].map(([k,t])=>`<button class="chl-chip" data-skind="${it.id}" data-v="${k}" aria-pressed="${it.kind===k}">${t}</button>`).join('')}</div>${it.trIn&&it.kind==='in'?`<p class="note" style="margin:6px 2px 0">إيداع بتحويل: إن كان من حساب آخر لك فسجّل التحويل من الحساب المرسِل، ويُستبعد هذا تلقائياً.</p>`:''}
         <div class="row2" style="margin-top:8px"><label class="field" style="margin:0"><span>${it.kind==='tr'||it.kind==='wd'?'من حساب':'الحساب'}${it.card&&!acc?' (يُحفظ للبطاقة '+esc(it.card)+')':''}</span><select data-sacc="${it.id}"><option value="">اختر…</option>${accOptions(acc)}</select></label>
         ${it.kind==='wd'||it.kind==='tr'?`<label class="field" style="margin:0"><span>${it.kind==='wd'?'إلى حساب النقد':'إلى حساب'}${it.dest?' ('+esc(it.dest)+')':''}</span><select data-sto="${it.id}"><option value="">اختر…</option>${accOptions(smsTo(it))}</select></label>`:`<label class="field" style="margin:0"><span>البند</span><select data-scat="${it.id}"><option value="">اختر…</option>${cats(it.kind).map(x=>`<option value="${esc(x.id)}"${x.id===cat?' selected':''}>${esc(x.icon||'')} ${esc(x.name)}</option>`).join('')}</select></label>`}</div>
+        <input class="fin-in" data-snote="${it.id}" value="${esc(it.note||'')}" placeholder="${it.merchant?'تفاصيل إضافية (اختياري)':'اكتب تفاصيل العملية: ماذا ولمن؟'}" style="margin:8px 0 0">
         ${du?`<p class="note" style="margin:6px 2px 0;color:var(--neg,#c0392b)">⚠ ربما مسجّلة: ${esc(du.date)} · ${esc(du.note||catById(du.cat).name||'')} · ${fmt(du.amount)}</p>`:''}
         ${it.gap?`<p class="note" style="margin:6px 2px 0">رصيد البطاقة لا يتسلسل مع الرسالة السابقة بفارق ${fmt(it.gap)}: ربما عملية لم تصل رسالتها.</p>`:''}
         ${it.bal!=null&&a&&accCur(a)===baseCur()?`<p class="note" style="margin:6px 2px 0">رصيد البنك بعدها ${fmt(it.bal)}</p>`:''}
@@ -4531,7 +4533,7 @@ function smsSheet(){
          ${k_.length?`<div class="t2" style="margin:0 2px 6px">🇰🇼 الكويت (${k_.length})</div>`+k_.map(card).join(''):''}${f_.length?`<div class="t2" style="margin:6px 2px">🌐 عملة أجنبية أو خارج الكويت (${f_.length})</div>`+f_.map(card).join(''):''}</div>`})}
     if(Q.length)h+=`<button class="btn ghost" data-sall="1" style="width:100%">اعتماد كل ما اكتمل حسابه وبنده وليس مكرراً</button>`;
     else h+=`<p class="note">لا عمليات بانتظار المراجعة.</p>`;
-    if(NB)h+=`<label class="set-row" style="margin-top:12px"><input type="checkbox" id="sAuto" ${c.auto!==false?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">اقرأ الجديد تلقائياً عند فتح رُشد</span><span class="t2" style="white-space:normal">يقرأ ما وصل منذ آخر تحديث ويضعه للمراجعة، ولا يسجّل شيئاً دون اعتمادك</span></span></label>`;
+    if(NB)h+=`<label class="set-row" style="margin-top:12px"><input type="checkbox" id="sAuto" ${c.auto!==false?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">اقرأ الجديد تلقائياً عند فتح رُشد${c.autoAt?` <span class="t2">· آخر قراءة ${new Date(c.autoAt).toLocaleTimeString('ar-u-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span>`:''}</span><span class="t2" style="white-space:normal">يقرأ ما وصل منذ آخر تحديث ويضعه للمراجعة، ولا يسجّل شيئاً دون اعتمادك</span></span></label>`;
     h+=`<details style="margin-top:12px"><summary class="set-row" style="cursor:pointer"><span class="grow">لصق رسالة يدوياً</span><span class="t2">▾</span></summary><textarea id="smsPaste" rows="3" class="fin-in" style="width:100%;font:inherit;direction:ltr;text-align:left" placeholder="You Purchased KWD 5.400 at …"></textarea><button class="btn slim" id="smsRead">اقرأ الرسالة</button>
       <p class="note">أو من تطبيق الرسائل: اضغط مطولاً على رسالة البنك ← مشاركة ← رُشد.</p></details>
       <button class="btn ghost" data-action="ctrl" style="width:100%;margin-top:10px">🛡️ غرفة التحكم</button>`;
@@ -4541,11 +4543,12 @@ function smsSheet(){
         else if(v==='from'){b.querySelector('#sFrom').hidden=false}else if(v==='go'){const d=b.querySelector('#sFromD').value;if(!d){toast('اختر التاريخ');return}smsFetch(new Date(d+'T00:00:00').getTime()-1,Date.now(),'من '+d)}}));
       b.querySelectorAll('[data-sacc]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.sacc);if(it&&it.card&&e.value){c.cards[it.card]=e.value;smsLog('card',1,it.card);saveSettings();draw()}}));
       b.querySelectorAll('[data-sto]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.sto);if(!it)return;it.to=e.value;if(it.kind==='wd'){c.cash=e.value}saveSettings()}));
+      b.querySelectorAll('[data-snote]').forEach(e=>e.addEventListener('change',()=>{const it=q(e.dataset.snote);if(it){it.note=e.value.trim();saveSettings()}}));
       b.querySelectorAll('[data-skind]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.skind);if(!it)return;it.kind=e.dataset.v;saveSettings();draw()}));
-      const ok=(it,acc,cat,quiet)=>{if(!acc){if(!quiet)toast('اختر الحساب');return false}const tr=it.kind==='wd'||it.kind==='tr';if(!tr&&!cat){if(!quiet)toast('اختر البند');return false}
+      const ok=(it,acc,cat,quiet)=>{const ne=b.querySelector(`[data-snote="${it.id}"]`);if(ne)it.note=ne.value.trim();if(!acc){if(!quiet)toast('اختر الحساب');return false}const tr=it.kind==='wd'||it.kind==='tr';if(!tr&&!cat){if(!quiet)toast('اختر البند');return false}
         if(tr){const t=val('data-sto',it.id)||smsTo(it);if(!t){if(!quiet)toast(it.kind==='wd'?'اختر حساب النقد':'اختر الحساب المستلم');return false}if(t===acc){if(!quiet)toast('الحسابان متماثلان');return false}it.to=t;if(it.kind==='wd')c.cash=t}
         if(accCur(accById(acc))!==baseCur()||it.kwd==null){if(!quiet)edit(it,acc,cat);return false}const rec=smsSave(it,acc,cat);if(!rec)return false;smsDone(it,'rec',rec);return true};
-      const edit=(it,acc,cat)=>{smsDone(it,'edit');saveSettings();txSheet(null,{type:it.kind==='in'?'income':it.kind==='wd'||it.kind==='tr'?'transfer':'expense',amount:it.kwd!=null?it.kwd:it.amt,acc:acc||'',cat:cat||'',to:it.kind==='wd'||it.kind==='tr'?smsTo(it)||'':'',date:it.date,note:(it.merchant||'')+(it.cur!=='KWD'?` · ${it.amt} ${it.cur}`:'')})};
+      const edit=(it,acc,cat)=>{smsDone(it,'edit');saveSettings();txSheet(null,{type:it.kind==='in'?'income':it.kind==='wd'||it.kind==='tr'?'transfer':'expense',amount:it.kwd!=null?it.kwd:it.amt,acc:acc||'',cat:cat||'',to:it.kind==='wd'||it.kind==='tr'?smsTo(it)||'':'',date:it.date,note:[it.merchant,it.note].filter(Boolean).join(' · ')+(it.cur!=='KWD'?` · ${it.amt} ${it.cur}`:'')})};
       b.querySelectorAll('[data-sok]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sok);if(!it)return;if(ok(it,val('data-sacc',it.id),val('data-scat',it.id))){saveSettings();toast('سُجّلت العملية');render();draw()}}));
       b.querySelectorAll('[data-sed]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sed);if(it)edit(it,val('data-sacc',it.id),val('data-scat',it.id))}));
       b.querySelectorAll('[data-sno]').forEach(e=>e.addEventListener('click',()=>{const it=q(e.dataset.sno);if(it){smsDone(it,'ign');saveSettings();draw();render()}}));
@@ -4556,8 +4559,11 @@ function smsSheet(){
   };
   draw();
 }
-function smsAuto(){try{const c=S.settings&&S.settings.sms;if(!c||c.auto===false||!(c.senders||[]).length||isLocked())return;if(Date.now()-(S.smsAutoAt||0)<60000)return;S.smsAutoAt=Date.now();
-  smsFetch(c.last||Date.now()-864e5,Date.now(),'قراءة تلقائية',true)}catch(e){}}
+function smsAuto(force){try{const c=S.settings&&S.settings.sms;if(!c||c.auto===false||!(c.senders||[]).length||isLocked()||document.hidden)return;if(!force&&Date.now()-(S.smsAutoAt||0)<20000)return;S.smsAutoAt=Date.now();
+  c.autoAt=Date.now();smsFetch(c.last||Date.now()-864e5,Date.now(),'قراءة تلقائية',true);saveSettings()}catch(e){}}
+/* عند العودة إلى التطبيق (من الجزء الأصلي، لأن بعض الأجهزة لا تُبلغ الصفحة)، وكل دقيقة ما دام مفتوحاً */
+window.__resumed=()=>setTimeout(()=>smsAuto(),900);
+setInterval(()=>smsAuto(),60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(smsAuto,700)});
 window.addEventListener('load',()=>setTimeout(smsAuto,2500));
 function smsStrip(){const n=(S.settings.sms&&S.settings.sms.q||[]).length;if(!n)return'';return `<button class="slh-strip" data-action="smsq"><span>📩</span><span class="g">من رسائل البنك</span><span class="t2"><span class="num">${n}</span> بانتظار مراجعتك ›</span></button>`}
