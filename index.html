@@ -1280,7 +1280,10 @@ function monthPost(out,ks,end,off){
   if(S2.length)out.aspects.push({h:'🎯 عزمك',grades:true,sections:S2});
   out.aspects.push({h:'📈 مقارنة بالشهر الماضي',grades:true,note:`النسب من الأيام المسجلة: ${cur._t} يوماً هذا الشهر${prv._t?`، و${prv._t} في الشهر الماضي`:''}`,sections:S3});
   out.aspects.push({h:'🔍 الأنماط وما يسبق النقص',grades:true,sections:S4});
-  if(fin)out.aspects.push(fin);if(adv)out.aspects.push(adv);out.aspects.push(...tiers,...rest);if(diary)out.aspects.push(diary);
+  if(fin)out.aspects.push(fin);
+  if(A&&A.recon)try{const rc=A.recon(off);out.aspects.push({h:'⚖️ ضبط الحسابات: دقة التسجيل والهدر',grades:true,sections:rc.sections.concat(rc.ev.done?[]:[{h:'',html:'<button class="btn" data-action="monthrc" style="width:100%;margin-top:6px">⚖️ اضبط الشهر الآن</button>'}])});
+    if(rc.ev.done&&rc.ev.pE!=null){const s1=out.aspects[0].sections.find(x=>x.h==='المال في سطور');if(s1)s1.b.push(`دقة التسجيل: الفروق مع البنك ${rc.ev.pE.toFixed(1)}٪ من المصروف، والهدر ${rc.ev.pW.toFixed(1)}٪.`)}}catch(e){console.error(e)}
+  if(adv)out.aspects.push(adv);out.aspects.push(...tiers,...rest);if(diary)out.aspects.push(diary);
   out.aspects.push({h:'✍️ عزم الشهر القادم',sections:S5});
 }
 function resHtml(){const P=perOf(0),RS=(D.cfg.res||{})[P.from]||[];if(!RS.length)return'';const st=statsOf(perKs(0));
@@ -3016,7 +3019,7 @@ function viewHome(){
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
   const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
-  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+(window.__oblStrip?window.__oblStrip():'')+smsStrip()+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+rcBanner()+(window.__oblStrip?window.__oblStrip():'')+smsStrip()+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
@@ -3782,6 +3785,87 @@ function backupBanner(){
 /* ---------- reconciliation ---------- */
 function accBal(a){return (+a.opening||0)+accFlow(a.id,accCur(a))}
 function ensureAdjCat(){let c=S.settings.categories.find(x=>x.id==='adjust');if(!c){c={id:'adjust',name:'تسوية أرصدة',icon:'⚖️',kind:'expense',budget:0,noBudget:true,color:'#7F8C8D'};S.settings.categories.push(c)}return c}
+/* ---------- ضبط الشهر: مطابقة كل الحسابات مع البنك دفعة واحدة ----------
+   تكتب الرصيد الفعلي لكل حساب، فيُحسب الفرق ويُقترح سببه، ثم تُسجَّل تسوية «ضبط ميزانية» لكل حساب مختلف.
+   التسويات لا تدخل في الدخل والمصروف والميزانيات، لكنها تُقاس في التقرير الشهري نسبةَ خطأ وهدر. */
+const RC_CAUSE=[['unrec','عمليات غير مسجلة'],['transfer','تحويل غير مسجل'],['cash','صرف نقدي غير معروف'],['income','دخل أو استرداد غير مسجل'],['dup','عملية مسجلة مرتين'],['fees','رسوم أو فرق صرف'],['unknown','غير معروف']];
+const rcName=k=>(RC_CAUSE.find(x=>x[0]===k)||[0,'غير معروف'])[1];
+const isCashAcc=a=>/cash|كاش|نقد|محفظ|pocket|wallet/i.test(a.name||'')||/💵|👛/.test(a.icon||'');
+function rcPeriod(){const k=curPeriod(),r=range(k),left=Math.round((Date.parse(r.to)-Date.parse(todayStr()))/864e5),into=Math.round((Date.parse(todayStr())-Date.parse(r.from))/864e5);
+  return into<=5?shiftMonth(k,-1):left<=7?k:k}
+function rcBankBal(a){const c=S.settings.sms;if(!c||!c.bal||a.type!=='debit')return null;let best=null;
+  Object.keys(c.cards||{}).forEach(k=>{if(c.cards[k]===a.id&&c.bal[k]&&(!best||c.bal[k].t>best.t))best=c.bal[k]});return best}
+function rcGuess(a,diff,all){const c=S.settings.sms||{},cards=Object.keys(c.cards||{}).filter(k=>c.cards[k]===a.id),ad=Math.abs(diff);
+  const pend=(c.q||[]).filter(x=>cards.includes(x.card)&&x.kwd!=null).reduce((s,x)=>s+(x.kind==='in'?1:-1)*x.kwd,0);
+  if(pend&&Math.abs(pend-diff)<=Math.max(0.5,ad*0.05))return['unrec','يطابق عمليات في رسائل البنك لم تعتمدها'];
+  const pair=all.find(o=>o.a.id!==a.id&&o.diff!=null&&Math.abs(o.diff+diff)<=Math.max(0.5,ad*0.03));
+  if(pair)return['transfer','الفرق يقابل فرقاً معاكساً في '+pair.a.name];
+  if(diff<0&&isCashAcc(a))return['cash','حساب نقدي: صرف لم يُسجَّل'];
+  if(diff>0)return['income','الفعلي أعلى: دخل أو استرداد أو تحويل وارد لم يُسجَّل'];
+  if(ad<1)return['fees','فرق صغير: رسوم أو تقريب'];
+  return['unrec','الفعلي أدنى: مصروف لم يُسجَّل']}
+function monthRecon(){
+  const per=rcPeriod(),acc=S.settings.accounts.filter(a=>a.type!=='loan'),st=S.rcDraft||(S.rcDraft={per,v:{},cause:{}});
+  const draw=()=>{const sh=document.querySelector('#sheetWrap .sheet'),y=sh&&!document.getElementById('sheetWrap').hidden?sh.scrollTop:0;setTimeout(()=>{if(sh)sh.scrollTop=y},0);const rows=acc.map(a=>{const cur=accCur(a),dec=(CUR[cur]||[0,2])[1],debt=a.type!=='debit',bal=accBal(a),sb=rcBankBal(a);
+      const raw=st.v[a.id]!=null?st.v[a.id]:'';const v=parseAmount(raw);let diff=null;if(raw!==''&&!isNaN(v)){const actual=debt?-Math.abs(v):v;diff=+(actual-bal).toFixed(dec);if(Math.abs(diff)<Math.pow(10,-dec)/2)diff=0}
+      return{a,cur,dec,debt,bal,sb,raw,diff}});
+    rows.forEach(r=>{if(r.diff){const g=rcGuess(r.a,r.diff,rows);r.g=g;if(!st.cause[r.a.id])r.cause=g[0];else r.cause=st.cause[r.a.id]}});
+    const dn=rows.filter(r=>r.diff!=null),bad=dn.filter(r=>r.diff),sumAbs=bad.reduce((s,r)=>s+Math.abs(r.diff)*rateOf(r.cur),0);
+    openSheet(`<h3>⚖️ ضبط الشهر: ${esc(periodLabel(st.per))}</h3>
+      <p class="note" style="margin:-4px 0 10px">اكتب الرصيد الفعلي لكل حساب كما في البنك أو الكشف، واترك الحساب فارغاً لتتخطاه. يقترح التطبيق سبب كل فرق، وتختار أنت. ثم تُسجَّل تسوية «ضبط ميزانية» تجعل كل حساب مطابقاً للواقع.</p>
+      <div class="chips" style="margin-bottom:8px">${[shiftMonth(curPeriod(),-1),curPeriod()].map(k=>`<button class="chip" data-rcp="${k}" aria-pressed="${st.per===k}">${esc(periodLabel(k))}</button>`).join('')}</div>
+      <div class="list">${rows.map(r=>`<div class="set-row" style="display:block"><div style="display:flex;gap:8px;align-items:center"><span class="ic">${esc(r.a.icon||'•')}</span><span class="grow"><span class="t1">${esc(r.a.name)}</span><span class="t2">${r.debt?'المستحق في التطبيق':'في التطبيق'} ${fmtC(r.debt?-r.bal:r.bal,r.cur)} ${esc(curSym(r.cur))}</span></span>
+          <input class="fin-in" data-rcv="${esc(r.a.id)}" inputmode="decimal" value="${esc(r.raw)}" placeholder="${r.sb?String(r.sb.bal):'الفعلي'}" style="width:108px;margin:0;direction:ltr;text-align:right"></div>
+          ${r.sb&&r.raw===''?`<button class="chip" data-rcsb="${esc(r.a.id)}" style="margin-top:6px">📩 آخر رصيد من رسالة البنك ${fmt(r.sb.bal)} (${esc(r.sb.date)})</button>`:''}
+          ${r.diff===0?'<div class="t2 pos" style="margin-top:4px">✓ مطابق</div>':''}
+          ${r.diff?`<div style="margin-top:6px"><b class="num ${r.diff>0?'pos':'neg'}">${r.diff>0?'+':'−'}${fmtC(Math.abs(r.diff),r.cur)} ${esc(curSym(r.cur))}</b> <span class="t2">· ${esc(r.g[1])}</span></div>
+            <div class="chips" style="margin-top:6px">${RC_CAUSE.map(([k,n])=>`<button class="chip" data-rcc="${esc(r.a.id)}" data-v="${k}" aria-pressed="${r.cause===k}">${n}</button>`).join('')}</div>`:''}</div>`).join('')}</div>
+      <div class="chart" style="padding:12px 14px;margin:12px 0"><div class="mrow"><span class="grow">حسابات طوبقت</span><b class="num">${dn.length} من ${rows.length}</b></div><div class="mrow"><span class="grow">حسابات فيها فرق</span><b class="num">${bad.length}</b></div><div class="mrow"><span class="grow">مجموع الفروق</span><b class="num">${fmt(sumAbs)} ${esc(curInfo()[0])}</b></div></div>
+      <div class="actions"><button class="btn" id="rcGo"${dn.length?'':' disabled'}>اعتماد الضبط${bad.length?` وتسجيل ${bad.length} ${bad.length>2&&bad.length<11?'تسويات':'تسوية'}`:''}</button><button class="btn ghost" data-action="close">لاحقاً</button></div>`,
+    b=>{b.querySelectorAll('[data-rcv]').forEach(e=>e.addEventListener('change',()=>{st.v[e.dataset.rcv]=e.value.trim();draw()}));
+      b.querySelectorAll('[data-rcsb]').forEach(e=>e.addEventListener('click',()=>{const a=accById(e.dataset.rcsb),sb=rcBankBal(a);if(sb){st.v[a.id]=String(sb.bal);draw()}}));
+      b.querySelectorAll('[data-rcc]').forEach(e=>e.addEventListener('click',()=>{st.cause[e.dataset.rcc]=e.dataset.v;draw()}));
+      b.querySelectorAll('[data-rcp]').forEach(e=>e.addEventListener('click',()=>{st.per=e.dataset.rcp;draw()}));
+      b.querySelector('#rcGo').addEventListener('click',()=>{const r=range(st.per),last=addDaysS(r.to,-1),d=todayStr()<last?todayStr():last,mk=d.slice(0,7),id=newId(),items=[];
+        dn.forEach(x=>{const it={acc:x.a.id,name:x.a.name,cur:x.cur,app:x.debt?-x.bal:x.bal,real:x.debt?-(x.bal+x.diff):x.bal+x.diff,diff:x.diff,base:+(x.diff*rateOf(x.cur)).toFixed(6),cause:x.diff?x.cause:'',cash:isCashAcc(x.a)};items.push(it);
+          if(x.diff){const ad=Math.abs(x.diff),rec={id:newId(),type:'adjust',sign:x.diff>0?1:-1,amount:+(ad*rateOf(x.cur)).toFixed(curInfo()[1]),cat:'',acc:x.a.id,to:'',date:d,note:'ضبط ميزانية: '+rcName(x.cause),rc:id,rcCause:x.cause};
+            if(x.cur!==baseCur())rec.oamt=ad;S.months[mk]=txOf(mk).concat(rec);sortMonth(mk);saveMonth(mk)}
+          const A_=S.settings.accounts.find(y=>y.id===x.a.id);if(A_)A_.reconciled={date:d,bal:x.debt?-(x.bal+(x.diff||0)):x.bal+(x.diff||0)}});
+        S.settings.recons=(S.settings.recons||[]).filter(z=>z.per!==st.per).concat({id,per:st.per,date:todayStr(),items});saveSettings();S.rcDraft=null;closeSheet();
+        toast(items.some(i=>i.diff)?'ضُبطت الحسابات، والتقييم في تقرير الشهر':'كل الحسابات مطابقة، الحمد لله');render()});
+    });
+  };
+  draw();
+}
+const addDaysS=(k,n)=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+function rcBanner(){if(!S.settings.accounts.length)return'';const k=curPeriod(),r=range(k),left=Math.round((Date.parse(r.to)-Date.parse(todayStr()))/864e5),into=Math.round((Date.parse(todayStr())-Date.parse(r.from))/864e5);
+  const per=into<=5?shiftMonth(k,-1):left<=3?k:null;if(!per||(S.settings.recons||[]).some(z=>z.per===per))return'';
+  return `<button class="warnbar info" data-action="monthrc">⚖️ حان ضبط الحسابات لشهر ${esc(periodLabel(per))}: طابق أرصدتك مع البنك ›</button>`}
+/* تقييم الضبط لشهر: يُعرض في التقرير الشهري */
+function reconEval(off){const per=shiftMonth(curPeriod(),off||0),R=(S.settings.recons||[]).find(z=>z.per===per);
+  const P=(S.settings.recons||[]).find(z=>z.per===shiftMonth(per,-1));
+  const L=txIn(per),exp=sum(usual(L).filter(t=>t.type==='expense'))||sum(L.filter(t=>t.type==='expense'));
+  const ev=z=>{if(!z)return null;const bad=z.items.filter(i=>i.diff),tr=i=>i.cause==='transfer',w=i=>tr(i)?Math.abs(i.base)/2:Math.abs(i.base);
+    /* التحويل غير المسجل يظهر في حسابين بفرقين متعاكسين: يُحسب خطأً مرة واحدة، ولا يُحسب هدراً لأن المال لم يخرج */
+    const abs=bad.reduce((s,i)=>s+w(i),0),neg=bad.filter(i=>i.base<0&&!tr(i)).reduce((s,i)=>s-i.base,0),pos=bad.filter(i=>i.base>0&&!tr(i)).reduce((s,i)=>s+i.base,0);
+    const by={};bad.forEach(i=>by[i.cause]=(by[i.cause]||0)+w(i));return{z,bad,abs,neg,pos,by}};
+  const e=ev(R),ep=ev(P);if(!e)return{done:false,per};
+  const pE=exp>0?e.abs/exp*100:null,pW=exp>0?e.neg/exp*100:null;
+  return{done:true,per,e,ep,exp,pE,pW,pEp:ep&&ep.abs!=null?ep:null}}
+function reconSections(off){const r=reconEval(off),F=v=>fmt(v)+' '+curInfo()[0],S_=[],tk=(g,x)=>'⟦'+g+'|'+x+'⟧';
+  if(!r.done){S_.push({h:'لم يُضبط هذا الشهر بعد',p:['اضبط الحسابات مع البنك آخر الشهر من الإعدادات ← ضبط الشهر، فيظهر هنا تقييم دقة التسجيل ونسبة الهدر.']});return S_}
+  const e=r.e,g=v=>v==null?'k':v<=2?'b':v<=5?'k':'r';
+  S_.push({h:'الخلاصة',p:[`طوبق ${e.z.items.length} ${e.z.items.length>2&&e.z.items.length<11?'حسابات':'حساباً'}، منها ${e.bad.length} فيها فرق، بمجموع ${tk(e.bad.length?'r':'b',F(e.abs))}.`,
+    r.pE!=null?`نسبة الخطأ: ${tk(g(r.pE),r.pE.toFixed(1)+'٪')} من مصروف الشهر (${F(r.exp)}). ونسبة الهدر (صرف خرج ولم يُعرف أين): ${tk(g(r.pW),r.pW.toFixed(1)+'٪')} (${F(e.neg)}).`:'',
+    e.pos?`ومبالغ دخلت ولم تُسجَّل: ${F(e.pos)}.`:'',
+    r.ep?`الشهر الماضي: الفروق ${F(r.ep.abs)}${r.exp?'':''}، فالتسجيل ${e.abs<r.ep.abs?tk('b','تحسّن ▲'):e.abs>r.ep.abs?tk('r','تراجع ▼'):'على حاله'}.`:''].filter(Boolean)});
+  if(e.bad.length)S_.push({h:'أي الحسابات أكثر فرقاً',b:e.bad.slice().sort((a,b)=>Math.abs(b.base)-Math.abs(a.base)).map(i=>`${i.name}: ${tk(i.diff>0?'k':'r',(i.diff>0?'+':'−')+fmtC(Math.abs(i.diff),i.cur)+' '+curSym(i.cur))} · ${rcName(i.cause)}`)});
+  if(e.bad.length){const k=Object.keys(e.by).sort((a,b)=>e.by[b]-e.by[a]);S_.push({h:'أسباب الفروق',b:k.map(c=>`${rcName(c)}: ${F(e.by[c])} (${Math.round(e.by[c]/e.abs*100)}٪)`)});
+    const TIP={unrec:'فعّل قراءة رسائل البنك واعتمد ما فيها كل مساء.',transfer:'سجّل التحويل بين حساباتك وقت إجرائه، أو اعتمده من رسائل البنك نوعَ «تحويل».',cash:'سجّل الصرف النقدي في يومه، ولو بمبلغ تقريبي ووصف قصير.',income:'سجّل الاستردادات والإيداعات، فهي تُنسى أكثر من المصروف.',dup:'راجع العمليات المكررة قبل الضبط من «مطابقة الرصيد» في الحساب.',fees:'فرق صغير طبيعي؛ لا يحتاج تغييراً.',unknown:'راجع كشف الحساب لهذا الشهر لتعرف مصدره.'};
+    S_.push({h:'خطوة الشهر القادم',b:k.slice(0,2).map((c,i)=>(i===0?'⭐ ':'')+TIP[c])})}
+  else S_.push({h:'ما شاء الله',p:['كل الحسابات طابقت البنك دون فرق: تسجيلك هذا الشهر كامل.']});
+  return S_}
+window.__reconEval=off=>reconEval(off);window.__reconSections=off=>reconSections(off);
 function reconSheet(acc){
   const a=S.settings.accounts.find(x=>x.id===acc.id)||acc,cur=accCur(a),dec=(CUR[cur]||[0,2])[1],debt=a.type!=='debit';
   const bal=accBal(a),shownBal=debt?-bal:bal;
@@ -3877,6 +3961,7 @@ function viewSettings(){
     <button class="set-row" data-action="myayat"><span class="ic">📝</span><span class="grow">آياتي الخاصة</span><span class="t2">${(S.settings.myAyat||[]).length} ›</span></button>
     <button class="set-row" data-action="netaccs"><span class="ic">🧮</span><span class="grow"><span style="display:block">أقسام الصافي</span><span class="t2" style="white-space:normal">${netGroups().filter(g=>g.ids.length).map((g,i)=>esc(g.n||netCash(i).name)).join(' · ')}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-obl-open="1"><span class="ic">📑</span><span class="grow">التزاماتي</span><span class="t2">›</span></button>
+    <button class="set-row" data-action="monthrc"><span class="ic">⚖️</span><span class="grow"><span style="display:block">ضبط الشهر مع البنك</span><span class="t2">${(()=>{const z=(S.settings.recons||[]).slice(-1)[0];return z?'آخر ضبط: '+esc(periodLabel(z.per)):'مطابقة كل الحسابات دفعة واحدة'})()}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-action="smsq"><span class="ic">📩</span><span class="grow"><span style="display:block">رسائل البنك</span><span class="t2">${((S.settings.sms||{}).q||[]).length?S.settings.sms.q.length+' بانتظار المراجعة':'اقرأ عملياتك من رسائل البنك بطلبك'}</span></span><span class="t2">›</span></button>
     <button class="set-row" data-action="ctrl"><span class="ic">🛡️</span><span class="grow"><span style="display:block">غرفة التحكم</span><span class="t2">الاستعلام والبطاقات والأمن وسجل الوصول</span></span><span class="t2">›</span></button>
     <button class="set-row" data-action="coclaims"><span class="ic">💼</span><span class="grow"><span style="display:block">نفقات الشركة وتعويضها</span><span class="t2">${coAccs().length?'المستحق لك: '+esc(coF(coClaims().owed)):'لم يُعلَّم حساب للشركة بعد'}</span></span><span class="t2">›</span></button>
@@ -3968,6 +4053,7 @@ window.__mznApi={
   setCourses:a=>{S.settings.courses=a;saveSettings()},
   finReport:n=>buildReport(curPeriod(),n),
   finReportAt:off=>buildReport(shiftMonth(curPeriod(),off||0),1),
+  recon:off=>({ev:reconEval(off),sections:reconSections(off)}),
   monthMoney:off=>{const k=shiftMonth(curPeriod(),off||0),L=txIn(k),inc=sum(L.filter(t=>t.type==='income')),exp=sum(L.filter(t=>t.type==='expense')),byU={};
     usual(L).filter(t=>t.type==='expense').forEach(t=>byU[t.cat]=(byU[t.cat]||0)+(+t.amount||0));
     const over=expenseCats().map(c=>[c.name,byU[c.id]||0,effBudget(c,k)]).filter(x=>x[2]>0&&x[1]>x[2]).sort((a,b)=>(b[1]-b[2])-(a[1]-a[2]));
@@ -4939,6 +5025,7 @@ document.addEventListener('click',e=>{
     else if(act==='totalb'){totalSheet()}
     else if(act==='gobudget'){S.tab='budget';render()}
     else if(act==='coclaims'){coSheet()}
+    else if(act==='monthrc'){['rep','chl'].forEach(i=>{const e=document.getElementById(i);if(e&&!e.hidden)e.hidden=true});document.body.style.overflow='';monthRecon()}
     else if(act==='smsq'){smsSheet()}
     else if(act==='ctrl'){ctrlOpen()}
     else if(act==='import'){S.noLockUntil=Date.now()+120000;$('#fileIn').click()}
