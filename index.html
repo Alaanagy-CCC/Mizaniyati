@@ -3049,7 +3049,7 @@ function viewHome(){
   const ex=S.settings.categories.filter(c=>c.kind==='expense'), ic=S.settings.categories.filter(c=>c.kind==='income');
   const overN=S.period===curPeriod()?expenseCats().filter(c=>{const b=effBudget(c,S.period);return b>0&&(byU[c.id]||0)>b}).length:0;
   const warn=overN?`<button class="warnbar" data-action="gobudget">⚠️ ${overN===1?'بند واحد تجاوز':overN+' بنود تجاوزت'} الميزانية هذا الشهر، اضغط للتفاصيل</button>`:'';
-  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+rcBanner()+(window.__oblStrip?window.__oblStrip():'')+smsStrip()+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
+  return backupBanner()+warn+(window.__salahStrip?window.__salahStrip():'')+(window.__chlStrip?window.__chlStrip():'')+(window.__mrepStrip?window.__mrepStrip():'')+rcBanner()+opexBanner()+(window.__oblStrip?window.__oblStrip():'')+smsStrip()+coStrip()+`<div class="strip"><button data-action="showtype" data-v="expense"><div class="l">المصروف ›</div><div class="v">${money(exp)}</div></button><button data-action="showtype" data-v="income"><div class="l">الدخل ›</div><div class="v">${money(inc,'pos')}</div></button><div><div class="l">الصافي</div><div class="v">${money(inc-exp,inc-exp<0?'neg':'')}</div></div></div>
   <h2><button data-action="showtype" data-v="expense" style="font:inherit;color:inherit">المصروف ›</button> <span class="tot">${money(exp)}</span></h2>
   <div class="tiles">${ex.map(c=>tile(c,byCat[c.id]||0,+c.budget||0,byU[c.id]||0)).join('')}<button class="tile add" data-action="newcat" data-kind="expense">＋ بند جديد</button></div>
   <h2><button data-action="showtype" data-v="income" style="font:inherit;color:inherit">الدخل ›</button> <span class="tot">${money(inc,'pos')}</span></h2>
@@ -3523,7 +3523,7 @@ function budgetMain(){
       <div class="gauge" role="img" aria-label="${esc(cp)}"><div class="fill" style="width:${Math.min(sp,1)*100}%"></div>${tp>0&&tp<1?`<div class="mark" style="inset-inline-start:${tp*100}%"></div>`:''}</div>
       <div class="cap">${esc(cp)}${!over&&daysLeft?` · يمكنك صرف ${fmt(left/daysLeft)} يومياً`:''}</div><div class="pair"><div>الميزانية${+S.settings.totalBudget?' الإجمالية':''}<b>${money(budget)}</b></div><div>المصروف<b>${money(exp)}</b></div></div></section>`;
   }else hero=`<section class="hero"><div class="lbl">لم تحدد ميزانية بعد</div><div class="cap" style="margin-top:8px">اضغط "اقترح الميزانيات" ليحسبها التطبيق من صرفك، أو اضغط على أي بند وحدّد له مبلغاً.</div></section>`;
-  const actions=`<div class="row2" style="margin-top:12px"><button class="btn ghost slim" style="margin:0" data-action="suggest">✨ اقترح الميزانيات</button><button class="btn ghost slim" style="margin:0" data-action="totalb">الميزانية الإجمالية</button></div><button class="btn danger slim" style="margin-top:8px;padding:9px" data-action="resetb">إعادة ضبط الميزانيات</button>`;
+  const actions=`<div class="row2" style="margin-top:12px"><button class="btn ghost slim" style="margin:0" data-action="suggest">✨ اقترح الميزانيات</button><button class="btn ghost slim" style="margin:0" data-action="totalb">الميزانية الإجمالية</button></div><button class="btn ghost slim" style="margin-top:8px;padding:9px" data-action="opex">🏠 OPEX البيوت: تقرير وميزانية وانحراف لكل بيت</button><button class="btn danger slim" style="margin-top:8px;padding:9px" data-action="resetb">إعادة ضبط الميزانيات</button>`;
   const rows=cats.map(c=>({c,b:effBudget(c,k),spent:by[c.id]||0})).sort((a,b)=>(b.b>0)-(a.b>0)||(b.b?b.spent/b.b:0)-(a.b?a.spent/a.b:0)||b.spent-a.spent);
   const up=k===curPeriod()?upcomingIn(k):0;
   const exNote=exOut>0?`<p class="note">لا يشمل المصروف أعلاه <b class="num">${fmt(exOut)}</b> مصروفات استثنائية أو غير استهلاكية.</p>`:'';
@@ -3868,6 +3868,110 @@ function monthRecon(){
   draw();
 }
 const addDaysS=(k,n)=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+/* ---------- OPEX البيوت: مراكز تكلفة، تقرير شهري، ميزانية مقترحة، انحراف ----------
+   كل بند يُربط بمركز: بيت بعينه، أو «بالتسوية» (يُقسم بالتساوي على البيوت)، أو «حسب العملية» (يُحدَّد البيت في كل عملية)، أو «خارج OPEX».
+   لا يُوزَّع شيء آلياً: ما لم يُحدَّد بيته يبقى «غير موزَّع» ظاهراً في التقرير، والاقتراح من الوصف أو الحساب لا يُعتمد إلا بموافقتك. */
+const HOUSES=()=>S.settings.houses||[{id:'mng',n:'المنقف',i:'🏡'},{id:'mhb',n:'المهبولة',i:'🏠'}];
+const CCN={split:'⚖️ بالتسوية',pick:'✋ حسب العملية',out:'— خارج OPEX'};
+const hName=id=>{const h=HOUSES().find(x=>x.id===id);return h?h.i+' '+h.n:id==='split'?'⚖️ بالتسوية':'غير محدد'};
+function ccGuess(c){const n=(c.name||'').toLowerCase();
+  if(/mang|منقف|منجف/.test(n))return'mng';if(/mah|مهبول/.test(n))return'mhb';
+  if(/taxi|تاكسي|\bgas\b|بنزين|وقود|المصروف|education|تعليم|مدرس|وظائف العيال/.test(n))return'split';
+  if(/travel|سفر|تذاكر|shopping|outdoor|groceries|بقالة|food|مطعم|cars|سيار|صيانة|home|بيت|منزل|dry clean|مغسلة|إجراءات|hotel|فندق/.test(n))return'pick';
+  return'out'}
+function noteHouse(t){const s=(t.note||'')+' '+((accById(t.acc)||{}).name||'');
+  if(/منقف|منجف|mangaf/i.test(s))return'mng';if(/مهبول|mahboula/i.test(s))return'mhb';return''}
+const ccReady=()=>!!S.settings.ccSet;
+function ccAlloc(t){if(t.type!=='expense')return null;const m=catById(t.cat).cc||'out',H=HOUSES(),v=+t.amount||0;if(m==='out')return null;
+  const split=()=>{const o={};H.forEach(h=>o[h.id]=v/H.length);return o};
+  if(m==='split')return{a:split(),how:'split'};
+  if(m==='pick'){if(t.cc==='split')return{a:split(),how:'split'};if(H.some(h=>h.id===t.cc))return{a:{[t.cc]:v},how:'pick'};return{a:{'?':v},how:'none'}}
+  return H.some(h=>h.id===m)?{a:{[m]:v},how:'cat'}:null}
+function opexOf(k){const H=HOUSES(),R={},U=[];H.forEach(h=>R[h.id]={tot:0,cats:{},tx:{}});
+  usual(txIn(k)).forEach(t=>{const x=ccAlloc(t);if(!x)return;if(x.a['?']!=null){U.push(t);return}
+    Object.entries(x.a).forEach(([h,v])=>{const r=R[h];if(!r)return;r.tot+=v;r.cats[t.cat]=(r.cats[t.cat]||0)+v;(r.tx[t.cat]=r.tx[t.cat]||[]).push({t,v,how:x.how})})});
+  return{R,U,uTot:sum(U)}}
+const opexRnd=v=>v<=0?0:v<20?Math.ceil(v):Math.ceil(v/5)*5;
+function opexPast(k,n){const o=[];for(let i=1;i<=n;i++){const m=shiftMonth(k,-i);if(txIn(m).length)o.push(m)}return o}
+function opexSuggest(k){const ps_=opexPast(k,6),N=ps_.length;if(N<2)return null;const D_=ps_.map(opexOf),out={};
+  HOUSES().forEach(h=>{const ids=new Set();D_.forEach(d=>Object.keys(d.R[h.id].cats).forEach(i=>ids.add(i)));
+    out[h.id]=[...ids].map(id=>{const vals=D_.map(d=>d.R[h.id].cats[id]||0),act=vals.filter(v=>v>0).length,sea=act/N<0.5;
+      return{id,s:opexRnd(sea?vals.reduce((a,b)=>a+b,0)/N:median(vals)),vals,act,how:sea?'متوسط الشهور (بند متقطع)':'وسيط الشهور'}}).filter(x=>x.s>0).sort((a,b)=>b.s-a.s)});
+  return{out,N,ps:ps_,U:D_.reduce((a,d)=>a+d.U.length,0)}}
+const opexBudFor=k=>{const L=(S.settings.opexBuds||[]).filter(b=>b.from<=k).sort((a,b)=>a.from<b.from?1:-1);return L[0]||null};
+function opexBanner(){if(!ccReady())return'';const k=curPeriod(),into=Math.round((Date.parse(todayStr())-Date.parse(range(k).from))/864e5),p=shiftMonth(k,-1);
+  if(into>7||S.settings.opexSeen===p||!txIn(p).length)return'';
+  return `<button class="warnbar info" data-action="opex" data-v="${p}">🏠 تقرير OPEX البيوت لشهر ${esc(periodLabel(p))} جاهز: الصرف والانحراف لكل بيت ›</button>`}
+function opexSheet(k){if(!ccReady()){ccMapSheet(k);return}
+  k=k||S.opexK||shiftMonth(curPeriod(),-1);S.opexK=k;if(k<curPeriod()&&S.settings.opexSeen!==k&&k===shiftMonth(curPeriod(),-1)){S.settings.opexSeen=k;saveSettings()}
+  const O=opexOf(k),pv=opexOf(shiftMonth(k,-1)),past=opexPast(k,3).map(opexOf),B=opexBudFor(k),live=k===curPeriod();
+  const pct=(a,b)=>b?Math.round((a-b)/b*100):null,sg=n=>(n>0?'+':n<0?'−':'')+fmt(Math.abs(n));
+  const howB={split:'بالتسوية',pick:'',cat:''};
+  const card=h=>{const r=O.R[h.id],bv=B&&B.v[h.id]||{},bt=Object.values(bv).reduce((a,b)=>a+(+b||0),0),p0=pv.R[h.id].tot,md=past.length?median(past.map(d=>d.R[h.id].tot)):0;
+    const ids=[...new Set([...Object.keys(r.cats),...Object.keys(bv).filter(i=>+bv[i]>0)])].sort((a,b)=>(r.cats[b]||0)-(r.cats[a]||0));
+    const vr=bt?r.tot-bt:null,vp=bt?pct(r.tot,bt):null;
+    return `<div class="chart" style="padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:1.05rem">${h.i} ${esc(h.n)}</b><span class="grow"></span><b class="num" style="font-size:1.15rem">${fmt(r.tot)}</b></div>
+      <div class="t2" style="white-space:normal;margin-top:4px">الشهر السابق ${fmt(p0)}${p0?` (${pct(r.tot,p0)>0?'+':''}${pct(r.tot,p0)}٪)`:''}${past.length>1?` · وسيط آخر ${past.length} شهور ${fmt(md)}`:''}</div>
+      ${bt?`<div class="t2" style="white-space:normal;margin-top:2px">الميزانية ${fmt(bt)} · الانحراف <b class="num ${vr>0?'neg':'pos'}">${sg(vr)}</b> (${vp>0?'+':''}${vp}٪)${live?` · مضى ${Math.round(timePct(k)*100)}٪ من الشهر`:''}</div>`:`<div class="t2" style="margin-top:2px">لا ميزانية معتمدة لهذه الفترة</div>`}
+      <div class="list" style="margin-top:8px">${ids.map(id=>{const c=catById(id),a=r.cats[id]||0,b=+bv[id]||0,d=a-b,tx=(r.tx[id]||[]).slice().sort((x,y)=>y.v-x.v);
+        return `<div class="ox-item"><button class="set-row ox-exp" style="width:100%;text-align:start;gap:8px"><span class="ic">${esc(c.icon)}</span><span class="grow" style="min-width:0"><span class="t1">${esc(c.name)}${c.cc==='split'?' <small class="t2">· نصيبه بالتسوية</small>':''}</span><span class="t2">${b?`الميزانية ${fmt(b)} · <span class="${d>0?'neg':'pos'}">${sg(d)}</span>`:'خارج الميزانية'} · ${tx.length} ${tx.length>2&&tx.length<11?'عمليات':'عملية'}</span></span><b class="num">${fmt(a)}</b></button>
+          <div class="ox-det" hidden style="padding:0 6px 8px">${tx.slice(0,8).map(x=>`<div class="mrow"><span class="ml num">${esc(x.t.date.slice(5))}</span><span class="grow" style="font-size:.85rem">${esc(x.t.note||'—')}${x.how==='split'?' <small class="t2">(حصة من '+fmt(+x.t.amount)+')</small>':''}</span><b class="num">${fmt(x.v)}</b></div>`).join('')}${tx.length>8?`<div class="t2">و${tx.length-8} أخرى</div>`:''}</div></div>`}).join('')||'<div class="t2" style="padding:6px">لا مصروفات مسجلة</div>'}</div></div>`};
+  const tot=HOUSES().reduce((a,h)=>a+O.R[h.id].tot,0);
+  openSheet(`<h3>🏠 OPEX البيوت</h3>
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><button class="btn ghost slim" style="margin:0;width:auto;padding:6px 14px" data-ox="prev">›</button><b class="grow" style="text-align:center">${esc(periodLabel(k))}</b><button class="btn ghost slim" style="margin:0;width:auto;padding:6px 14px" data-ox="next" ${live?'disabled':''}>‹</button></div>
+    <p class="note" style="margin:0 0 10px">مصروف البيتين ${fmt(tot)}. البنود المشتركة بالتسوية تُقسم بالتساوي، ولا يدخل هنا ما جعلته خارج OPEX، ولا المصروفات الاستثنائية ونصيب الشركة.</p>
+    ${O.U.length?`<button class="warnbar" data-ox="assign">✋ ${O.U.length} ${O.U.length>2&&O.U.length<11?'عمليات':'عملية'} بمبلغ ${fmt(O.uTot)} لم يُحدَّد بيتها، فلم تدخل في أيّ بيت: وزّعها ›</button>`:''}
+    ${HOUSES().map(card).join('')}
+    <div class="actions" style="margin-top:6px"><button class="btn" data-ox="sug">✨ اقترح ميزانية البيوت لـ${esc(periodShort(curPeriod()))}</button>
+      <div class="row2"><button class="btn ghost slim" style="margin:0" data-ox="map">⚙️ توزيع البنود</button><button class="btn ghost slim" style="margin:0" data-ox="csv">📤 تصدير CSV</button></div></div>`,
+  b=>{b.querySelectorAll('.ox-exp').forEach(x=>x.addEventListener('click',()=>{const d=x.parentNode.querySelector('.ox-det');d.hidden=!d.hidden}));
+    b.querySelectorAll('[data-ox]').forEach(x=>x.addEventListener('click',()=>{const a=x.dataset.ox;
+      if(a==='prev')opexSheet(shiftMonth(k,-1));else if(a==='next'&&!live)opexSheet(shiftMonth(k,1));
+      else if(a==='assign')ccAssignSheet(k);else if(a==='map')ccMapSheet(k);else if(a==='sug')opexSugSheet();else if(a==='csv')opexCsv(k)}))})}
+function ccMapSheet(k){const cats=expenseCats(),opt=c=>{const v=c.cc||ccGuess(c);return [...HOUSES().map(h=>[h.id,h.i+' '+h.n]),['split',CCN.split],['pick',CCN.pick],['out',CCN.out]].map(([id,n])=>`<option value="${id}" ${v===id?'selected':''}>${esc(n)}</option>`).join('')};
+  openSheet(`<h3>⚙️ توزيع البنود على البيوت</h3>
+    <p class="note" style="margin:0 0 10px">${ccReady()?'':'اقترحتُ توزيعاً من أسماء البنود، فراجعه واعتمده. '}<b>بالتسوية</b>: يُقسم كل مبلغ بالتساوي على البيتين، كالتاكسي والبنزين والمصروف والتعليم. <b>حسب العملية</b>: تختار البيت عند تسجيل كل عملية، كالسفر والبقالة والمطاعم والمشتريات إن كان البند واحداً للبيتين.</p>
+    <div class="list">${cats.map(c=>`<div class="set-row"><span class="ic">${esc(c.icon)}</span><span class="grow t1" style="min-width:0">${esc(c.name)}</span><select data-ccm="${esc(c.id)}" style="max-width:48%">${opt(c)}</select></div>`).join('')}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn" id="ccGo">اعتماد التوزيع</button><button class="btn ghost" data-action="close">إلغاء</button></div>`,
+  b=>b.querySelector('#ccGo').addEventListener('click',()=>{b.querySelectorAll('[data-ccm]').forEach(s=>{const c=S.settings.categories.find(x=>x.id===s.dataset.ccm);if(c)c.cc=s.value});
+    if(!S.settings.houses)S.settings.houses=HOUSES();S.settings.ccSet=true;saveSettings();toast('اعتُمد توزيع البنود');opexSheet(k)}))}
+function ccSetTx(t,v){const m=t.date.slice(0,7),L=txOf(m),x=L.find(y=>y.id===t.id);if(!x)return;if(v)x.cc=v;else delete x.cc;saveMonth(m)}
+function ccAssignSheet(k){const U=opexOf(k).U.slice().sort((a,b)=>a.date<b.date?-1:1),H=HOUSES();
+  if(!U.length){opexSheet(k);return}
+  const sgN=U.filter(noteHouse).length,G={};U.forEach(t=>{(G[t.cat]=G[t.cat]||[]).push(t)});
+  const gk=Object.keys(G).sort((a,b)=>sum(G[b])-sum(G[a]));
+  openSheet(`<h3>✋ توزيع العمليات على البيوت</h3>
+    <p class="note" style="margin:0 0 10px">${esc(periodLabel(k))} · ${U.length} ${U.length>2&&U.length<11?'عمليات':'عملية'} في بنود «حسب العملية». النجمة ★ اقتراح من الوصف أو اسم الحساب، ولا يُعتمد إلا بضغطك.</p>
+    ${sgN?`<button class="btn ghost slim" id="ccAll" style="margin:0 0 10px">اعتماد المقترحات (${sgN})</button>`:''}
+    ${gk.length>1||U.length>3?`<div class="chart" style="padding:10px 12px;margin-bottom:12px"><div class="t1" style="margin-bottom:4px">تحديد سريع لكل بند في هذا الشهر</div><div class="t2" style="white-space:normal;margin-bottom:6px">مفيد للسفر مثلاً إذا كانت رحلة الشهر كلها لبيت واحد. أو حدّد كل عملية بمفردها في الأسفل.</div>${gk.map(id=>{const c=catById(id);return `<div class="set-row" style="display:block;padding:6px 0"><div class="t2">${esc(c.icon)} ${esc(c.name)} · ${G[id].length} · ${fmt(sum(G[id]))}</div><div class="chips" style="margin-top:4px">${H.map(h=>`<button class="chip" data-ccg="${esc(id)}" data-v="${h.id}">${h.i} ${esc(h.n)}</button>`).join('')}<button class="chip" data-ccg="${esc(id)}" data-v="split">⚖️ بالتسوية</button></div></div>`}).join('')}</div>`:''}
+    <div class="list">${U.map(t=>{const g=noteHouse(t),c=catById(t.cat);return `<div class="set-row" style="display:block"><div style="display:flex;gap:8px"><span class="grow t1" style="min-width:0">${esc(c.icon)} ${esc(t.note||c.name)}</span><b class="num">${fmt(+t.amount)}</b></div><div class="t2">${esc(t.date)} · ${esc(c.name)} · ${esc((accById(t.acc)||{}).name||'')}</div>
+      <div class="chips" style="margin-top:6px">${H.map(h=>`<button class="chip" data-cct="${esc(t.id)}" data-v="${h.id}">${g===h.id?'★ ':''}${h.i} ${esc(h.n)}</button>`).join('')}<button class="chip" data-cct="${esc(t.id)}" data-v="split">⚖️ بالتسوية</button></div></div>`}).join('')}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn ghost" id="ccBack">رجوع للتقرير</button></div>`,
+  b=>{b.querySelectorAll('[data-cct]').forEach(x=>x.addEventListener('click',()=>{const t=U.find(y=>y.id===x.dataset.cct);if(t){ccSetTx(t,x.dataset.v);const row=x.closest('.set-row');row.style.opacity='.45';row.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c===x))}}));
+    b.querySelectorAll('[data-ccg]').forEach(x=>x.addEventListener('click',()=>{const L=G[x.dataset.ccg]||[];L.forEach(t=>ccSetTx(t,x.dataset.v));toast(`وُزّعت ${L.length} ${L.length>2&&L.length<11?'عمليات':'عملية'} على ${hName(x.dataset.v)}`);ccAssignSheet(k)}));
+    const al=b.querySelector('#ccAll');if(al)al.addEventListener('click',()=>{let n=0;U.forEach(t=>{const g=noteHouse(t);if(g){ccSetTx(t,g);n++}});toast('وُزّعت '+n+' من المقترحات');ccAssignSheet(k)});
+    b.querySelector('#ccBack').addEventListener('click',()=>{render();opexSheet(k)})})}
+function opexSugSheet(){const k=curPeriod(),r=opexSuggest(k);if(!r){toast('لا تتوفر بيانات كافية من الشهور السابقة');return}
+  const cur=opexBudFor(k);
+  openSheet(`<h3>✨ ميزانية البيوت المقترحة</h3>
+    <p class="note" style="margin:0 0 10px">لفترة ${esc(periodLabel(k))}، من ${r.N} شهور سابقة بحسب توزيعك: الوسيط للبنود المنتظمة، والمتوسط للبنود المتقطعة. عدّل أي رقم ثم اعتمد.${r.U?` <b>تنبيه:</b> في الشهور السابقة ${r.U} عملية غير موزَّعة لم تدخل في الحساب، فوزّعها أولاً ليكون الاقتراح أدق.`:''}</p>
+    ${HOUSES().map(h=>{const L=r.out[h.id];return `<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div style="display:flex"><b class="grow">${h.i} ${esc(h.n)}</b><b class="num" data-sgt="${h.id}"></b></div>
+      <div class="list" style="margin-top:6px">${L.map(x=>{const c=catById(x.id),old=cur&&cur.v[h.id]&&cur.v[h.id][x.id];return `<div class="set-row" style="gap:8px"><span class="ic">${esc(c.icon)}</span><span class="grow" style="min-width:0"><span class="t1">${esc(c.name)}</span><span class="t2" style="white-space:normal">${x.how} · ${r.ps.slice().reverse().map((m,i)=>periodShort(m)+' '+fmt(x.vals[r.N-1-i])).join(' · ')}${old!=null?' · الحالية '+fmt(old):''}</span></span><input class="ob-v num" data-h="${h.id}" data-id="${esc(x.id)}" inputmode="decimal" value="${x.s}" style="width:84px;direction:ltr;text-align:right"></div>`}).join('')||'<div class="t2">لا بيانات</div>'}</div></div>`}).join('')}
+    <div class="actions"><button class="btn" id="obGo">اعتماد ميزانية البيوت</button><button class="btn ghost" id="obBack">رجوع</button></div>`,
+  b=>{const up=()=>HOUSES().forEach(h=>{let t=0;b.querySelectorAll(`.ob-v[data-h="${h.id}"]`).forEach(i=>{const v=parseAmount(i.value);if(v>0)t+=v});const el=b.querySelector(`[data-sgt="${h.id}"]`);if(el)el.textContent=fmt(t)});
+    b.querySelectorAll('.ob-v').forEach(i=>i.addEventListener('input',up));up();
+    b.querySelector('#obBack').addEventListener('click',()=>opexSheet());
+    b.querySelector('#obGo').addEventListener('click',()=>{const v={};HOUSES().forEach(h=>v[h.id]={});b.querySelectorAll('.ob-v').forEach(i=>{const x=Math.abs(parseAmount(i.value));if(x>0)v[i.dataset.h][i.dataset.id]=x});
+      S.settings.opexBuds=(S.settings.opexBuds||[]).filter(z=>z.from!==k).concat({from:k,date:todayStr(),v});saveSettings();toast('اعتُمدت ميزانية البيوت من '+periodLabel(k));opexSheet(k)})})}
+function opexCsv(k){const A=[],q=v=>{v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v},H=HOUSES(),HM={split:'بالتسوية',pick:'حسب العملية',cat:'بند البيت',none:'غير موزّع'};
+  const ps_=[k,...opexPast(k,5)].reverse();
+  ps_.forEach(m=>{const B=opexBudFor(m);usual(txIn(m)).forEach(t=>{const x=ccAlloc(t);if(!x)return;const c=catById(t.cat);
+    Object.entries(x.a).forEach(([h,v])=>A.push([m,periodLabel(m),t.date,h==='?'?'غير موزّع':(H.find(z=>z.id===h)||{}).n,c.name,HM[x.how],+v.toFixed(3),+(+t.amount).toFixed(3),B&&B.v[h]&&B.v[h][t.cat]!=null?B.v[h][t.cat]:'',(accById(t.acc)||{}).name||'',t.note||'']))})});
+  const S_=[];ps_.forEach(m=>{const O=opexOf(m),B=opexBudFor(m);H.forEach(h=>{const bt=B&&B.v[h.id]?Object.values(B.v[h.id]).reduce((a,b)=>a+(+b||0),0):'';S_.push([m,periodLabel(m),h.n,+O.R[h.id].tot.toFixed(3),bt,bt!==''?+(O.R[h.id].tot-bt).toFixed(3):''])});S_.push([m,periodLabel(m),'غير موزّع',+O.uTot.toFixed(3),'',''])});
+  const csv='﻿'+[['الفترة','الشهر','التاريخ','البيت','البند','طريقة التحميل','المبلغ المحمّل','مبلغ العملية','ميزانية البند للبيت','الحساب','الوصف']].concat(A).map(r=>r.map(q).join(',')).join('\r\n')
+    +'\r\n\r\n'+[['الفترة','الشهر','البيت','الإجمالي','الميزانية','الانحراف']].concat(S_).map(r=>r.map(q).join(',')).join('\r\n');
+  saveFile(`rushd-opex-${ps_[0]}-${k}.csv`,csv,'text/csv');toast(`صُدّرت ${A.length} سطراً لـ${ps_.length} شهور`)}
 function rcBanner(){if(!S.settings.accounts.length)return'';const k=curPeriod(),r=range(k),left=Math.round((Date.parse(r.to)-Date.parse(todayStr()))/864e5),into=Math.round((Date.parse(todayStr())-Date.parse(r.from))/864e5);
   const per=into<=5?shiftMonth(k,-1):left<=3?k:null;if(!per||(S.settings.recons||[]).some(z=>z.per===per))return'';
   return `<button class="warnbar info" data-action="monthrc">⚖️ حان ضبط الحسابات لشهر ${esc(periodLabel(per))}: طابق أرصدتك مع البنك ›</button>`}
@@ -4292,6 +4396,7 @@ function txSheet(existing,preset){
       <label class="field"><span>التاريخ</span><input type="date" id="dateIn" value="${esc(t.date)}"></label>
       ${existing?(t.rid?'<p class="note" style="margin:-4px 0 12px">هذه العملية من عملية متكررة، وتعديلها لا يغيّر القادم.</p>':''):`<label class="field"><span>التكرار</span><select id="repIn"><option value="">لا يتكرر</option>${Object.keys(FREQ).map(f=>`<option value="${f}"${t.rep===f?' selected':''}>${FREQ[f]}</option>`).join('')}</select></label>`}
       ${t.type==='expense'&&isFoodCat(catById(t.cat))?`<div class="field"><span>الوجبة</span><div class="chips">${MEALS.map(([k,n])=>`<button class="chip" data-k="meal" data-v="${k}" aria-pressed="${t.meal===k}">${k==='d'?'⭐ ':''}${n}</button>`).join('')}<button class="chip" data-k="meal" data-v="" aria-pressed="${!t.meal}">غير محددة</button></div></div>`:''}
+      ${t.type==='expense'&&catById(t.cat).cc==='pick'?`<div class="field"><span>البيت</span><div class="chips">${HOUSES().map(h=>`<button class="chip" data-k="cc" data-v="${h.id}" aria-pressed="${t.cc===h.id}">${h.i} ${esc(h.n)}</button>`).join('')}<button class="chip" data-k="cc" data-v="split" aria-pressed="${t.cc==='split'}">⚖️ بالتسوية</button></div></div>`:''}
       ${t.type==='expense'&&+catById(t.cat).coPct>0&&!accById(t.acc).co?`<label class="set-row" style="padding:0 2px 8px;border:0"><input type="checkbox" id="noCoIn" ${t.noCo?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">ليست للشركة</span><span class="t2" style="white-space:normal">نصيب الشركة من هذا البند ${+catById(t.cat).coPct}٪، ويُعوَّض لك ما لم تستثنها</span></span></label>`:''}
       ${preset.rb?`<p class="note" style="margin:-4px 2px 12px">💼 تعويض ${preset.rb.items.length} ${preset.rb.items.length>2&&preset.rb.items.length<11?'عمليات':'عملية'} من نفقات الشركة. بعد الحفظ نفّذ التحويل نفسه في البنك.</p>`:''}
       ${t.type==='expense'?`<label class="set-row" style="padding:0 2px 12px;border:0"><input type="checkbox" id="exIn" ${t.ex?'checked':''} style="width:20px;height:20px;flex:none"><span class="grow"><span class="t1">مصروف استثنائي</span><span class="t2" style="white-space:normal">لا يدخل في حساب الميزانيات والمصروف المعتاد</span></span></label>`:''}
@@ -4319,6 +4424,7 @@ function txSheet(existing,preset){
         if(t.type==='expense'&&t.noCo) rec.noCo=true;
         if(t.type==='transfer'){if(existing&&existing.rb)rec.rb=existing.rb;else if(!existing&&preset.rb)rec.rb=preset.rb}
         if(t.type==='expense'&&t.meal&&isFoodCat(catById(rec.cat))) rec.meal=t.meal;
+        if(t.type==='expense'&&t.cc&&catById(rec.cat).cc==='pick') rec.cc=t.cc;
         if(t.type==='transfer'&&tc!==fc){const r=Math.abs(parseAmount(t.recv));rec.toamt=r?r:+(a*rateOf(fc)/rateOf(tc)).toFixed(3);
           const ur=b.querySelector('#updRate');if(ur&&ur.checked&&rec.toamt>0){S.settings.rates=S.settings.rates||{};if(fc===baseCur())S.settings.rates[tc]=+(a/rec.toamt).toFixed(6);else S.settings.rates[fc]=+(rec.toamt/a).toFixed(6);saveSettings()}}
         if(!existing&&t.rep){
@@ -5039,6 +5145,7 @@ document.addEventListener('click',e=>{
     else if(act==='rep'){S.rep=a.dataset.v;if(S.rep==='year')S.repYear=+S.period.slice(0,4);window.scrollTo(0,0);render()}
     else if(act==='yr'){S.repYear=(S.repYear||+S.period.slice(0,4))+(+a.dataset.d);render()}
     else if(act==='suggest'){suggestSheet()}
+    else if(act==='opex'){opexSheet(a.dataset.v)}
     else if(act==='resetb'){resetSheet()}
     else if(act==='bview'){S.bview=a.dataset.v;window.scrollTo(0,0);render()}
     else if(act==='newgoal'){goalSheet(null,a.dataset.kind)}
