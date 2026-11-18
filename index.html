@@ -4607,6 +4607,34 @@ function coClaims(){
   const open=items.filter(x=>x.left>0.0005),reimb=all.filter(t=>t.type==='transfer'&&t.rb).sort((a,b)=>a.date<b.date?1:-1);
   return{items,open,owed:open.reduce((s,x)=>s+x.left,0),reimb,paid:reimb.reduce((s,t)=>s+(+t.amount||0),0)};
 }
+/* إجمالي نفقات الشركة لمدة: ما دُفع من حساب الشركة مباشرة + نصيب الشركة مما دُفع من مالك الشخصي (معوَّضاً كان أو مستحقاً) */
+function coFY(){const t=todayStr(),y=+t.slice(0,4);return t.slice(5)>='06-01'?y+'-06-01':(y-1)+'-06-01'}
+function coTotals(from,to){const ca=new Set(coAccs().map(a=>a.id)),C=coClaims(),cov={};C.items.forEach(x=>cov[x.t.id]=x.cov);
+  const L=[];allTx().forEach(t=>{if(t.type!=='expense'||t.date<from||t.date>to)return;
+    if(ca.has(t.acc))L.push({t,v:+t.amount||0,src:'co',p:100});
+    else if(!t.noCo&&(+catById(t.cat).coPct||0)>0){const p=Math.min(100,+catById(t.cat).coPct),v=(+t.amount||0)*p/100;L.push({t,v,src:'me',p,cov:Math.min(v,cov[t.id]||0)})}});
+  L.sort((a,b)=>a.t.date<b.t.date?-1:1);const cats={},mons={};L.forEach(x=>{cats[x.t.cat]=(cats[x.t.cat]||0)+x.v;const m=x.t.date.slice(0,7);mons[m]=(mons[m]||0)+x.v});
+  const co=L.filter(x=>x.src==='co').reduce((a,x)=>a+x.v,0),me=L.filter(x=>x.src==='me').reduce((a,x)=>a+x.v,0),rb=L.reduce((a,x)=>a+(x.cov||0),0);
+  return{L,cats,mons,co,me,rb,owed:Math.max(0,me-rb),tot:co+me}}
+function coTotHtml(){const t=todayStr(),R_={m:[range(curPeriod()).from,'هذا الشهر'],fy:[coFY(),'السنة المالية'],all:['0000-00-00','كل المسجّل']},k=R_[S.coRng]?S.coRng:'fy',[from,lbl]=R_[k],T=coTotals(from,t);
+  const top=Object.entries(T.cats).sort((a,b)=>b[1]-a[1]),ms=Object.keys(T.mons).sort();
+  return `<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="t1" style="margin-bottom:6px">📊 إجمالي نفقات الشركة حتى اليوم</div>
+    <div class="chips" style="margin-bottom:8px">${Object.entries(R_).map(([id,[f,n]])=>`<button class="chip" data-corng="${id}" aria-pressed="${id===k}">${n}</button>`).join('')}</div>
+    <div class="t2" style="margin-bottom:6px">${from!=='0000-00-00'?'من '+esc(from)+' ':''}إلى ${esc(t)} · ${T.L.length} ${T.L.length>2&&T.L.length<11?'عمليات':'عملية'}</div>
+    <div class="mrow"><span class="grow"><b>الإجمالي</b></span><b class="num" style="font-size:1.1rem">${coF(T.tot)}</b></div>
+    <div class="mrow"><span class="grow">دُفع من حساب الشركة مباشرة</span><b class="num">${coF(T.co)}</b></div>
+    <div class="mrow"><span class="grow">نصيب الشركة مما دفعتَه من مالك الشخصي</span><b class="num">${coF(T.me)}</b></div>
+    <div class="mrow"><span class="grow t2">· عُوِّض منه</span><span class="num t2">${coF(T.rb)}</span></div>
+    <div class="mrow"><span class="grow t2">· لم يُعوَّض بعد</span><span class="num t2">${coF(T.owed)}</span></div>
+    ${from<(coCfg().from||'')&&T.owed>0.0005?`<p class="note" style="margin:2px 2px 4px">«المستحق لك» في البطاقة التالية يُحسب منذ ${esc(coCfg().from)} فقط (تاريخ البداية في أسفل الشاشة)، فغيّره إن كان القديم لم يُسوَّ بعد.</p>`:''}
+    ${top.length?`<details style="margin-top:8px"><summary class="t2" style="cursor:pointer">حسب البند (${top.length}) ▾</summary>${top.map(([id,v])=>{const c=catById(id);return `<div class="mrow"><span class="grow">${esc(c.icon||'')} ${esc(c.name)}</span><b class="num">${fmt(v)}</b></div>`}).join('')}</details>`:''}
+    ${ms.length>1?`<details style="margin-top:4px"><summary class="t2" style="cursor:pointer">حسب الشهر (${ms.length}) ▾</summary>${ms.map(m=>`<div class="mrow"><span class="grow">${esc(m)}</span><b class="num">${fmt(T.mons[m])}</b></div>`).join('')}</details>`:''}
+    ${T.L.length?`<button class="btn ghost slim" id="coTotCsv" style="margin-top:10px">📤 تصدير CSV بالتفصيل</button>`:''}
+    <p class="note" style="margin:8px 2px 0">لا يدخل هنا ما لم يُسجَّل في رُشد، ولا ما لم تُضبط نسبته للشركة في البند. والتحويلات بين حساباتك وحساب الشركة ليست مصروفاً.</p></div>`}
+function coTotCsv(){const R_={m:range(curPeriod()).from,fy:coFY(),all:'0000-00-00'},from=R_[S.coRng]||R_.fy,T=coTotals(from,todayStr()),q=v=>{v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=[['التاريخ','البند','الوصف','الحساب','المصدر','مبلغ العملية','نسبة الشركة ٪','نصيب الشركة','عُوِّض','مستحق لك']].concat(T.L.map(x=>[x.t.date,catById(x.t.cat).name,x.t.note||'',(accById(x.t.acc)||{}).name||'',x.src==='co'?'حساب الشركة':'مالي الشخصي',+(+x.t.amount).toFixed(3),x.p,+x.v.toFixed(3),x.src==='me'?+(x.cov||0).toFixed(3):'',x.src==='me'?+Math.max(0,x.v-(x.cov||0)).toFixed(3):'']));
+  rows.push([],['الإجمالي','','','','',' ','',+T.tot.toFixed(3),+T.rb.toFixed(3),+T.owed.toFixed(3)]);
+  saveFile(`rushd-company-expenses-${from!=='0000-00-00'?from:'all'}-${todayStr()}.csv`,'\ufeff'+rows.map(r=>r.map(q).join(',')).join('\r\n'),'text/csv');toast('صُدّرت '+T.L.length+' عملية')}
 function coStrip(){if(!coAccs().length)return'';const c=coClaims();if(c.owed<0.0005)return'';
   return `<button class="slh-strip" data-action="coclaims"><span>💼</span><span class="g">مستحق لك من الشركة</span><span class="t2"><span class="num">${fmt(c.owed)}</span> · ${c.open.length} ${c.open.length>2&&c.open.length<11?'عمليات':'عملية'} ›</span></button>`}
 function coSheet(){
@@ -4617,6 +4645,7 @@ function coSheet(){
     const dd=d=>{const[y,m,dy]=d.split('-');return `${+dy}/${+m}`};
     let h=`<h3>💼 نفقات الشركة من مالك الشخصي</h3>
       <p class="note" style="margin:-4px 0 12px">يحسب التطبيق نصيب الشركة من كل مصروف في بنود لها نسبة للشركة، دفعته من حساب شخصي. ثم يقترح عليك التعويض من حساب الشركة، ولا يسجّل شيئاً إلا بعد موافقتك. ونصيب الشركة لا يدخل في مصروفك المعتاد وميزانياتك وتقاريرك الشخصية.</p>`;
+    h+=coTotHtml();
     if(!ca.length)h+=`<div class="warnbar" style="margin-bottom:12px">علّم حساب الشركة أولاً: افتح الحساب من شاشة الحسابات، وفعّل «حساب الشركة».</div>`;
     h+=`<div class="chart" style="padding:12px 14px;margin-bottom:12px"><div class="mrow"><span class="grow">المستحق لك من الشركة</span><b class="num">${coF(C.owed)}</b></div>
       <div class="mrow"><span class="grow">العمليات غير المعوَّضة</span><b class="num">${C.open.length}</b></div>
@@ -4641,6 +4670,8 @@ function coSheet(){
     if(src)h+=`<div class="actions"><button class="btn ghost" id="coExp">📤 تصدير ${esc(sa.name)} لرُشد للأعمال</button></div>`;
     openSheet(h,b=>{
       const s=b.querySelector('#coSrc');if(s)s.addEventListener('change',()=>{S.coSrc=s.value;draw()});
+      b.querySelectorAll('[data-corng]').forEach(el=>el.addEventListener('click',()=>{S.coRng=el.dataset.corng;draw()}));
+      const tc=b.querySelector('#coTotCsv');if(tc)tc.addEventListener('click',coTotCsv);
       b.querySelectorAll('[data-cosel]').forEach(el=>el.addEventListener('change',()=>{sel[el.dataset.cosel]=el.checked?undefined:false;if(el.checked)delete sel[el.dataset.cosel];draw()}));
       b.querySelectorAll('[data-cono]').forEach(el=>el.addEventListener('click',()=>{const id=el.dataset.cono,t=allTx().find(x=>x.id===id);if(!t)return;
         if(el.dataset.confirm!=='1'){el.dataset.confirm='1';el.textContent='تأكيد؟';return}
