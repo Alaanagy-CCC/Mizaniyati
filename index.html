@@ -905,7 +905,7 @@ const wp=r=>r.wp!=null?+r.wp:(r.h.includes('wird')?T():0);
 const cnt=(r,k)=>(r.cn&&+r.cn[k])||0;
 const socOk=r=>r.soc!=null&&r.soc<=(+D.cfg.soc||60)*60000;
 function score(k){const r=peek(k),hs=habitsFor(k),hasSoc=r.soc!=null;
-  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=dT(k)).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length+(hasSoc&&socOk(r)?1:0)+0,total:6+SN.length+1+DK.length+hs.length+CN.length+(hasSoc?1:0)}}
+  return{done:r.j.length+r.sn.length+(brOk(r)?1:0)+DK.filter(([k])=>dkv(r,k)>=dT(k)).length+r.h.filter(x=>hs.some(h=>h.k===x)).length+(wp(r)>=T()?1:0)+CN.filter(c=>cnt(r,c.k)>0).length,total:6+SN.length+1+DK.length+hs.length+CN.length}}
 /* حصيلة الشهر المالي الحالي لتحدٍّ: كم مرة وقع من أيام الشهر حتى اليوم (أو من الجُمَع) */
 function monthOf(test,fri){const P=perOf(0),end=today()<P.to?today():P.to;let n=0,t=0;for(let k=P.from;k<=end;k=addDays(k,1)){if(fri&&!isFri(k))continue;t++;if(test(peek(k)))n++}return{n,t}}
 function mtag(test,fri,inline){const m=monthOf(test,fri);if(!m.t)return'';const g=G(m.n,m.t,m.t/2),txt=`${m.n} من ${m.t} ${fri?(m.t>2&&m.t<11?'جُمَع':'جمعة'):(m.t>2&&m.t<11?'أيام':'يوماً')} هذا الشهر`;
@@ -1230,6 +1230,103 @@ function wkChart(ks){
     return `<div style="display:flex;align-items:flex-end;gap:8px;margin:8px 0"><span style="width:84px;font-size:.85rem">${n}</span><div style="flex:1;display:flex;gap:6px;align-items:flex-end;height:56px">${vs.map((v,i)=>`<div style="flex:1;text-align:center;font-size:.7rem"><div style="height:${v==null?0:Math.max(3,Math.min(100,v/mx*100))*0.42}px;background:${v==null?'transparent':'#2E7D8A'};border-radius:4px 4px 0 0;margin:0 auto;width:70%"></div><div>${v==null?'—':fm(v)}</div></div>`).join('')}</div></div>`}).join('');
   const txt=rows.map(([n,f,fm])=>`${n}: ${wk.map(f).map(v=>v==null?'—':fm(v)).join(' ← ')}`).join('\n');
   return{html:`<div class="t2" style="font-size:.8rem">الأسابيع من أول الشهر (يمين) إلى آخره (يسار)</div>${html}`,txt}}
+/* ---------- السد: حاجز بين العبادة الصرفة وأعمال الدنيا في التقرير الشهري ----------
+   العبادة تُقاس بمقياس النجاح (المعايير العشرة) ومؤشرات التقدم (الرباط الثلاث، جلسة التدبر، جلسة الجمعة).
+   أعمال الدنيا (النوم والحركة والوقت والمال) تُعرض بعد السد، ولا تدخل في ميزان العبادة ولا تجبر نقصها، ولو صلحت فيها النية.
+   الأيام غير المسجلة لا تُحسب صفراً. */
+const SADD_CSS='.rp-part{margin:26px 0 4px;padding:8px 12px;border-radius:10px;background:var(--chip,#eef3f3);font-weight:700;color:var(--accent,#0F3F45);font-size:.92rem}'
+ +'.sd-box{border:1px solid var(--line,#ddd);border-radius:14px;padding:12px 14px;margin:10px 0}.sd-h{font-weight:700;margin-bottom:8px}'
+ +'.sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.sd-k{border:1px solid var(--line,#ddd);border-radius:10px;padding:8px 10px}.sd-k .v{font-size:1.35rem;font-weight:700;display:block;line-height:1.3}.sd-k .l{font-size:.78rem;opacity:.75}'
+ +'.sd-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px dashed var(--line,#ddd);font-size:.9rem}.sd-row .g{flex:1}'
+ +'.sd-row .sd-v{font-size:.85rem;text-align:end}.sd-k .l{display:block}.sd-ver{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--chip,#eef3f3);font-size:.9rem}'
+ +'.sd-wall{display:flex;align-items:center;gap:10px;margin:18px 0 6px;font-weight:700;letter-spacing:.5px}.sd-wall:before,.sd-wall:after{content:"";flex:1;height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,#8a6d3b 0 18px,#b8955a 18px 22px)}'
+ +'.sd-dn{opacity:.95;border-style:dashed}';
+function saddM(off){const ks=perKs(off),tr=ks.filter(trk);if(!tr.length)return null;
+  const crit=SC.map(([id,n,f])=>{if(!f){const d=duhaRate(ks);return d?{id,n,a:d.ok?1:0,t:1,pct:d.ok?100:0,duha:d}:null}
+    const m=tr.filter(k=>f(peek(k),k)!=null),h=m.filter(k=>f(peek(k),k));return m.length?{id,n,a:h.length,t:m.length,pct:Math.round(h.length/m.length*100)}:null}).filter(Boolean);
+  const succ=crit.length?Math.round(crit.reduce((a,x)=>a+x.pct,0)/crit.length):null,heart=Math.round(tr.reduce((a,k)=>a+heartOf(peek(k)),0)/tr.length*100);
+  const rb=CN.map(c=>{const v=tr.map(k=>cnt(peek(k),c.k));return{k:c.k,n:c.n,i:c.i,sum:v.reduce((a,b)=>a+b,0),days:v.filter(x=>x>0).length}}),rbSum=rb.reduce((a,x)=>a+x.sum,0);
+  const td=tr.filter(k=>peek(k).h.includes('tdb')),fr=tr.filter(isFri),jm=fr.filter(k=>{const r=peek(k);return r.h.includes('jm')||!!r.jmD});
+  const st=statsOf(ks),V=tr.map(peek),cnt_=f=>{const L=V.filter(x=>f(x)!=null);return L.length?[L.filter(f).length,L.length]:null};
+  return{off,P:perOf(off),t:tr.length,crit,succ,heart,rb,rbSum,rbAvg:rbSum/tr.length,td:td.length,tdP:Math.round(td.length/tr.length*100),ta:td.reduce((a,k)=>a+(+peek(k).ta||0),0),
+    fr:fr.length,jm:jm.length,jmP:fr.length?Math.round(jm.length/fr.length*100):null,jh:fr.filter(k=>peek(k).jmD==='h').length,je:fr.filter(k=>peek(k).jEarly==='h').length,
+    slp:st.slp,stp:st.stp,dis:st.dis,ai:st.ai,
+    dn:{slp:cnt_(x=>x.slp==null?null:x.slp>=6*36e5),stp:cnt_(x=>x.stp==null?null:x.stp>=8000),dis:cnt_(x=>{const c=scr3(x);return c?c.d<=DL():null})}}}
+const sdLab=P=>{const d=kdate(P.from);return d.getDate()===1?d.toLocaleDateString('ar-u-nu-latn',{month:'long',year:'numeric'}):'من '+d.toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'})};
+const sdCmp=(a,b,rel)=>{if(a==null||b==null)return 0;if(rel){if(!b)return a>0?1:0;const d=(a-b)/b;return d>=0.1?1:d<=-0.1?-1:0}const d=a-b;return d>=5?1:d<=-5?-1:0};
+const sdAr=v=>v>0?'<b class="pc-b">▲</b>':v<0?'<b class="pc-r">▼</b>':'<b class="pc-k">＝</b>';
+const sdLvl=p=>p==null?['k','—']:p>=85?['b','عالٍ']:p>=65?['b','جيد']:p>=45?['k','متوسط']:['r','يحتاج عناية'];
+function sdVerdict(M0,M1){if(!M1)return{v:'أول شهر للقياس',g:'k',why:'لا يوجد شهر سابق مسجَّل للمقارنة.',ind:[]};
+  const dS=M0.succ!=null&&M1.succ!=null?M0.succ-M1.succ:null,ind=[['الرباط الثلاث',sdCmp(M0.rbAvg,M1.rbAvg,1)],['جلسة التدبر',sdCmp(M0.tdP,M1.tdP)],['جلسة الجمعة',sdCmp(M0.jmP,M1.jmP)]];
+  const sS=dS==null?0:dS>=5?2:dS<=-5?-2:0,ups=ind.filter(x=>x[1]>0).length,dns=ind.filter(x=>x[1]<0).length,sc=sS+ups-dns;
+  const v=sc>=2?'تقدّم واضح':sc===1?'تقدّم يسير':sc===0?'ثبات':sc===-1?'تراجع يسير':'تراجع',g=sc>0?'b':sc<0?'r':'k';
+  const why=`مقياس النجاح ${dS==null?'—':(dS>0?'+':'')+dS+' نقطة'}${sS?` (${sS>0?'+2':'−2'})`:' (فرق دون 5 نقاط: 0)'}، ومؤشرات التقدم: ${ups} تحسّن و${dns} تراجع و${3-ups-dns} ثبات.`;
+  return{v,g,why,ind,sc}}
+function sdSumHtml(M0,M1,V,money){const f=(n,d=0)=>n==null?'—':(+n).toFixed(d),[lg,ln]=sdLvl(M0.succ);
+  const dl=(a,b,rel)=>M1?sdAr(sdCmp(a,b,rel)):'';
+  const wk=`<div class="sd-box"><div class="sd-h">🕋 العبادة الصرفة</div>
+    <div class="sd-grid"><div class="sd-k"><span class="l">مقياس النجاح</span><span class="v ${GC[lg]}">${f(M0.succ)}٪</span><span class="l">${ln} · ${M0.crit.length} معايير</span><span class="l">${M1&&M1.succ!=null?`الماضي ${M1.succ}٪ `+dl(M0.succ,M1.succ):''}</span></div>
+      <div class="sd-k"><span class="l">ميزان العبادة</span><span class="v">${M0.heart}٪</span><span class="l">${M1?`الماضي ${M1.heart}٪ `+dl(M0.heart,M1.heart):'متوسط الأيام المسجلة'}</span></div></div>
+    <div class="t2" style="font-size:.82rem;margin-bottom:2px">مؤشرات التقدم والتحسن</div>
+    <div class="sd-row"><span class="g">🛡️ الرباط الثلاث</span><span class="sd-v">${M0.rbSum} مرة · ${f(M0.rbAvg,1)} يومياً</span>${dl(M0.rbAvg,M1&&M1.rbAvg,1)}</div>
+    <div class="sd-row"><span class="g">📖 جلسة التدبر</span><span class="sd-v">${M0.td} من ${M0.t} يوماً${M0.ta?' · '+M0.ta+' آية':''}</span>${dl(M0.tdP,M1&&M1.tdP)}</div>
+    <div class="sd-row"><span class="g">🕌 جلسة الجمعة</span><span class="sd-v">${M0.fr?`${M0.jm} من ${M0.fr} ${M0.fr>2&&M0.fr<11?'جُمَع':'جمعة'} · منها ساعة ${M0.jh}`:'لا جمعة مسجلة'}</span>${dl(M0.jmP,M1&&M1.jmP)}</div>
+    <div class="sd-ver">الحكم: <b class="${GC[V.g]}">${V.v}</b><div class="t2" style="font-size:.8rem;white-space:normal">${esc(V.why)}</div></div></div>
+    <div class="sd-wall"><span>🧱 السد</span></div>
+    <p class="t2" style="font-size:.82rem;white-space:normal;margin:0 0 6px">ما بعد السد أعمال دنيا ولو صلحت فيها النية: لا تدخل في ميزان العبادة ولا في مقياس النجاح، ولا يجبر كمالُها نقصَ العبادة.</p>
+    <div class="sd-box sd-dn"><div class="sd-h">🌍 أعمال الدنيا</div>
+    ${[['😴 النوم',M0.slp,M1&&M1.slp],['👣 الخطوات',M0.stp,M1&&M1.stp],['📵 التشتت',M0.dis,M1&&M1.dis],['🤖 العمل بالذكاء الاصطناعي',M0.ai,M1&&M1.ai]].filter(x=>x[1]).map(([n,s,p])=>`<div class="sd-row"><span class="g">${n}</span><span class="sd-v">${s.fm(s.avg)} يومياً</span>${p?sdAr(Math.abs(s.avg-p.avg)<(s.avg*0.05)?0:(s.avg>p.avg)!==!!s.low?1:-1):''}</div>`).join('')||'<div class="t2">لا بيانات صحة ووقت مسجلة</div>'}
+    ${money&&money.b&&money.b[0]?`<div class="sd-row"><span class="g">💰 المال</span><span style="white-space:normal">${tokH(esc(money.b[0]))}</span></div>`:''}</div>`;
+  return wk}
+function saddLayout(out,ks,end,off){
+  const take=h=>{const i=out.aspects.findIndex(a=>a.h.startsWith(h));return i>=0?out.aspects.splice(i,1)[0]:null};
+  const minute=take('🧭'),sc=take('🎯 مقياس'),res=take('🎯 عزمك'),cmp=take('📈'),pat=take('🔍'),fin=take('💰'),rc=take('⚖️ ضبط'),adv=take('💡'),health=take('🩺'),bal=take('⚖️ ميزان'),link=take('🔗'),give=take('🎁'),diary=take('📔'),nxt=take('✍️');
+  const tiers=['🕋','🌙','✨'].map(take).filter(Boolean),rest=out.aspects.splice(0);
+  let money=null;if(minute){const i=minute.sections.findIndex(s=>s.h==='المال في سطور');if(i>=0)money=minute.sections.splice(i,1)[0];minute.h='🧭 خلاصة العبادة'}
+  let hcmp=null;if(cmp){const i=cmp.sections.findIndex(s=>s.h==='🩺 الصحة والوقت');if(i>=0)hcmp=cmp.sections.splice(i,1)[0];cmp.h='📈 مقارنة العبادة بالشهر الماضي'}
+  const M0=saddM(off);
+  if(!M0){out.aspects.push(...[minute,sc,res,cmp,pat,...tiers,fin,rc,adv,health,bal,link,give,...rest,diary,nxt].filter(Boolean));return}
+  const M=[0,1,2,3,4,5].map(i=>i?saddM(off-i):M0),M1=M[1],V=sdVerdict(M0,M1),f1=n=>(+n).toFixed(1);
+  const sumTxt=`العبادة: مقياس النجاح ${M0.succ}٪، ميزان العبادة ${M0.heart}٪، الرباط ${M0.rbSum}، التدبر ${M0.td}/${M0.t}، الجمعة ${M0.jm}/${M0.fr}. الحكم: ${V.v}.\n— السد —\nالدنيا: النوم ${M0.slp?M0.slp.fm(M0.slp.avg):'—'}، الخطوات ${M0.stp?M0.stp.fm(M0.stp.avg):'—'}، التشتت ${M0.dis?M0.dis.fm(M0.dis.avg):'—'}.`;
+  const A=[];
+  A.push({part:'الجزء الأول · الموجز',h:'📜 موجز الشهر',note:`${sdLab(M0.P)} · ${M0.t} يوماً مسجلاً`,sections:[{h:'',html:sdSumHtml(M0,M1,V,money),txt:sumTxt}]});
+  /* التفاصيل */
+  const pv=(a,b,u)=>M1&&b!=null?` · الماضي ${b}${u||''}`:'';
+  const prog={part:'الجزء الثاني · التفاصيل',h:'📶 مؤشرات التقدم والتحسن',grades:true,note:'مؤشرات لا معايير: تُقرأ بالاتجاه من شهر إلى شهر',sections:[
+    {h:'🛡️ الرباط الثلاث',p:['«ألا أدلكم على ما يمحو الله به الخطايا ويرفع به الدرجات»: إسباغ الوضوء على المكاره، وكثرة الخطى إلى المساجد، وانتظار الصلاة بعد الصلاة.'],
+      b:M0.rb.map((x,i)=>`${x.i} ${x.n}: ${x.sum} مرة في ${dN(x.days)} من ${M0.t}${M1?` · الماضي ${M1.rb[i].sum} مرة ${tokArrow(sdCmp(x.sum/M0.t,M1.rb[i].sum/M1.t,1))}`:''}`).concat([`المجموع: ${M0.rbSum} مرة، بمعدل ${f1(M0.rbAvg)} يومياً${M1?` · الماضي ${f1(M1.rbAvg)} ${tokArrow(sdCmp(M0.rbAvg,M1.rbAvg,1))}`:''}`])},
+    {h:'📖 جلسة التدبر',b:[`عقدتها ${dN(M0.td)} من ${M0.t} (${M0.tdP}٪)${pv(0,M1&&M1.tdP,'٪')}${M1?' '+tokArrow(sdCmp(M0.tdP,M1.tdP)):''}`].concat(M0.ta?[`الآيات المتدبَّرة: ${M0.ta}${M1&&M1.ta?` · الماضي ${M1.ta}`:''}`]:[])},
+    {h:'🕌 جلسة الجمعة',b:M0.fr?[`عُقدت في ${M0.jm} من ${M0.fr} ${M0.fr>2&&M0.fr<11?'جُمَع':'جمعة'} مسجلة${M1&&M1.fr?` · الماضي ${M1.jm} من ${M1.fr} ${tokArrow(sdCmp(M0.jmP,M1.jmP))}`:''}`,`منها ساعة كاملة: ${M0.jh} · والتبكير ساعة: ${M0.je}`]:['لا جمعة مسجلة في هذا الشهر.']}]};
+  A.push(sc?Object.assign(sc,{part:prog.part}):null);if(sc)prog.part=null;A.push(prog,minute,res,cmp,...tiers,pat);
+  /* السد ثم الدنيا */
+  A.push({wall:true,h:'🧱 السد',sections:[{h:'',p:['ما بعد هذا الحد أعمال دنيا ولو صلحت فيها النية. تُعرض للاطلاع والإصلاح، ولا تدخل في ميزان العبادة ولا في مقياس النجاح، ولا يجبر كمالُها نقصَ العبادة.']}]});
+  const dn={h:'🌍 أعمال الدنيا: خلاصة',grades:true,sections:[money,hcmp].filter(Boolean)};if(dn.sections.length)A.push(dn);
+  A.push(health,fin,rc,adv,give);
+  /* النتيجة الشهرية */
+  const [lg,ln]=sdLvl(M0.succ),cd_=M0.crit.filter(x=>!x.duha),best=cd_.slice().sort((a,b)=>b.pct-a.pct)[0],weak=cd_.slice().sort((a,b)=>a.pct-b.pct)[0],pcd=x=>x?`${x[0]} من ${x[1]} يوماً (${Math.round(x[0]/x[1]*100)}٪)`:'—';
+  A.push({part:'الجزء الثالث · النتيجة الشهرية',h:'🏁 النتيجة الشهرية',grades:true,note:'نتيجتان منفصلتان لا تُجمعان. والمقياس لعملك لا لقبوله، والقبول عند الله.',sections:[
+    {h:'🕋 العبادة',b:[`مقياس النجاح: ${tk(lg,M0.succ+'٪')} · المستوى: ${tk(lg,ln)}`,`الحكم على التقدم: ${tk(V.g,V.v)}. ${V.why}`,
+      ...(V.ind||[]).map(([n,v])=>`${n}: ${v>0?tk('b','تحسّن'):v<0?tk('r','تراجع'):'ثبات'}`),
+      best?`أقوى المعايير: ${best.n} (${tk('b',best.pct+'٪')})`:'',weak&&weak!==best?`أحوجها إلى عناية: ${weak.n} (${tk('r',weak.pct+'٪')})`:''].filter(Boolean)},
+    {h:'🧱 السد',p:['لا يُضاف شيء مما يلي إلى ما سبق.']},
+    {h:'🌍 الدنيا',b:[`النوم 6 ساعات فأكثر: ${pcd(M0.dn.slp)}`,`الحركة 8,000 خطوة فأكثر: ${pcd(M0.dn.stp)}`,`التشتت ضمن الحد: ${pcd(M0.dn.dis)}`]}]});
+  /* المقارنة بما سبق من شهور */
+  const Ms=M.filter(Boolean).reverse();
+  if(Ms.length>=2){const cell=(v,p,rel,txt)=>`<td>${txt}${p==null?'':' '+sdAr(sdCmp(v,p,rel))}</td>`;
+    let h1='',t1='',h2='',t2='';Ms.forEach((m,i)=>{const p=i?Ms[i-1]:null,[g]=sdLvl(m.succ);
+      h1+=`<tr><td>${esc(sdLab(m.P))}</td>${cell(m.succ,p&&p.succ,0,`<b class="${GC[g]}">${m.succ}٪</b>`)}${cell(m.heart,p&&p.heart,0,m.heart+'٪')}${cell(m.rbAvg,p&&p.rbAvg,1,f1(m.rbAvg))}${cell(m.tdP,p&&p.tdP,0,m.tdP+'٪')}${cell(m.jmP,p&&p.jmP,0,m.fr?m.jm+'/'+m.fr:'—')}<td>${sdVerdict(m,p).v.replace('أول شهر للقياس','—')}</td></tr>`;
+      t1+=`${sdLab(m.P)}: النجاح ${m.succ}٪ · الميزان ${m.heart}٪ · الرباط ${f1(m.rbAvg)}/يوم · التدبر ${m.tdP}٪ · الجمعة ${m.jm}/${m.fr} · ${sdVerdict(m,p).v}\n`;
+      const dv=s=>s?s.fm(s.avg):'—';h2+=`<tr><td>${esc(sdLab(m.P))}</td><td>${dv(m.slp)}</td><td>${dv(m.stp)}</td><td>${dv(m.dis)}</td><td>${dv(m.ai)}</td></tr>`;t2+=`${sdLab(m.P)}: النوم ${dv(m.slp)} · الخطوات ${dv(m.stp)} · التشتت ${dv(m.dis)} · الذكاء الاصطناعي ${dv(m.ai)}\n`});
+    A.push({part:'الجزء الرابع · المقارنة بما سبق من شهور',h:'📊 مسار الشهور',note:`آخر ${Ms.length} أشهر مسجلة، من الأقدم إلى الأحدث. السهم مقارنة بالشهر الذي قبله.`,sections:[
+      {h:'🕋 العبادة',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>الشهر</th><th>النجاح</th><th>الميزان</th><th>الرباط/يوم</th><th>التدبر</th><th>الجمعة</th><th>الحكم</th></tr>${h1}</table></div>`,txt:t1},
+      {h:'🧱 السد',p:['']},
+      {h:'🌍 الدنيا (متوسطات يومية)',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>الشهر</th><th>النوم</th><th>الخطوات</th><th>التشتت</th><th>الذكاء الاصطناعي</th></tr>${h2}</table></div>`,txt:t2}]})}
+  const apx=[bal,link].filter(Boolean);if(apx.length){apx[0].part='ملحق · الربط بين الجانبين';apx[0].note=(apx[0].note?apx[0].note+' · ':'')+'قراءة للترابط بين أيامك، لا تُدخل شيئاً من الدنيا في مقياس العبادة';A.push(...apx)}
+  A.push(...rest,diary,nxt);
+  out.aspects=A.filter(Boolean)}
+const tokArrow=v=>v>0?'⟦b|▲⟧':v<0?'⟦r|▼⟧':'＝';
+
+try{document.head.insertAdjacentHTML('beforeend','<style>'+SADD_CSS+'</style>')}catch(e){}
 function monthPost(out,ks,end,off){
   const A=api(),P=perOf(off),L=d=>kdate(d).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
   const cur=statsOf(ks),prv=statsOf(perKs(off-1)),p3=[1,2,3].map(i=>statsOf(perKs(off-i))).filter(s=>s._t);
@@ -1305,7 +1402,7 @@ function monthPost(out,ks,end,off){
      return `${i+1}. ${n}: ${tk(G(a[0],a[1],a[1]/2),`${a[0]} من ${a[1]}`)} ${id==='c3'?'جمعة':'يوماً'} (${pc_}٪)${pp_!=null?` · الشهر الماضي ${pp_}٪ ${tk(dGrade(pc_-pp_),arrow(pc_-pp_))}`:''}`}).filter(Boolean);
    const kh=khState(end),kb=kh.done.filter(d=>d.end>=perOf(off).from&&d.end<=end).map(d=>`ختمة أُتمّت ${L(d.end)} في ${dN(d.days)}${d.days<=11?' ✓':''}`);
    kb.push(`الختمة الحالية رقم ${kh.n}: الصفحة ${kh.pos}، الجزء ${kh.juz}، اليوم ${kh.day} من 11.`);
-   if(b.length)out.aspects.push({h:'🎯 مقياس النجاح في هذه المرحلة',grades:true,note:'من الأيام المسجلة فقط؛ وبند الجمعة من الجُمَع',sections:[{h:'البنود التسعة',b},{h:'📗 الختمات',b:kb}]})}
+   if(b.length)out.aspects.push({h:'🎯 مقياس النجاح في هذه المرحلة',grades:true,note:'من الأيام المسجلة فقط؛ وبند الجمعة من الجُمَع',sections:[{h:'المعايير العشرة',b},{h:'📗 الختمات',b:kb}]})}
   if(S2.length)out.aspects.push({h:'🎯 عزمك',grades:true,sections:S2});
   out.aspects.push({h:'📈 مقارنة بالشهر الماضي',grades:true,note:`النسب من الأيام المسجلة: ${cur._t} يوماً هذا الشهر${prv._t?`، و${prv._t} في الشهر الماضي`:''}`,sections:S3});
   out.aspects.push({h:'🔍 الأنماط وما يسبق النقص',grades:true,sections:S4});
@@ -1314,6 +1411,7 @@ function monthPost(out,ks,end,off){
     if(rc.ev.done&&rc.ev.pE!=null){const s1=out.aspects[0].sections.find(x=>x.h==='المال في سطور');if(s1)s1.b.push(`دقة التسجيل: الفروق مع البنك ${rc.ev.pE.toFixed(1)}٪ من المصروف، والهدر ${rc.ev.pW.toFixed(1)}٪.`)}}catch(e){console.error(e)}
   if(adv)out.aspects.push(adv);out.aspects.push(...tiers,...rest);if(diary)out.aspects.push(diary);
   out.aspects.push({h:'✍️ عزم الشهر القادم',sections:S5});
+  const bak=out.aspects.slice();try{saddLayout(out,ks,end,off)}catch(e){console.error(e);out.aspects=bak}
 }
 function resHtml(){const P=perOf(0),RS=(D.cfg.res||{})[P.from]||[];if(!RS.length)return'';const st=statsOf(perKs(0));
   return `<div class="list" style="margin-top:10px"><div class="set-row" style="display:block"><div class="t1">🎯 عزمك هذا الشهر</div>${RS.map(x=>{const c=st[x.k];const g=!c?'k':c.pct>=100||c.pct>=x.base+10?'b':c.pct>x.base?'k':'r';return `<div class="t2" style="margin-top:4px">${esc(x.n)}: كان ${x.base}٪ ← <b class="${GC[g]}">${c?c.pct+'٪':'—'}</b></div>`}).join('')}</div></div>`}
@@ -1628,10 +1726,10 @@ function linkAspect(ks,end,nd){
 function repHTML(o,inline){
   const col=(t,on)=>on?t.replace(/(\d+(?:\.\d+)?)٪/g,(m,v)=>`<b class="${+v<50?'pc-r':+v>=100?'pc-b':'pc-k'}">${m}</b>`):t;
   const fx=(x,a)=>tokH(col(esc(x),a.color));
-  const sec=(s,a)=>`<h3>${esc(s.h)}</h3>${(s.p||[]).filter(Boolean).map(x=>`<p>${fx(x,a)}</p>`).join('')}${(s.b||[]).length?`<ul>${s.b.map(x=>`<li>${fx(x,a)}</li>`).join('')}</ul>`:''}${s.html||''}`;
-  return `<article class="report"><h1>${esc(o.title)}</h1><div class="t2">${esc(o.range)}</div>${o.aspects.map(a=>`<div class="asp"><h2>${esc(a.h)}</h2>${a.note?`<div class="t2">${esc(a.note)}</div>`:''}${a.grades?GLEG:''}${a.sections.map(s=>sec(s,a)).join('')}</div>`).join('')}</article>`;
+  const sec=(s,a)=>`${s.h?`<h3>${esc(s.h)}</h3>`:''}${(s.p||[]).filter(Boolean).map(x=>`<p>${fx(x,a)}</p>`).join('')}${(s.b||[]).length?`<ul>${s.b.map(x=>`<li>${fx(x,a)}</li>`).join('')}</ul>`:''}${s.html||''}`;
+  return `<article class="report"><h1>${esc(o.title)}</h1><div class="t2">${esc(o.range)}</div>${o.aspects.map(a=>`${a.part?`<div class="rp-part">${esc(a.part)}</div>`:''}${a.wall?`<div class="sd-wall"><span>${esc(a.h)}</span></div>${a.sections.map(s=>sec(s,a)).join('')}`:`<div class="asp"><h2>${esc(a.h)}</h2>${a.note?`<div class="t2">${esc(a.note)}</div>`:''}${a.grades?GLEG:''}${a.sections.map(s=>sec(s,a)).join('')}</div>`}`).join('')}</article>`;
 }
-function repText(o){return o.title+'\n'+o.range+'\n'+o.aspects.map(a=>'\n'+a.h+(a.note?'\n'+a.note:'')+'\n'+a.sections.map(s=>'\n'+s.h+'\n'+(s.p||[]).filter(Boolean).map(tokT).join('\n')+((s.b||[]).length?'\n'+s.b.map(x=>'• '+tokT(x)).join('\n'):'')+(s.txt?'\n'+s.txt:'')).join('\n')).join('\n')}
+function repText(o){return o.title+'\n'+o.range+'\n'+o.aspects.map(a=>'\n'+(a.part?'═══ '+a.part+' ═══\n':'')+(a.wall?'━━━━ '+a.h+' ━━━━':a.h)+(a.note?'\n'+a.note:'')+'\n'+a.sections.map(s=>'\n'+s.h+'\n'+(s.p||[]).filter(Boolean).map(tokT).join('\n')+((s.b||[]).length?'\n'+s.b.map(x=>'• '+tokT(x)).join('\n'):'')+(s.txt?'\n'+s.txt:'')).join('\n')).join('\n')}
 let lastRep=null;
 function renderRep(){
   if($id('rep').hidden)return;
@@ -1642,7 +1740,7 @@ function renderRep(){
 }
 function saveRep(){
   const o=lastRep;if(!o)return;
-  const css='body{font-family:Tahoma,Arial,sans-serif;max-width:760px;margin:30px auto;padding:0 18px;line-height:1.8;color:#14262b}h1{color:#0F3F45;margin:0}h2{color:#0F3F45;border-top:2px solid #ddd;padding-top:14px;margin-top:26px}h3{margin:14px 0 4px}.t2{color:#666}li{margin:3px 0}.pc-r{color:#C0392B}.pc-b{color:#1D4ED8}.pc-k{color:#000}table{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}th,td{border:1px solid #ddd;padding:5px 6px;text-align:center}th{background:#0F3F45;color:#fff}';
+  const css=SADD_CSS+'body{font-family:Tahoma,Arial,sans-serif;max-width:760px;margin:30px auto;padding:0 18px;line-height:1.8;color:#14262b}h1{color:#0F3F45;margin:0}h2{color:#0F3F45;border-top:2px solid #ddd;padding-top:14px;margin-top:26px}h3{margin:14px 0 4px}.t2{color:#666}li{margin:3px 0}.pc-r{color:#C0392B}.pc-b{color:#1D4ED8}.pc-k{color:#000}table{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}th,td{border:1px solid #ddd;padding:5px 6px;text-align:center}th{background:#0F3F45;color:#fff}';
   const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(o.title)}</title><style>${css}</style></head><body>${repHTML(o)}<p class="t2" style="margin-top:30px">رُشد · ${esc(today())}</p></body></html>`;
   const A=api();if(A)A.save(`rushd-report-${rng==='month'?'month-'+perOf(mOff).from:rng}-${today()}.html`,html,'text/html');
 }
