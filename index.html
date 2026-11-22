@@ -891,7 +891,10 @@ const addDays=(k,n)=>{const d=kdate(k);d.setDate(d.getDate()+n);return dkey(d)};
 const today=()=>dkey(new Date());
 const isFri=k=>kdate(k).getDay()===5;
 const day=k=>{const r=D.days[k]||(D.days[k]={});r.j=r.j||[];r.h=r.h||[];r.sn=r.sn||[];return r};
-const peek=k=>{const r=D.days[k]||{};return Object.assign({},r,{j:r.j||[],h:r.h||[],sn:r.sn||[],slpW:r.slp,slp:r.slpM!=null?r.slpM:r.slp,slpSrc:r.slpM!=null?'m':r.slp!=null?'w':''})};
+const peek=k=>{const r=D.days[k]||{};return Object.assign({},r,{j:r.j||[],h:r.h||[],sn:r.sn||[],slpW:r.slp},slpFix(r.slpM!=null?r.slpM:r.slp,r.slpM!=null?'m':r.slp!=null?'w':''))};
+/* المادة 4: مدة نوم خارج المعقول (أقل من نصف ساعة أو أكثر من 14 ساعة) لا تدخل في المتوسطات وتُعرض للتحقق */
+const SLP_MIN=0.5*36e5,SLP_MAX=14*36e5;
+function slpFix(v,src){if(v==null)return{slp:null,slpSrc:''};if(+v<SLP_MIN||+v>SLP_MAX)return{slp:null,slpSrc:'',slpBad:+v};return{slp:v,slpSrc:src}}
 const brOk=r=>!!(r.br&&((r.br.t&&r.br.t.length)||(r.br.n&&r.br.n.trim())));
 const clsOf=p=>{const o=D.cfg.cls&&D.cfg.cls[p];if(o)return o;return QURAN.has(p)?'q':AI.has(p)?'a':DIS.has(p)?'d':'n'};
 /* وقت الشاشة مصنفاً: تشتت، وعمل بالذكاء الاصطناعي، واستماع القرآن (يشمل التشغيل في الخلفية) */
@@ -1089,7 +1092,7 @@ function diaryHtml(r){const ev=r.ev||[];
 function sleepHtml(r){
   const g=gSlp(r.slp),P=[['','الأولى'],['2','الثانية'],['3','الثالثة']],more=!!(r.slpA2||r.slpB2||r.slpA3||r.slpB3);
   const row=([s,n])=>`<div class="t2" style="margin-top:8px">الفترة ${n}: نمت ثم استيقظت</div><div class="slp-row"><input type="time" class="fin-in" id="chlSa${s}" value="${esc(r['slpA'+s]||'')}" aria-label="نمت، الفترة ${n}"><span class="t2">←</span><input type="time" class="fin-in" id="chlSb${s}" value="${esc(r['slpB'+s]||'')}" aria-label="استيقظت، الفترة ${n}"></div>`;
-  return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">😴</span><span style="flex:1"><span class="t1" style="display:block">النوم</span><span class="t2">الليلة المنتهية صباح هذا اليوم${r.slpSrc==='m'?' · تسجيل يدوي':r.slpSrc==='w'?' · من الساعة':''}${(+r.slpP||0)>1?` · ${r.slpP} فترات`:''}${r.slpSrc==='m'&&r.slpW!=null?` (الساعة: ${fmtH(r.slpW)})`:''}</span></span><b class="${g?GC[g]:''}">${fmtH(r.slp)}</b></div>
+  return `<div class="set-row" style="display:block"><div style="display:flex;align-items:center;gap:10px"><span class="ic">😴</span><span style="flex:1"><span class="t1" style="display:block">النوم</span>${r.slpBad?`<span class="t2" style="display:block;color:var(--neg,#b3261e)">⚠️ المدة المسجلة ${fmtH(r.slpBad)} خارج المعقول، فلا تدخل في التقرير حتى تُصحَّح</span>`:''}<span class="t2">الليلة المنتهية صباح هذا اليوم${r.slpSrc==='m'?' · تسجيل يدوي':r.slpSrc==='w'?' · من الساعة':''}${(+r.slpP||0)>1?` · ${r.slpP} فترات`:''}${r.slpSrc==='m'&&r.slpW!=null?` (الساعة: ${fmtH(r.slpW)})`:''}</span></span><b class="${g?GC[g]:''}">${fmtH(r.slp)}</b></div>
    ${row(P[0])}<details${more?' open':''}><summary class="t2" style="cursor:pointer;margin-top:8px">نوم متقطع؟ أضف فترة ثانية أو ثالثة ▾</summary>${row(P[1])}${row(P[2])}</details>
    ${r.slpM!=null?'<button class="chl-chip" data-c="slpclr" style="margin-top:8px">مسح اليدوي</button>':''}
    <div class="t2" style="margin-top:4px;white-space:normal">يُجمع مجموع الفترات المكتملة، والتسجيل اليدوي يُقدَّم على بيانات الساعة.</div></div>`;
@@ -1243,7 +1246,11 @@ const SADD_CSS='.rp-part{margin:26px 0 4px;padding:8px 12px;border-radius:10px;b
  +'.sd-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px dashed var(--line,#ddd);font-size:.9rem}.sd-row .g{flex:1}'
  +'.sd-row .sd-v{font-size:.85rem;text-align:end}.sd-k .l{display:block}.sd-ver{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--chip,#eef3f3);font-size:.9rem}'
  +'.sd-wall{display:flex;align-items:center;gap:10px;margin:18px 0 6px;font-weight:700;letter-spacing:.5px}.sd-wall:before,.sd-wall:after{content:"";flex:1;height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,#8a6d3b 0 18px,#b8955a 18px 22px)}'
- +'.sd-dn{opacity:.95;border-style:dashed}';
+ +'.sd-dn{opacity:.95;border-style:dashed}'
+ +'.evb{display:inline-block;font-size:.68rem;font-weight:600;border:1px solid;border-radius:999px;padding:0 7px;line-height:1.6;vertical-align:middle}'
+ +'.sd-cov{font-size:.8rem;padding:6px 10px;border-radius:10px;background:var(--chip,#eef3f3);margin:6px 0;white-space:normal}'
+ +'details.sd-fold>summary{list-style:none;cursor:pointer;position:relative;padding-inline-end:22px}details.sd-fold>summary::-webkit-details-marker{display:none}'
+ +'details.sd-fold>summary:after{content:"▾";position:absolute;inset-inline-end:2px;top:16px;opacity:.6}details.sd-fold[open]>summary:after{content:"▴"}';
 /* ---------- تقدير الأوقات: الطاعة والعمل ----------
    وقت الطاعة تقدير من تسجيلك بمدد افتراضية معلنة (EST)، إلا استماع القرآن فمقيس من وقت الشاشة.
    وقت العمل تقدير من إعدادك: الوظيفة (ساعات × أيام الأسبوع) وشركاتك (من–إلى يومياً). لا يُعرف منه الإجازات. */
@@ -1295,9 +1302,9 @@ function sdDayBar(M0){const T=M0.tm,sl=M0.slp?M0.slp.avg/36e5:null,wo=T.wAvg/60,
     ${dis!=null?`<div class="t2" style="font-size:.8rem;white-space:normal;margin-top:4px">ومن ساعات اليوم تشتت على الشاشة ${fmtH(dis*36e5)} بالمتوسط (قد يتداخل مع غيره).</div>`:''}
     ${ratio!=null?`<div class="sd-ver">لكل ساعة عمل: ${Math.round(ratio*60)} دقيقة طاعة${used>24?' · <span class="pc-r">مجموع التقديرات يتجاوز 24 ساعة، فراجع إعداد العمل</span>':''}</div>`:''}
     <div class="t2" style="font-size:.76rem;white-space:normal;margin-top:4px">النوم مقيس، والطاعة تقدير من تسجيلك، والعمل من إعدادك (لا يعرف الإجازات). والطاعة فوق السد، والعمل تحته ولو كان بنية.</div></div>`}
-function sdSumHtml(M0,M1,V,money,LK){const f=(n,d=0)=>n==null?'—':(+n).toFixed(d),[lg,ln]=sdLvl(M0.succ);
+function sdSumHtml(M0,M1,V,money,ud,rc){const f=(n,d=0)=>n==null?'—':(+n).toFixed(d),[lg,ln]=sdLvl(M0.succ);
   const dl=(a,b,rel)=>M1?sdAr(sdCmp(a,b,rel)):'';
-  const wk=`<div class="sd-box"><div class="sd-h">🕋 العبادة الصرفة</div>
+  const wk=`<div class="sd-box"><div class="sd-h">🕋 العبادة الصرفة ${evb('m')}</div>
     <div class="sd-grid"><div class="sd-k"><span class="l">مقياس النجاح</span><span class="v ${GC[lg]}">${f(M0.succ)}٪</span><span class="l">${ln} · ${M0.crit.length} معايير</span><span class="l">${M1&&M1.succ!=null?`الماضي ${M1.succ}٪ `+dl(M0.succ,M1.succ):''}</span></div>
       <div class="sd-k"><span class="l">ميزان العبادة</span><span class="v">${M0.heart}٪</span><span class="l">${M1?`الماضي ${M1.heart}٪ `+dl(M0.heart,M1.heart):'متوسط الأيام المسجلة'}</span></div></div>
     <div class="t2" style="font-size:.82rem;margin-bottom:2px">مؤشرات التقدم والتحسن</div>
@@ -1305,45 +1312,92 @@ function sdSumHtml(M0,M1,V,money,LK){const f=(n,d=0)=>n==null?'—':(+n).toFixed
     <div class="sd-row"><span class="g">📖 جلسة التدبر</span><span class="sd-v">${M0.td} من ${M0.t} يوماً${M0.ta?' · '+M0.ta+' آية':''}</span>${dl(M0.tdP,M1&&M1.tdP)}</div>
     <div class="sd-row"><span class="g">🕌 جلسة الجمعة</span><span class="sd-v">${M0.fr?`${M0.jm} من ${M0.fr} ${M0.fr>2&&M0.fr<11?'جُمَع':'جمعة'} · منها ساعة ${M0.jh}`:'لا جمعة مسجلة'}</span>${dl(M0.jmP,M1&&M1.jmP)}</div>
     <div class="sd-row"><span class="g">⏱️ وقت الطاعة (تقدير)</span><span class="sd-v">${fmM(M0.tm.wAvg)} يومياً · ${Math.round(M0.tm.wAvg/14.4)}٪ من اليوم</span>${M1?sdAr(sdCmp(M0.tm.wAvg,M1.tm.wAvg,1)):''}</div>
-    <div class="sd-ver">الحكم: <b class="${GC[V.g]}">${V.v}</b><div class="t2" style="font-size:.8rem;white-space:normal">${esc(V.why)}</div></div></div>
+    <div class="sd-ver">الحكم: <b class="${GC[V.g]}">${V.v}</b><div class="t2" style="font-size:.8rem;white-space:normal">${esc(V.why)}</div></div>${ud&&(ud.up||ud.dn)?`<div class="sd-row" style="display:block;font-size:.85rem">${ud.up?`<div>▲ أبرز تحسّن: ${tokH(esc(ud.up))}</div>`:''}${ud.dn?`<div>▼ أبرز تراجع: ${tokH(esc(ud.dn))}</div>`:''}</div>`:''}</div>
     <div class="sd-wall"><span>🧱 السد</span></div>
     <p class="t2" style="font-size:.82rem;white-space:normal;margin:0 0 6px">ما بعد السد أعمال دنيا ولو صلحت فيها النية: لا تدخل في ميزان العبادة ولا في مقياس النجاح، ولا يجبر كمالُها نقصَ العبادة.</p>
-    <div class="sd-box sd-dn"><div class="sd-h">🌍 أعمال الدنيا</div>
+    <div class="sd-box sd-dn"><div class="sd-h">🌍 أعمال الدنيا ${evb('m')}</div>
     ${[['😴 النوم',M0.slp,M1&&M1.slp],['👣 الخطوات',M0.stp,M1&&M1.stp],['📵 التشتت',M0.dis,M1&&M1.dis],['🤖 العمل بالذكاء الاصطناعي',M0.ai,M1&&M1.ai]].filter(x=>x[1]).map(([n,s,p])=>`<div class="sd-row"><span class="g">${n}</span><span class="sd-v">${s.fm(s.avg)} يومياً</span>${p?sdAr(Math.abs(s.avg-p.avg)<(s.avg*0.05)?0:(s.avg>p.avg)!==!!s.low?1:-1):''}</div>`).join('')||'<div class="t2">لا بيانات صحة ووقت مسجلة</div>'}
     <div class="sd-row"><span class="g">💼 العمل (تقدير)</span><span class="sd-v">الوظيفة ${fmM(M0.tm.jobAvg*60)} يومياً (${M0.tm.W.job} س × ${M0.tm.jobDays} يوم عمل) · شركاتك ${M0.tm.own[0]}–${M0.tm.own[1]} س يومياً</span></div>
-    ${money&&money.b&&money.b[0]?`<div class="sd-row"><span class="g">💰 المال</span><span style="white-space:normal">${tokH(esc(money.b[0]))}</span></div>`:''}</div>
-    ${sdDayBar(M0)}
-    <div class="sd-box"><div class="sd-h">🔗 الربط: النوم والعبادة والإنتاج والفتح</div>
-    ${LK&&LK.G.length?(()=>{const row=(t,g)=>{const gr=LK.G.find(x=>x.h.startsWith(g));const cell=n=>{const x=gr&&gr.c.find(y=>y.n.startsWith(n));if(!x)return'<td>·</td>';const v=x.u==='س'?(x.d>=0?'+':'−')+fmtH(Math.abs(x.d)*36e5):(x.d>=0?'+':'−')+Math.abs(Math.round(x.d))+' نقطة';return `<td>${x.big?`<b class="${x.good?'pc-b':'pc-r'}">${v}</b>`:`<span class="t2">${v}</span>`}</td>`};
-        return `<tr><td>${t}</td>${cell('ميزان العبادة')}${cell('الإنتاج')}${cell('الفتح')}</tr>`};
-      return `<div class="rp-wrap"><table class="rp-tb"><tr><th>الفرق في الأيام…</th><th>العبادة</th><th>الإنتاج</th><th>الفتح</th></tr>${row('😴 بعد نوم 6 ساعات فأكثر','😴')}${row('🌙 بعد نوم جيد','🌙')}${row('🕋 أيام العبادة الأقوى','🕋')}${row('⚙️ أيام الإنتاج الأعلى','⚙️')}</table></div>
-      <div class="t2" style="font-size:.76rem;white-space:normal;margin-top:4px">كل خانة: الفرق عن الأيام المقابلة. الملوّن فرق واضح (أزرق لصالحك، أحمر عليك)، والرمادي يسير، و· لا يكفي من البيانات أو لا ينطبق.</div>`})():`<div class="t2" style="white-space:normal">البيانات قليلة بعد: يلزم 5 أيام على الأقل في كل مجموعة.</div>`}
-    <div class="t2" style="font-size:.76rem;white-space:normal;margin-top:4px">من آخر ${LK?LK.days:90} يوماً (${LK?LK.n:0} يوماً مسجلاً). ترابط في أيامك لا دليل على السبب، ولا يُدخل شيئاً من الدنيا في مقياس العبادة. التفصيل في الملحق.</div></div>`;
+    ${money&&money.b&&money.b[0]?`<div class="sd-row"><span class="g">💰 المال</span><span style="white-space:normal">${tokH(esc(money.b[0]))}</span></div>`:''}${rc&&rc.done&&rc.pE!=null?`<div class="sd-row"><span class="g">⚖️ دقة التسجيل</span><span class="sd-v">الفرق مع البنك <b class="${rc.pE>=10?'pc-r':rc.pE>=5?'pc-k':'pc-b'}">${(+rc.pE).toFixed(1)}٪</b>${rc.pW!=null?` · الهدر ${(+rc.pW).toFixed(1)}٪`:''}</span></div>`:`<div class="sd-row"><span class="g">⚖️ دقة التسجيل</span><span class="sd-v t2">لم يُضبط الشهر على البنك</span></div>`}</div>`;
   return wk}
 /* الربط: النوم (مدته وجودته) ← العبادة والإنتاج والفتح، وقوة العبادة ← الإنتاج والفتح.
    قراءة ترابط من أيامك، لا سبب، ولا تُدخل الدنيا في مقياس العبادة. نوم اليوم = الليلة التي استيقظت منها فيه.
    الإنتاج: العمل بالذكاء الاصطناعي من وقت الشاشة. الفتح: ما فتح الله به من تسجيل (كلمة اليوم أو حدث مميز). */
+function sdLkMatrix(LK){return `    <div class="sd-box"><div class="sd-h">🔗 الربط: النوم والعبادة والإنتاج والفتح</div>
+    ${LK&&LK.G.length?(()=>{const row=(t,g)=>{const gr=LK.G.find(x=>x.h.startsWith(g));const cell=n=>{const x=gr&&gr.c.find(y=>y.n.startsWith(n));if(!x)return'<td>·</td>';const v=x.u==='س'?(x.d>=0?'+':'−')+fmtH(Math.abs(x.d)*36e5):(x.d>=0?'+':'−')+Math.abs(Math.round(x.d))+' نقطة';return `<td>${x.big?`<b class="${x.good?'pc-b':'pc-r'}">${v}</b>`:`<span class="t2">${v}</span>`}</td>`};
+        return `<tr><td>${t}</td>${cell('ميزان العبادة')}${cell('الإنتاج')}${cell('الفتح')}</tr>`};
+      return `<div class="rp-wrap"><table class="rp-tb"><tr><th>الفرق في الأيام…</th><th>العبادة</th><th>الإنتاج</th><th>الفتح</th></tr>${row('😴 بعد نوم 6 ساعات فأكثر','😴')}${row('🌙 بعد نوم جيد','🌙')}${row('🕋 أيام العبادة الأقوى','🕋')}${row('⚙️ أيام الإنتاج الأعلى','⚙️')}</table></div>
+      <div class="t2" style="font-size:.76rem;white-space:normal;margin-top:4px">كل خانة: الفرق عن الأيام المقابلة. الملوّن فرق واضح (أزرق لصالحك، أحمر عليك)، والرمادي يسير، و· لا يكفي من البيانات أو لا ينطبق.</div>`})():`<div class="t2" style="white-space:normal">البيانات قليلة بعد: يلزم 5 أيام على الأقل في كل مجموعة.</div>`}
+    <div class="t2" style="font-size:.76rem;white-space:normal;margin-top:4px">من آخر ${LK?LK.days:90} يوماً (${LK?LK.n:0} يوماً مسجلاً). ترابط في أيامك لا دليل على السبب، ولا يُدخل شيئاً من الدنيا في مقياس العبادة. التفصيل في الملحق.</div></div>`}
 function sdLinks(end,days){const ks=rangeKs(addDays(end,-(days-1)),end).filter(trk),mins=t=>{if(!t)return null;const[h,m]=String(t).split(':').map(Number);return isNaN(h)?null:h*60+(m||0)};
   const R=ks.map(k=>{const r=peek(k),c=scr3(r),sd=scDay(k).filter(x=>x[2]!=null),bt=mins(r.slpA);
     return{k,w:heartOf(r)*100,s:sd.length?sd.filter(x=>x[2]).length/sd.length*100:null,f:r.j.includes('fajr')?100:0,p:c?c.a/36e5:null,d:c?c.d/36e5:null,
-      o:((r.word&&String(r.word).trim())||(r.ev||[]).some(Boolean))?100:0,slp:r.slp!=null?r.slp/36e5:null,
+      o:((r.word&&String(r.word).trim())||(r.ev||[]).some(Boolean))?100:0,slp:r.slp!=null?r.slp/36e5:null,bt:r.slp!=null?bt:null,
       q:r.slp==null?null:(r.slp>=6*36e5&&(+r.slpP||1)<=1&&!(bt!=null&&bt<300))}});
   const avg=(L,f)=>{const v=L.map(f).filter(x=>x!=null);return v.length?{a:v.reduce((p,c)=>p+c,0)/v.length,n:v.length}:null};
   const MET=[['w','ميزان العبادة','٪',10],['s','مقياس النجاح اليومي','٪',10],['f','الفجر في جماعة','٪',15],['p','الإنتاج (عمل بالذكاء الاصطناعي)','س',0.5],['o','الفتح (تسجيل كلمة أو حدث)','٪',15],['d','التشتت','س',0.5,1]];
   const fm=(v,u)=>u==='س'?fmtH(v*36e5):Math.round(v)+'٪';
   const cmp=(A,B,keys)=>keys.map(m=>{const[id,n,u,th,low]=MET.find(x=>x[0]===m),a=avg(A,x=>x[id]),b=avg(B,x=>x[id]);if(!a||!b||a.n<5||b.n<5)return null;
-    const d=a.a-b.a,big=Math.abs(d)>=th,good=low?d<0:d>0;return{n,a,b,d,big,good,u,txt:`${n}: ${big?tk(good?'b':'r',fm(a.a,u)):fm(a.a,u)} مقابل ${fm(b.a,u)}`,score:Math.abs(d)/th}}).filter(Boolean);
+    const d=a.a-b.a,big=Math.abs(d)>=th,good=low?d<0:d>0,st=strOf(Math.min(a.n,b.n),Math.abs(d)/th);return{n,a,b,d,big,good,u,st,txt:`${n}: ${big?tk(good?'b':'r',fm(a.a,u)):fm(a.a,u)} مقابل ${fm(b.a,u)}`,score:Math.abs(d)/th}}).filter(Boolean);
   const G=[];
   const grp=(title,inA,inB,lA,lB,keys)=>{const A=R.filter(inA),B=R.filter(inB);if(A.length<5||B.length<5)return;const c=cmp(A,B,keys);if(!c.length)return;
-    G.push({h:title,p:[`${lA} (${dN(A.length)}) مقابل ${lB} (${dN(B.length)}):`],b:c.map(x=>x.txt),c,lA,lB})};
+    G.push({h:title,p:[`${lA} (${dN(A.length)}) مقابل ${lB} (${dN(B.length)}):`],b:c.map(x=>x.txt+' · '+(x.st||'لا فرق يُذكر')),c,lA,lB})};
   grp('😴 مدة النوم ← العبادة والإنتاج والفتح',x=>x.slp!=null&&x.slp>=6,x=>x.slp!=null&&x.slp<6,'بعد نوم 6 ساعات فأكثر','بعد نوم أقل من 6',['w','s','f','p','o','d']);
   grp('🌙 جودة النوم ← العبادة والإنتاج والفتح',x=>x.q===true,x=>x.q===false,'بعد نوم جيد (6 ساعات فأكثر، متصل، غير متأخر)','بعد نوم دون ذلك',['w','s','f','p','o']);
+  grp('🕰️ توقيت النوم ← الفجر والعبادة',x=>x.bt!=null&&x.bt>=1080,x=>x.bt!=null&&x.bt<300,'بعد نوم قبل منتصف الليل','بعد نوم بعد منتصف الليل',['f','w','o']);
   {const W=R.slice().sort((a,b)=>b.w-a.w),h=Math.floor(W.length/2),top=new Set(W.slice(0,h).map(x=>x.k));
     grp('🕋 قوة العبادة ← الإنتاج والفتح',x=>top.has(x.k),x=>!top.has(x.k),'أيام العبادة الأقوى (النصف الأعلى في الميزان)','الأيام الأضعف',['p','o','d'])}
   {const P=R.filter(x=>x.p!=null).sort((a,b)=>b.p-a.p),h=Math.floor(P.length/2),top=new Set(P.slice(0,h).map(x=>x.k)),has=new Set(P.map(x=>x.k));
     grp('⚙️ الإنتاج ← العبادة',x=>top.has(x.k),x=>has.has(x.k)&&!top.has(x.k),'أيام الإنتاج الأعلى','أيام الإنتاج الأقل',['w','f','o'])}
-  const tops=[];G.forEach(g=>{const b=g.c.filter(x=>x.big).sort((a,b)=>b.score-a.score)[0];if(b)tops.push({g,x:b})});tops.sort((a,b)=>b.x.score-a.x.score);
+  const tops=[];G.forEach(g=>{const b=g.c.filter(x=>x.st==='واضح'||x.st==='محتمل').sort((a,b)=>b.score-a.score)[0];if(b)tops.push({g,x:b})});tops.sort((a,b)=>b.x.score-a.x.score);
   return{n:R.length,days,G,tops:tops.slice(0,3)}}
+/* ---------- قانون الإخراج إ2: فحص البيانات، درجات الدليل، قوة الترابط، الموجز التنفيذي ---------- */
+const REP_LAW='إ2 · 22 نوفمبر 2026';
+const EVB={m:['مقيس','#1D4ED8'],e:['تقدير','#8a6d3b'],c:['ترابط','#4b6a9b'],h:['فرضية','#8e44ad']};
+const evb=x=>x&&EVB[x]?`<span class="evb" style="border-color:${EVB[x][1]};color:${EVB[x][1]}">${EVB[x][0]}</span>`:'';
+/* قوة الترابط (منفصلة عن درجة الدليل): حد الفرق لكل مقياس معلن في MET؛ والعينة أصغر المجموعتين */
+const STR_DEF='واضح: 10 أيام فأكثر في أصغر المجموعتين، والفرق ضعف الحد فأكثر · محتمل: 5 أيام فأكثر، والفرق بقدر الحد فأكثر · ضعيف: 5 أيام فأكثر، والفرق بين نصف الحد والحد (يظهر في الملحق فقط). الحد: 10 نقاط للميزان ومقياس النجاح، و15 للفجر والفتح، ونصف ساعة للإنتاج والتشتت.';
+const strOf=(nmin,r)=>nmin<5?null:(nmin>=10&&r>=2)?'واضح':r>=1?'محتمل':r>=0.5?'ضعيف':null;
+const dLab=k=>kdate(k).toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long'});
+function sdCheck(ks,off){const A=api(),tr=ks.filter(trk),n=ks.length,c=f=>ks.filter(k=>trk(k)||D.days[k]).filter(k=>f(peek(k))).length;
+  const cov=[['التحديات',tr.length,n],['النوم',c(r=>r.slp!=null),n],['الخطوات',c(r=>r.stp!=null),n],['وقت الشاشة',c(r=>!!r.ap),n]];
+  const F=[];ks.forEach(k=>{const r=peek(k);if(r.slpBad)F.push({k:'slp',t:`نوم ${fmtH(r.slpBad)} ليلة ${dLab(k)}: خارج المعقول (أقل من نصف ساعة أو فوق 14 ساعة)، فاستُبعد من المتوسطات والربط حتى يُصحَّح من صفحة اليوم`})});
+  cov.forEach(([nm,a,t])=>{if(a&&a<t*0.6)F.push({k:'cov',t:`${nm}: مسجَّل في ${a} من ${t} يوماً، فأرقامه من الأيام المسجلة وحدها ولا تمثل الشهر كله`})});
+  if(A&&A.dataChk){try{F.push(...A.dataChk(off))}catch(e){console.error(e)}}
+  return{cov,F}}
+function sdDisc(LK,end){const D_=[],WD=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  const tg=LK&&LK.G.find(g=>g.h.startsWith('🕰️')),fx=tg&&tg.c.find(x=>x.n==='الفجر في جماعة'),hyp=!!(fx&&(fx.st==='واضح'||fx.st==='محتمل')&&fx.good);
+  if(LK)LK.G.forEach(g=>g.c.forEach(x=>{if(hyp&&g===tg&&x===fx)return;if(x.st==='واضح'||x.st==='محتمل')D_.push({ev:'c',st:x.st,sc:(x.st==='واضح'?10:6)+Math.min(4,x.score),t:`${g.lA}: ${tokT(x.txt)} في ${g.lB} (${x.st})`})}));
+  const ks=rangeKs(addDays(end,-89),end).filter(trk);
+  [['الفجر في جماعة',r=>r.j.includes('fajr')],['ثلاث جماعات فأكثر',r=>r.j.length>=3],['الوتر',r=>r.h.includes('witr')]].forEach(([n,f])=>{if(ks.length<20)return;
+    const avg=ks.filter(k=>f(peek(k))).length/ks.length*100,by=WD.map((w,i)=>{const L=ks.filter(k=>kdate(k).getDay()===i);return{w,n:L.length,p:L.length?L.filter(k=>f(peek(k))).length/L.length*100:0}}).filter(x=>x.n>=5);
+    if(!by.length)return;const lo=by.sort((a,b)=>a.p-b.p)[0];if(avg-lo.p>=20)D_.push({ev:'m',sc:5+(avg-lo.p)/20,t:`${n}: أضعف أيامك ${lo.w} (${Math.round(lo.p)}٪ في ${lo.n} أيام) مقابل ${Math.round(avg)}٪ في عموم أيامك (آخر 90 يوماً)`})});
+  if(hyp)D_.push({ev:'h',sc:9,t:`قد يكون توقيت النوم لا مدته وراء الفجر: الفجر في جماعة ${Math.round(fx.a.a)}٪ بعد النوم قبل منتصف الليل مقابل ${Math.round(fx.b.a)}٪ بعده. تُختبر بتقديم النوم أسبوعين ثم المقارنة`});
+  const seen=new Set();return D_.sort((a,b)=>b.sc-a.sc).filter(x=>{const k=x.t.split(':')[0];if(seen.has(k))return false;seen.add(k);return true}).slice(0,3)}
+function sdPri(minute,M0,off,LK){const A=api(),P=[];
+  const st=minute&&minute.sections.find(s=>s.h==='خطوة الشهر القادم');
+  if(st&&st.b&&st.b[0])P.push({k:'🕋 الأولوية التعبدية',t:tokT(st.b[0]).replace(/^⭐\s*/,''),why:'من أعلى رتبة فيها نقص بحسب الترتيب الشرعي، لا من أقل نسبة',m:'نسبة الأيام التي أُدّي فيها، تُقارن في تقرير الشهر القادم',ev:'m'});
+  let rc=null,mm=null;try{rc=A&&A.recon?A.recon(off).ev:null;mm=A&&A.monthMoney?A.monthMoney(off):null}catch(e){}
+  const rt=x=>x?x[0]/x[1]:null;let d=null;
+  if(rc&&rc.done&&rc.pE!=null&&rc.pE>=10)d={t:`دقة التسجيل: الفرق مع البنك ${(+rc.pE).toFixed(1)}٪ من المصروف`,why:'أرقام المال كلها تُبنى على التسجيل؛ والفرق فوق 10٪',m:'نسبة الفرق عند ضبط الشهر القادم، والهدف دون 5٪',a:'اعتماد رسائل البنك كل مساء، وتسجيل الاستردادات'};
+  else if(mm&&mm.inc-mm.exp<0)d={t:`عجز الشهر ${money(mm.exp-mm.inc)}`,why:'المصروف فاق الدخل',m:'الصافي في الشهر القادم',a:'البدء بأعلى بند ارتفع عن معتاده'};
+  else if(rt(M0.dn.slp)!=null&&rt(M0.dn.slp)<0.5)d={t:`النوم 6 ساعات فأكثر في ${Math.round(rt(M0.dn.slp)*100)}٪ من الليالي فقط`,why:'أقل من نصف الليالي',m:'نسبة الليالي 6 ساعات فأكثر'};
+  else if(rt(M0.dn.stp)!=null&&rt(M0.dn.stp)<0.3)d={t:`الحركة: 8,000 خطوة في ${Math.round(rt(M0.dn.stp)*100)}٪ من الأيام`,why:'أقل من ثلث الأيام',m:'نسبة أيام 8,000 خطوة'};
+  else if(rt(M0.dn.dis)!=null&&rt(M0.dn.dis)<0.5)d={t:`التشتت ضمن الحد في ${Math.round(rt(M0.dn.dis)*100)}٪ من الأيام`,why:'أقل من نصف الأيام',m:'نسبة الأيام ضمن الحد'};
+  if(d)P.push(Object.assign({k:'🌍 الأولوية الدنيوية',ev:'m'},d));
+  const g=LK&&LK.G.find(x=>x.h.startsWith('😴')),w=g&&g.c.find(x=>x.n==='ميزان العبادة');
+  if(w&&w.good&&(w.st==='واضح'||w.st==='محتمل'))P.push({k:'🌱 عادة مساندة',t:'نوم 6 ساعات فأكثر',why:`ميزان العبادة ${Math.round(w.a.a)}٪ بعدها مقابل ${Math.round(w.b.a)}٪ بعد الأقصر (ترابط ${w.st}، لا سبب)`,m:'نسبة الليالي 6 ساعات فأكثر',ev:'c'});
+  return P}
+function sdExecHtml(M0,M1,V,money_,CHK,DISC,PRI,ud,rc){
+  const cov=`<div class="sd-cov">📋 اكتمال التسجيل: ${CHK.cov.map(([n,a,t])=>`${n} ${a}/${t}`).join(' · ')}${CHK.F.length?` · <b class="pc-r">⚠️ ${CHK.F.length===1?'ملاحظة واحدة تحتاج':CHK.F.length===2?'ملاحظتان تحتاجان':CHK.F.length+' ملاحظات تحتاج'} تحققاً</b> (في الملحق)`:' · ✓ لا ملاحظات على البيانات'}</div>`;
+  const disc=`<div class="sd-box"><div class="sd-h">🔍 أهم الاكتشافات</div>${DISC.length?DISC.map(x=>`<div class="sd-row" style="display:block">${evb(x.ev)} ${tokH(esc(x.t))}</div>`).join(''):'<div class="t2">لا اكتشاف يبلغ حد «محتمل» بعد.</div>'}</div>`;
+  const pri=`<div class="sd-box"><div class="sd-h">🎯 أولويات الشهر القادم</div>${PRI.map(x=>`<div class="sd-row" style="display:block"><b>${x.k}</b> ${evb(x.ev)}<div>${tokH(esc(x.t))}</div><div class="t2" style="font-size:.8rem;white-space:normal">السبب: ${esc(x.why)} · المؤشر: ${esc(x.m)}${x.a?' · الإجراء: '+esc(x.a):''} · المراجعة: تقرير الشهر القادم</div></div>`).join('')||'<div class="t2">لا أولوية ظاهرة.</div>'}</div>`;
+  return cov+sdSumHtml(M0,M1,V,money_,ud,rc)+disc+pri}
+function sdMethod(){return{h:'📐 طريقة الحساب وقانون الإخراج',ev:null,note:'قانون الإخراج '+REP_LAW,sections:[
+  {h:'درجات الدليل',b:['مقيس: محسوب من بيانات مسجلة صالحة محددة المصدر.','تقدير: مبني على افتراضات معلنة (كمدد الطاعة وساعات العمل).','ترابط: علاقة بين أمرين في أيامك، ليست دليلاً على السبب.','فرضية: تفسير محتمل يحتاج اختباراً، ولا يُعرض بلغة الحقائق.']},
+  {h:'قوة الترابط',p:[STR_DEF]},
+  {h:'فحص البيانات',b:['الغائب ليس صفراً: النسب من الأيام المسجلة، والجمعة من الجُمَع المسجلة.','مدة النوم خارج نصف ساعة إلى 14 ساعة تُستبعد من المتوسطات حتى تُصحَّح.','العمليات المكررة المحتملة تُذكر ولا تُستبعد إلا بتصحيحك.','العملات تُحوَّل إلى الدينار قبل الجمع، ورصيد الحساب لا يُحسب لهدفين.','«المعتاد» في المال: وسيط آخر 12 شهراً.']},
+  {h:'المقاييس',b:['مقياس النجاح: متوسط بسيط لنِسب المعايير العشرة (بلا ترجيح). والضحى معيار شهري: 100٪ إن وقع بين 40 و60٪ من الأيام.','المستوى: عالٍ 85٪ فأكثر، جيد 65٪، متوسط 45٪، يحتاج عناية دون ذلك.','الحكم على التقدم: فرق مقياس النجاح ±5 نقاط فأكثر = ±2، وكل مؤشر من الثلاثة ±1؛ المجموع 2 فأكثر تقدّم واضح، 1 تقدّم يسير، 0 ثبات، −1 تراجع يسير، −2 فأقل تراجع.','السد: لا يُضاف شيء من الدنيا إلى العبادة، والنتيجتان لا تُجمعان. والترتيب الشرعي يحكم العرض والأولويات لا الحساب.','الحساب محلي حتمي بقوالب ثابتة، بلا نموذج لغوي ولا اتصال خارجي.']}]}}
 function saddLayout(out,ks,end,off){
   const take=h=>{const i=out.aspects.findIndex(a=>a.h.startsWith(h));return i>=0?out.aspects.splice(i,1)[0]:null};
   const minute=take('🧭'),sc=take('🎯 مقياس'),res=take('🎯 عزمك'),cmp=take('📈'),pat=take('🔍'),fin=take('💰'),rc=take('⚖️ ضبط'),adv=take('💡'),health=take('🩺'),bal=take('⚖️ ميزان'),link=take('🔗'),give=take('🎁'),diary=take('📔'),nxt=take('✍️');
@@ -1354,29 +1408,42 @@ function saddLayout(out,ks,end,off){
   if(!M0){out.aspects.push(...[minute,sc,res,cmp,pat,...tiers,fin,rc,adv,health,bal,link,give,...rest,diary,nxt].filter(Boolean));return}
   const M=[0,1,2,3,4,5].map(i=>i?saddM(off-i):M0),M1=M[1],V=sdVerdict(M0,M1),f1=n=>(+n).toFixed(1);
   let LK=null;try{LK=sdLinks(end,90)}catch(e){console.error(e)}
+  const CHK=sdCheck(ks,off),rcE=(()=>{try{const A_=api();return A_&&A_.recon?A_.recon(off).ev:null}catch(e){return null}})();
+  const fsec=(a,h)=>a&&a.sections.find(x=>x.h===h),ud={up:((fsec(minute,'تحسّن عن الشهر الماضي')||{}).b||[])[0],dn:((fsec(minute,'تراجع عن الشهر الماضي')||{}).b||[])[0]};
+  const DISC=sdDisc(LK,end),PRI=sdPri(minute,M0,off,LK);
+  const drop=(a,hs)=>{if(a)a.sections=a.sections.filter(x=>!hs.includes(x.h))};
   const sumTxt=`العبادة: مقياس النجاح ${M0.succ}٪، ميزان العبادة ${M0.heart}٪، الرباط ${M0.rbSum}، التدبر ${M0.td}/${M0.t}، الجمعة ${M0.jm}/${M0.fr}. الحكم: ${V.v}.\n— السد —\nالدنيا: النوم ${M0.slp?M0.slp.fm(M0.slp.avg):'—'}، الخطوات ${M0.stp?M0.stp.fm(M0.stp.avg):'—'}، التشتت ${M0.dis?M0.dis.fm(M0.dis.avg):'—'}.`;
   const A=[];
-  A.push({part:'الجزء الأول · الموجز',h:'📜 موجز الشهر',note:`${sdLab(M0.P)} · ${M0.t} يوماً مسجلاً`,sections:[{h:'',html:sdSumHtml(M0,M1,V,money,LK),txt:sumTxt+(LK&&LK.tops.length?'\nالربط: '+LK.tops.map(({x})=>tokT(x.txt)).join('؛ '):'')}]});
+  A.push({part:'الجزء الأول · الموجز التنفيذي',h:'📜 موجز الشهر',note:`${sdLab(M0.P)} · ${M0.t} يوماً مسجلاً`,sections:[{h:'',html:sdExecHtml(M0,M1,V,money,CHK,DISC,PRI,ud,rcE),
+    txt:'اكتمال التسجيل: '+CHK.cov.map(([n,a,t])=>n+' '+a+'/'+t).join(' · ')+(CHK.F.length?' · ملاحظات تحتاج تحققاً: '+CHK.F.length:'')+'\n'+sumTxt+(DISC.length?'\nأهم الاكتشافات:\n'+DISC.map(x=>'['+EVB[x.ev][0]+'] '+tokT(x.t)).join('\n'):'')+(PRI.length?'\nالأولويات:\n'+PRI.map(x=>x.k+': '+tokT(x.t)+' — السبب: '+x.why+' — المؤشر: '+x.m).join('\n'):'')}]});
   /* التفاصيل */
   const pv=(a,b,u)=>M1&&b!=null?` · الماضي ${b}${u||''}`:'';
-  const prog={part:'الجزء الثاني · التفاصيل',h:'📶 مؤشرات التقدم والتحسن',grades:true,note:'مؤشرات لا معايير: تُقرأ بالاتجاه من شهر إلى شهر',sections:[
+  const prog={fold:1,ev:'m',h:'📶 مؤشرات التقدم والتحسن',grades:true,note:'مؤشرات لا معايير: تُقرأ بالاتجاه من شهر إلى شهر',sections:[
     {h:'🛡️ الرباط الثلاث',p:['«ألا أدلكم على ما يمحو الله به الخطايا ويرفع به الدرجات»: إسباغ الوضوء على المكاره، وكثرة الخطى إلى المساجد، وانتظار الصلاة بعد الصلاة.'],
       b:M0.rb.map((x,i)=>`${x.i} ${x.n}: ${x.sum} مرة في ${dN(x.days)} من ${M0.t}${M1?` · الماضي ${M1.rb[i].sum} مرة ${tokArrow(sdCmp(x.sum/M0.t,M1.rb[i].sum/M1.t,1))}`:''}`).concat([`المجموع: ${M0.rbSum} مرة، بمعدل ${f1(M0.rbAvg)} يومياً${M1?` · الماضي ${f1(M1.rbAvg)} ${tokArrow(sdCmp(M0.rbAvg,M1.rbAvg,1))}`:''}`])},
     {h:'📖 جلسة التدبر',b:[`عقدتها ${dN(M0.td)} من ${M0.t} (${M0.tdP}٪)${pv(0,M1&&M1.tdP,'٪')}${M1?' '+tokArrow(sdCmp(M0.tdP,M1.tdP)):''}`].concat(M0.ta?[`الآيات المتدبَّرة: ${M0.ta}${M1&&M1.ta?` · الماضي ${M1.ta}`:''}`]:[])},
     {h:'🕌 جلسة الجمعة',b:M0.fr?[`عُقدت في ${M0.jm} من ${M0.fr} ${M0.fr>2&&M0.fr<11?'جُمَع':'جمعة'} مسجلة${M1&&M1.fr?` · الماضي ${M1.jm} من ${M1.fr} ${tokArrow(sdCmp(M0.jmP,M1.jmP))}`:''}`,`منها ساعة كاملة: ${M0.jh} · والتبكير ساعة: ${M0.je}`]:['لا جمعة مسجلة في هذا الشهر.']}]};
-  A.push(sc?Object.assign(sc,{part:prog.part}):null);if(sc)prog.part=null;const wt={h:'⏱️ وقت الطاعة (تقدير)',note:'مدد افتراضية لكل عمل مسجَّل، واستماع القرآن مقيس من وقت الشاشة. للمقارنة بين الشهور لا للحساب الدقيق.',sections:[
+  const DET='الجزء الثاني · التفاصيل (اضغط العنوان لفتحه)';if(sc)Object.assign(sc,{fold:1,ev:'m'});const wt={fold:1,ev:'e',h:'⏱️ وقت الطاعة (تقدير)',note:'مدد افتراضية لكل عمل مسجَّل، واستماع القرآن مقيس من وقت الشاشة. للمقارنة بين الشهور لا للحساب الدقيق.',sections:[
     {h:'',p:[`في ${dN(M0.tm.days)} مسجلة: ${fmM(M0.tm.wTot)} إجمالاً، بمتوسط ${tk('b',fmM(M0.tm.wAvg))} يومياً${M1?` · الماضي ${fmM(M1.tm.wAvg)} ${tokArrow(sdCmp(M0.tm.wAvg,M1.tm.wAvg,1))}`:''}.`],
       b:Object.entries(M0.tm.P).sort((a,b)=>b[1]-a[1]).map(([g,m])=>`${g}: ${fmM(m/M0.tm.days)} يومياً (${Math.round(m/M0.tm.wTot*100)}٪)${M1&&M1.tm.P[g]!=null?` · الماضي ${fmM(M1.tm.P[g]/M1.tm.days)}`:''}`)},
     {h:'المدد المعتمدة في التقدير',p:[`الفريضة في المسجد ${EST.m} د، وفي البيت ${EST.h} د، ومنفرداً ${EST.a} د؛ الجمعة ${EST.jum} د والتبكير بحسبه؛ الراتبة ${EST.sn} د، الوتر ${EST.witr} د، القيام ${EST.qiyamR} د للركعة؛ أذكار الصباح والمساء ${EST.am} د لكلٍّ، وأذكار الصلاة ${EST.pd} د؛ الوجه من الورد ${EST.wird} د، وجلسة التدبر ${EST.tdb} د؛ انتظار الصلاة ${EST.wait} د للمرة، والوضوء ${EST.wudu} د؛ البر ${EST.birr} د على الأقل.`]}]};
-  A.push(prog,wt,minute,res,cmp,...tiers,pat);
+  /* إزالة التكرار (المادة 19) */
+  const REC=[];tiers.forEach(t=>{t.fold=1;t.ev='m';drop(t,['فضائل الصلاة','جلسة الجمعة','التدبر']);t.sections.forEach(x=>{if((x.h==='برّ الوالدين'||x.h.startsWith('الدعوة'))&&x.b&&x.b.length>3){REC.push({h:x.h,b:x.b});x.b=[];x.p=(x.p||[]).concat(['تفصيل الأيام في الملحق.'])}})});
+  if(minute){minute.fold=1;minute.ev='m';drop(minute,['خطوة الشهر القادم'])}
+  if(pat){pat.fold=1;pat.ev='m';const wk=fsec(cmp,'أسبوعاً بأسبوع');if(wk)pat.sections.push(wk)}
+  if(res)res.fold=1;
+  if(cmp){cmp.fold=1;cmp.ev='m';cmp.h='📈 البنود مقارنة بالشهر الماضي ومتوسط 3 أشهر';drop(cmp,['أسبوعاً بأسبوع'])}
+  const first=[sc,...tiers,cmp,prog,wt,pat,minute,res].filter(Boolean);if(first.length)first[0].part=DET;
+  A.push(...first);
   /* السد ثم الدنيا */
   A.push({wall:true,h:'🧱 السد',sections:[{h:'',p:['ما بعد هذا الحد أعمال دنيا ولو صلحت فيها النية. تُعرض للاطلاع والإصلاح، ولا تدخل في ميزان العبادة ولا في مقياس النجاح، ولا يجبر كمالُها نقصَ العبادة.']}]});
-  const dn={h:'🌍 أعمال الدنيا: خلاصة',grades:true,sections:[money,hcmp].filter(Boolean)};if(dn.sections.length)A.push(dn);
-  {const T=M0.tm,wh=T.jobH+(T.ownTot[0]+T.ownTot[1])/2;A.push({h:'💼 وقت العمل (تقدير)',note:'من إعدادك في صفحة تحدياتي ← الإعدادات. لا يعرف الإجازات والعطل، فاقرأه تقديراً.',sections:[
+  {const T=M0.tm,wh=T.jobH+(T.ownTot[0]+T.ownTot[1])/2;A.push({fold:1,ev:'e',h:'💼 وقت العمل (تقدير)',note:'من إعدادك في صفحة تحدياتي ← الإعدادات. لا يعرف الإجازات والعطل، فاقرأه تقديراً.',sections:[
     {h:'',b:[`الوظيفة: ${T.jobDays} يوم عمل × ${T.W.job} س = ${T.jobH} ساعة هذا الشهر`,`شركاتك: ${T.own[0]}–${T.own[1]} س يومياً × ${T.n} يوماً = ${T.ownTot[0]}–${T.ownTot[1]} ساعة`,
       `المجموع التقديري: ${Math.round(T.jobH+T.ownTot[0])}–${Math.round(T.jobH+T.ownTot[1])} ساعة، بمتوسط ${fmtH(wh/T.n*36e5)} يومياً`,
       T.ai!=null?`ومما قِيس فعلاً: العمل بالذكاء الاصطناعي ${fmM(T.ai)} يومياً بالمتوسط`:'',
-      `الطاعة إلى العمل: ${Math.round(T.wAvg/(wh/T.n))} دقيقة طاعة لكل ساعة عمل`].filter(Boolean)}]})}
+      `الطاعة إلى العمل: ${Math.round(T.wAvg/(wh/T.n))} دقيقة طاعة لكل ساعة عمل`].filter(Boolean)},{h:'يومك بالمتوسط',html:sdDayBar(M0)}]})}
+  [health,fin,rc,adv,give].forEach(x=>{if(x){x.fold=1;if(x!==adv)x.ev='m'}});
+  if(give){const i=give.sections.findIndex(x=>x.h==='أيام العطاء يوماً بيوم');if(i>=0)REC.push(give.sections.splice(i,1)[0])}
   A.push(health,fin,rc,adv,give);
   /* النتيجة الشهرية */
   const [lg,ln]=sdLvl(M0.succ),cd_=M0.crit.filter(x=>!x.duha),best=cd_.slice().sort((a,b)=>b.pct-a.pct)[0],weak=cd_.slice().sort((a,b)=>a.pct-b.pct)[0],pcd=x=>x?`${x[0]} من ${x[1]} يوماً (${Math.round(x[0]/x[1]*100)}٪)`:'—';
@@ -1386,22 +1453,27 @@ function saddLayout(out,ks,end,off){
       `وقت الطاعة (تقدير): ${fmM(M0.tm.wAvg)} يومياً${M1?` · الماضي ${fmM(M1.tm.wAvg)}`:''}`,
       best?`أقوى المعايير: ${best.n} (${tk('b',best.pct+'٪')})`:'',weak&&weak!==best?`أحوجها إلى عناية: ${weak.n} (${tk('r',weak.pct+'٪')})`:''].filter(Boolean)},
     {h:'🧱 السد',p:['لا يُضاف شيء مما يلي إلى ما سبق.']},
-    {h:'🌍 الدنيا',b:[`النوم 6 ساعات فأكثر: ${pcd(M0.dn.slp)}`,`النوم الجيد (6 ساعات فأكثر، متصل، غير متأخر): ${pcd(M0.dn.q)}`,`الحركة 8,000 خطوة فأكثر: ${pcd(M0.dn.stp)}`,`التشتت ضمن الحد: ${pcd(M0.dn.dis)}`,`العمل (تقدير): الوظيفة ${M0.tm.jobH} ساعة، وشركاتك ${M0.tm.ownTot[0]}–${M0.tm.ownTot[1]} ساعة`]}]});
+    {h:'🌍 الدنيا',b:[`النوم 6 ساعات فأكثر: ${pcd(M0.dn.slp)}`,`النوم الجيد (6 ساعات فأكثر، متصل، غير متأخر): ${pcd(M0.dn.q)}`,`الحركة 8,000 خطوة فأكثر: ${pcd(M0.dn.stp)}`,`التشتت ضمن الحد: ${pcd(M0.dn.dis)}`,`العمل (تقدير): الوظيفة ${M0.tm.jobH} ساعة، وشركاتك ${M0.tm.ownTot[0]}–${M0.tm.ownTot[1]} ساعة`]},
+    {h:'📋 جودة البيانات التي بُني عليها الحكم',b:[`اكتمال التسجيل: ${CHK.cov.map(([n,a,t])=>n+' '+a+' من '+t).join('، ')}`,CHK.F.length?`ملاحظات تحتاج تحققاً: ${CHK.F.length} (في الملحق)، وما ثبت خلله استُبعد من النتائج حتى يُصحَّح`:'لا ملاحظات على البيانات'].concat(M1?[`المقارنة بالشهر الماضي على ${M1.t} يوماً مسجلاً مقابل ${M0.t} هذا الشهر${Math.abs(M1.t-M0.t)>M0.t*0.3?'؛ والفرق في عدد الأيام كبير فاقرأ الاتجاه بحذر':''}`]:[])}]});
   /* المقارنة بما سبق من شهور */
   const Ms=M.filter(Boolean).reverse();
   if(Ms.length>=2){const cell=(v,p,rel,txt)=>`<td>${txt}${p==null?'':' '+sdAr(sdCmp(v,p,rel))}</td>`;
     let h1='',t1='',h2='',t2='';Ms.forEach((m,i)=>{const p=i?Ms[i-1]:null,[g]=sdLvl(m.succ);
-      h1+=`<tr><td>${esc(sdLab(m.P))}</td>${cell(m.succ,p&&p.succ,0,`<b class="${GC[g]}">${m.succ}٪</b>`)}${cell(m.heart,p&&p.heart,0,m.heart+'٪')}${cell(m.rbAvg,p&&p.rbAvg,1,f1(m.rbAvg))}${cell(m.tdP,p&&p.tdP,0,m.tdP+'٪')}${cell(m.jmP,p&&p.jmP,0,m.fr?m.jm+'/'+m.fr:'—')}${cell(m.tm.wAvg,p&&p.tm.wAvg,1,fmM(m.tm.wAvg))}<td>${sdVerdict(m,p).v.replace('أول شهر للقياس','—')}</td></tr>`;
+      h1+=`<tr><td>${esc(sdLab(m.P))}</td><td>${m.t}</td>${cell(m.succ,p&&p.succ,0,`<b class="${GC[g]}">${m.succ}٪</b>`)}${cell(m.heart,p&&p.heart,0,m.heart+'٪')}${cell(m.rbAvg,p&&p.rbAvg,1,f1(m.rbAvg))}${cell(m.tdP,p&&p.tdP,0,m.tdP+'٪')}${cell(m.jmP,p&&p.jmP,0,m.fr?m.jm+'/'+m.fr:'—')}${cell(m.tm.wAvg,p&&p.tm.wAvg,1,fmM(m.tm.wAvg))}<td>${sdVerdict(m,p).v.replace('أول شهر للقياس','—')}</td></tr>`;
       t1+=`${sdLab(m.P)}: النجاح ${m.succ}٪ · الميزان ${m.heart}٪ · الرباط ${f1(m.rbAvg)}/يوم · التدبر ${m.tdP}٪ · الجمعة ${m.jm}/${m.fr} · الطاعة ${fmM(m.tm.wAvg)}/يوم · ${sdVerdict(m,p).v}\n`;
       const dv=s=>s?s.fm(s.avg):'—';const qp=m.dn.q?Math.round(m.dn.q[0]/m.dn.q[1]*100)+'٪':'—';h2+=`<tr><td>${esc(sdLab(m.P))}</td><td>${dv(m.slp)}</td><td>${qp}</td><td>${dv(m.stp)}</td><td>${dv(m.dis)}</td><td>${dv(m.ai)}</td></tr>`;t2+=`${sdLab(m.P)}: النوم ${dv(m.slp)} · نوم جيد ${qp} · الخطوات ${dv(m.stp)} · التشتت ${dv(m.dis)} · الذكاء الاصطناعي ${dv(m.ai)}\n`});
     A.push({part:'الجزء الرابع · المقارنة بما سبق من شهور',h:'📊 مسار الشهور',note:`آخر ${Ms.length} أشهر مسجلة، من الأقدم إلى الأحدث. السهم مقارنة بالشهر الذي قبله.`,sections:[
-      {h:'🕋 العبادة',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>الشهر</th><th>النجاح</th><th>الميزان</th><th>الرباط/يوم</th><th>التدبر</th><th>الجمعة</th><th>الطاعة/يوم</th><th>الحكم</th></tr>${h1}</table></div>`,txt:t1},
+      {h:'🕋 العبادة',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>الشهر</th><th>الأيام</th><th>النجاح</th><th>الميزان</th><th>الرباط/يوم</th><th>التدبر</th><th>الجمعة</th><th>الطاعة/يوم</th><th>الحكم</th></tr>${h1}</table></div>`,txt:t1},
       {h:'🧱 السد',p:['']},
       {h:'🌍 الدنيا (متوسطات يومية)',html:`<div class="rp-wrap"><table class="rp-tb"><tr><th>الشهر</th><th>النوم</th><th>نوم جيد</th><th>الخطوات</th><th>التشتت</th><th>الذكاء الاصطناعي</th></tr>${h2}</table></div>`,txt:t2}]})}
   const lkA=LK&&LK.G.length?{h:'🔗 النوم والعبادة والإنتاج والفتح',grades:true,note:`آخر ${LK.days} يوماً، ${LK.n} يوماً مسجلاً. الإنتاج: العمل بالذكاء الاصطناعي. الفتح: ما فتح الله به من تسجيل كلمة اليوم أو حدث مميز. الجودة: 6 ساعات فأكثر، متصل، وغير متأخر بعد منتصف الليل. اللون يظهر حين يكون الفرق واضحاً.`,
     sections:LK.G.map(g=>({h:g.h,p:g.p,b:g.b})).concat([{h:'تنبيه',p:['ترابط في أيامك وليس دليلاً على السبب. ولا يُضاف شيء من الدنيا إلى مقياس العبادة، وإنما يُقرأ ليُعين على إصلاح الأسباب.']}])}:null;
-  const apx=[lkA,bal,link].filter(Boolean);if(apx.length){apx[0].part='ملحق · الربط بين الجانبين';apx[0].note=(apx[0].note?apx[0].note+' · ':'')+'قراءة للترابط بين أيامك، لا تُدخل شيئاً من الدنيا في مقياس العبادة';A.push(...apx)}
-  A.push(...rest,diary,nxt);
+  if(lkA){lkA.sections.unshift({h:'الخلاصة',html:sdLkMatrix(LK)});lkA.sections.push({h:'قوة الترابط',p:[STR_DEF]})}
+  const chkA={h:'🔎 فحص البيانات',fold:1,sections:[{h:'اكتمال التسجيل',b:CHK.cov.map(([n,a,t])=>`${n}: ${a} من ${t} يوماً (${t?Math.round(a/t*100):0}٪)`)},{h:'ملاحظات تحتاج تحققاً',p:[CHK.F.length?'':'لا ملاحظات.'],b:CHK.F.map(x=>x.t)}]};
+  const recA=REC.length?{h:'📋 السجلات يوماً بيوم',fold:1,sections:REC}:null;
+  const apx=[chkA,lkA,bal,link,recA,...rest,diary,sdMethod()].filter(Boolean);apx.forEach(x=>{x.fold=1;if(x===lkA||x===bal||x===link)x.ev='c'});apx[0].part='الجزء الخامس · التحليل والملحق';
+  if(lkA)lkA.note=(lkA.note?lkA.note+' · ':'')+'قراءة للترابط بين أيامك، لا تُدخل شيئاً من الدنيا في مقياس العبادة';
+  A.push(...apx);if(nxt){nxt.part='الجزء السادس · عزم الشهر القادم';A.push(nxt)}
   out.aspects=A.filter(Boolean)}
 const tokArrow=v=>v>0?'⟦b|▲⟧':v<0?'⟦r|▼⟧':'＝';
 
@@ -1490,7 +1562,7 @@ function monthPost(out,ks,end,off){
     if(rc.ev.done&&rc.ev.pE!=null){const s1=out.aspects[0].sections.find(x=>x.h==='المال في سطور');if(s1)s1.b.push(`دقة التسجيل: الفروق مع البنك ${rc.ev.pE.toFixed(1)}٪ من المصروف، والهدر ${rc.ev.pW.toFixed(1)}٪.`)}}catch(e){console.error(e)}
   if(adv)out.aspects.push(adv);out.aspects.push(...tiers,...rest);if(diary)out.aspects.push(diary);
   out.aspects.push({h:'✍️ عزم الشهر القادم',sections:S5});
-  const bak=out.aspects.slice();try{saddLayout(out,ks,end,off)}catch(e){console.error(e);out.aspects=bak}
+  const bak=out.aspects.slice();try{saddLayout(out,ks,end,off);out.law=REP_LAW}catch(e){console.error(e);out.aspects=bak}
 }
 function resHtml(){const P=perOf(0),RS=(D.cfg.res||{})[P.from]||[];if(!RS.length)return'';const st=statsOf(perKs(0));
   return `<div class="list" style="margin-top:10px"><div class="set-row" style="display:block"><div class="t1">🎯 عزمك هذا الشهر</div>${RS.map(x=>{const c=st[x.k];const g=!c?'k':c.pct>=100||c.pct>=x.base+10?'b':c.pct>x.base?'k':'r';return `<div class="t2" style="margin-top:4px">${esc(x.n)}: كان ${x.base}٪ ← <b class="${GC[g]}">${c?c.pct+'٪':'—'}</b></div>`}).join('')}</div></div>`}
@@ -1538,7 +1610,7 @@ function build(r,off){
    W.push({h:'برّ الوالدين',p:[nd===1?(bd.length?tk('b','بررت والديك اليوم، تقبّل الله منك.'):tk('r','لم يُسجَّل البر اليوم.')):`بررت والديك في ${tk(g,`${bd.length} من ${nd}`)} يوماً، بنسبة ${tk(g,pc(bd.length,nd)+'٪')}.`,
      Object.keys(tc).length?`الأنواع: ${BR.filter(x=>tc[x[0]]).map(x=>`${x[1]} ${tc[x[0]]}`).join('، ')}.`:''].filter(Boolean),b:notes})}
   {const b=DK.map(([k,n])=>{const t=V.reduce((a,x)=>a+Math.min(dkv(x,k),dT(k)),0),full=V.filter(x=>dkv(x,k)>=dT(k)).length,raw=V.reduce((a,x)=>a+dkv(x,k),0);
-      return nd===1?`${n}: ${tk(gDk(dkv(V[0],k),1,k),`${dkv(V[0],k)} من ${dT(k)}`)}`:`${n}: ${tk(gDk(t,nd,k),`${raw} من ${dT(k)*nd}`)} (${pc(t,dT(k)*nd)}٪)، وأتممت الهدف في ${tk(gV(full,nd),`${full} من ${nd}`)} يوماً`});
+      return nd===1?`${n}: ${tk(gDk(dkv(V[0],k),1,k),`${dkv(V[0],k)} من ${dT(k)}`)}`:`${n}: أتممت الهدف (${dT(k)}) في ${tk(gV(full,nd),`${full} من ${nd}`)} يوماً، ومجموعه ${raw} مرة`});
     W.push({h:'الأذكار اليومية',p:['الهدف اليومي: الصلاة على النبي صلى الله عليه وسلم والاستغفار 30 لكلٍّ، وبقية الأذكار 10.'],b})}
   const am=V.filter(x=>x.h.includes('am')).length,pm=V.filter(x=>x.h.includes('pm')).length;
   W.push({h:'أذكار الصباح والمساء',p:[`أذكار الصباح ${tk(gV(am,nd),`${am} من ${nd}`)} (${pc(am,nd)}٪)، وأذكار المساء ${tk(gV(pm,nd),`${pm} من ${nd}`)} (${pc(pm,nd)}٪).`]});
@@ -1805,8 +1877,10 @@ function linkAspect(ks,end,nd){
 function repHTML(o,inline){
   const col=(t,on)=>on?t.replace(/(\d+(?:\.\d+)?)٪/g,(m,v)=>`<b class="${+v<50?'pc-r':+v>=100?'pc-b':'pc-k'}">${m}</b>`):t;
   const fx=(x,a)=>tokH(col(esc(x),a.color));
-  const sec=(s,a)=>`${s.h?`<h3>${esc(s.h)}</h3>`:''}${(s.p||[]).filter(Boolean).map(x=>`<p>${fx(x,a)}</p>`).join('')}${(s.b||[]).length?`<ul>${s.b.map(x=>`<li>${fx(x,a)}</li>`).join('')}</ul>`:''}${s.html||''}`;
-  return `<article class="report"><h1>${esc(o.title)}</h1><div class="t2">${esc(o.range)}</div>${o.aspects.map(a=>`${a.part?`<div class="rp-part">${esc(a.part)}</div>`:''}${a.wall?`<div class="sd-wall"><span>${esc(a.h)}</span></div>${a.sections.map(s=>sec(s,a)).join('')}`:`<div class="asp"><h2>${esc(a.h)}</h2>${a.note?`<div class="t2">${esc(a.note)}</div>`:''}${a.grades?GLEG:''}${a.sections.map(s=>sec(s,a)).join('')}</div>`}`).join('')}</article>`;
+  const sec=(s,a)=>`${s.h?`<h3>${esc(s.h)}${s.ev?' '+evb(s.ev):''}</h3>`:''}${(s.p||[]).filter(Boolean).map(x=>`<p>${fx(x,a)}</p>`).join('')}${(s.b||[]).length?`<ul>${s.b.map(x=>`<li>${fx(x,a)}</li>`).join('')}</ul>`:''}${s.html||''}`;
+  const AS=o.aspects.filter(a=>!(o.short&&a.fold)),lg=AS.some(a=>a.grades),hasEv=AS.some(a=>a.ev||a.sections.some(x=>x.html&&x.html.includes('class="evb"')));
+  const head=(a)=>`<h2>${esc(a.h)}${a.ev?' '+evb(a.ev):''}</h2>`;
+  return `<article class="report"><h1>${esc(o.title)}</h1><div class="t2">${esc(o.range)}${o.short?' · نسخة مختصرة':''}</div>${lg?GLEG:''}${hasEv?`<div class="t2" style="font-size:.78rem;margin:2px 0 6px;white-space:normal">درجة الدليل: ${Object.keys(EVB).map(evb).join(' ')} · الألوان ترافقها كلمات الحكم</div>`:''}${AS.map(a=>`${a.part?`<div class="rp-part">${esc(a.part)}</div>`:''}${a.wall?`<div class="sd-wall"><span>${esc(a.h)}</span></div>${a.sections.map(s=>sec(s,a)).join('')}`:a.fold?`<details class="asp sd-fold"><summary>${head(a)}${a.note?`<div class="t2">${esc(a.note)}</div>`:''}</summary>${a.sections.map(s=>sec(s,a)).join('')}</details>`:`<div class="asp">${head(a)}${a.note?`<div class="t2">${esc(a.note)}</div>`:''}${a.sections.map(s=>sec(s,a)).join('')}</div>`}`).join('')}${o.law?`<div class="t2" style="font-size:.75rem;margin-top:18px">قانون الإخراج ${esc(o.law)}</div>`:''}</article>`;
 }
 function repText(o){return o.title+'\n'+o.range+'\n'+o.aspects.map(a=>'\n'+(a.part?'═══ '+a.part+' ═══\n':'')+(a.wall?'━━━━ '+a.h+' ━━━━':a.h)+(a.note?'\n'+a.note:'')+'\n'+a.sections.map(s=>'\n'+s.h+'\n'+(s.p||[]).filter(Boolean).map(tokT).join('\n')+((s.b||[]).length?'\n'+s.b.map(x=>'• '+tokT(x)).join('\n'):'')+(s.txt?'\n'+s.txt:'')).join('\n')).join('\n')}
 let lastRep=null;
@@ -1815,13 +1889,13 @@ function renderRep(){
   $id('repSeg').innerHTML=Object.keys(RANGES).map(x=>`<button data-rg="${x}" aria-pressed="${rng===x}">${RANGES[x][1]}</button>`).join('');
   lastRep=build(rng,rng==='month'?mOff:0);
   const nav=rng==='month'?`<div class="chl-day" style="margin:0 0 10px"><button data-mo="-1" aria-label="الشهر السابق">›</button><b>${mOff===0?'الشهر الحالي':mOff===-1?'الشهر الماضي':'قبل '+(-mOff)+' أشهر'}</b><button data-mo="1" aria-label="الشهر التالي"${mOff>=0?' disabled':''}>‹</button></div>`:'';
-  $id('repBody').innerHTML=nav+repHTML(lastRep)+`<div class="row2" style="margin-top:14px"><button class="btn ghost slim" style="margin:0" data-r="copy">نسخ النص</button><button class="btn ghost slim" style="margin:0" data-r="save">حفظ ملفاً</button></div>`;
+  $id('repBody').innerHTML=nav+repHTML(lastRep)+`<div class="row2" style="margin-top:14px"><button class="btn ghost slim" style="margin:0" data-r="copy">نسخ النص</button><button class="btn ghost slim" style="margin:0" data-r="save">حفظ كاملاً</button></div>${lastRep.aspects.some(a=>a.fold)?`<button class="btn ghost slim" style="margin:8px 0 0" data-r="saveS">حفظ مختصراً (بلا التفاصيل والملحق)</button>`:''}`;
 }
-function saveRep(){
-  const o=lastRep;if(!o)return;
+function saveRep(short){
+  const o0=lastRep;if(!o0)return;const o=Object.assign({},o0,{short:!!short});
   const css=SADD_CSS+'body{font-family:Tahoma,Arial,sans-serif;max-width:760px;margin:30px auto;padding:0 18px;line-height:1.8;color:#14262b}h1{color:#0F3F45;margin:0}h2{color:#0F3F45;border-top:2px solid #ddd;padding-top:14px;margin-top:26px}h3{margin:14px 0 4px}.t2{color:#666}li{margin:3px 0}.pc-r{color:#C0392B}.pc-b{color:#1D4ED8}.pc-k{color:#000}table{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}th,td{border:1px solid #ddd;padding:5px 6px;text-align:center}th{background:#0F3F45;color:#fff}';
   const html=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(o.title)}</title><style>${css}</style></head><body>${repHTML(o)}<p class="t2" style="margin-top:30px">رُشد · ${esc(today())}</p></body></html>`;
-  const A=api();if(A)A.save(`rushd-report-${rng==='month'?'month-'+perOf(mOff).from:rng}-${today()}.html`,html,'text/html');
+  const A=api();if(A)A.save(`rushd-report-${short?'short-':''}${rng==='month'?'month-'+perOf(mOff).from:rng}-${today()}.html`,html,'text/html');
 }
 
 /* ---------- المزامنة ---------- */
@@ -2067,6 +2141,7 @@ $id('rep').addEventListener('click',e=>{
   if(r.dataset.r==='close')closeRep();
   else if(r.dataset.r==='copy'){const t=repText(lastRep);if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('تم نسخ التقرير')).catch(()=>toast('تعذّر النسخ'));}
   else if(r.dataset.r==='save')saveRep();
+  else if(r.dataset.r==='saveS')saveRep(true);
 });
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){D=load();syncAll()}});
 window.addEventListener('load',()=>{syncJam();updateStrip();setTimeout(()=>{syncUsage();syncHealth();updateStrip()},1500)});
@@ -3447,7 +3522,7 @@ function buildReport(k,n,focus){
   const gs=S.settings.goals||[];
   if(gs.length){const lines=gs.map(g=>{const s=goalState(g);let l=`${g.name}: أُنجز ${pct(s.pct)} (${F(s.cur)} من ${F(s.target)}).`;
       if(s.target&&s.cur<s.target){if(g.date)l+=` المطلوب شهرياً ${F(s.need)} حتى ${monthYear(g.date)}`;l+=s.pace>0?`، ومعدلك الحالي ${F(s.pace)} شهرياً${s.proj?` فيُتوقع بلوغه في ${monthYear(s.proj)}`:''}.`:'، ولم يُرصد ادخار منتظم له.';if(s.status==='متأخر عن الموعد')l+=` الهدف متأخر عن موعده، ويحتاج زيادة الادخار بنحو ${F(Math.max(0,s.need-s.pace))} شهرياً.`}
-      else if(s.target) l+=' تحقق الهدف.';return l});
+      else if(s.target) l+=' تحقق الهدف.';if(s.shared)l+=` (الحساب مشترك بين ${s.shared} أهداف، فوُزّع رصيده عليها بترتيبها ولم يُحسب مرتين.)`;return l});
     S_.push({h:'الأهداف',b:lines});}
   else S_.push({h:'الأهداف',p:['لا توجد أهداف مسجلة. يُنصح بالبدء بصندوق طوارئ يغطي ثلاثة أشهر من المصروف المعتاد.']});
   // 4 budgets
@@ -3727,7 +3802,9 @@ function goalMonth(g,s){const cp=curPeriod(),R=range(cp);
   const ok=dep>0&&(!mt||dep>=mt-1e-6);
   return{dep,mt,ok,cls:ok?'pos':'neg',lbl:ok?'محقق هذا الشهر':dep>0?'دون المطلوب هذا الشهر':'لم يُودَع هذا الشهر بعد',done}}
 function goalState(g){
-  const cur=g.acc?accBalBase(g.acc):(g.contribs||[]).reduce((a,c)=>a+ +c.amount,0);
+  let cur=g.acc?accBalBase(g.acc):(g.contribs||[]).reduce((a,c)=>a+ +c.amount,0),shared=0;
+  /* رصيد حساب واحد لا يُحسب لهدفين: يُوزَّع على الأهداف المربوطة به بترتيبها، ويأخذ الأخير ما بقي */
+  if(g.acc){const sib=(S.settings.goals||[]).filter(x=>x.acc===g.acc);if(sib.length>1){shared=sib.length;let left=Math.max(0,cur);for(let i=0;i<sib.length;i++){const take=i<sib.length-1?Math.min(left,+sib[i].target||0):left;if(sib[i]===g){cur=take;break}left-=take}}}
   const target=+g.target||0,rem=Math.max(0,target-cur),pct=target?Math.min(1,cur/target):0;
   let pace=0;const cp=curPeriod();
   if(g.acc){const v=[1,2,3].map(i=>accNetIn(g.acc,shiftMonth(cp,-i)));pace=v.reduce((a,b)=>a+b,0)/3}
@@ -3738,7 +3815,7 @@ function goalState(g){
   if(target&&cur>=target){status='تحقق الهدف 🎉';scls='pos'}
   else if(g.date&&proj){if(proj<=g.date){status='على المسار';scls='pos'}else{status='متأخر عن الموعد';scls='neg'}}
   else if(g.date&&!proj){status='لا يوجد ادخار منتظم حالياً';scls='neg'}
-  return{cur,target,rem,pct,pace,need,proj,status,scls,monthsLeft};
+  return{cur,target,rem,pct,pace,need,proj,status,scls,monthsLeft,shared};
 }
 const monthYear=d=>{const [y,m]=d.split('-').map(Number);return MONTHS[m-1]+' '+y};
 function viewGoals(){
@@ -4367,6 +4444,13 @@ window.__mznApi={
   finReport:n=>buildReport(curPeriod(),n),
   finReportAt:off=>buildReport(shiftMonth(curPeriod(),off||0),1),
   recon:off=>({ev:reconEval(off),sections:reconSections(off)}),
+  dataChk:off=>{const k=shiftMonth(curPeriod(),off||0),L=txIn(k),F=[],fm=n=>fmtC(n,baseCur());
+    const seen={},dup=[];L.forEach(t=>{if(t.type==='transfer'||t.type==='adjust')return;const key=[t.type,t.date,t.acc,t.cat,(+t.amount).toFixed(3),String(t.note||'').trim()].join('|');if(seen[key])dup.push(t);else seen[key]=1});
+    if(dup.length)F.push({k:'dup',t:`${dup.length} عملية مكررة محتملة (التاريخ والحساب والبند والمبلغ والوصف نفسها)، منها: ${dup.slice(0,3).map(t=>t.date.slice(5)+' '+(t.note||catById(t.cat).name)+' '+fm(+t.amount)).join('، ')}. لم تُستبعد، فراجعها واحذف المكرر إن ثبت`});
+    const by={};(S.settings.goals||[]).filter(g=>g.acc).forEach(g=>(by[g.acc]=by[g.acc]||[]).push(g.name));Object.entries(by).forEach(([a,ns])=>{if(ns.length>1)F.push({k:'goal',t:`الأهداف (${ns.join('، ')}) مربوطة بحساب واحد (${(accById(a)||{}).name||''})، فوُزّع رصيده عليها بترتيبها ولم يُحسب مرتين`})});
+    const cs=new Set(S.settings.accounts.map(a=>accCur(a)).filter(c=>c&&c!==baseCur()&&!(+((S.settings.rates||{})[c]))));cs.forEach(c=>F.push({k:'fx',t:`عملة ${c}: يُستعمل سعر تحويل افتراضي، فاضبط السعر في الإعدادات ليدقّ تحويلها إلى الدينار`}));
+    if(k<curPeriod()&&!(S.settings.recons||[]).some(z=>z.per===k))F.push({k:'rc',t:'لم يُضبط هذا الشهر على كشوف البنك، فدقة التسجيل فيه غير معروفة'});
+    return F},
   monthMoney:off=>{const k=shiftMonth(curPeriod(),off||0),L=txIn(k),inc=sum(L.filter(t=>t.type==='income')),exp=sum(L.filter(t=>t.type==='expense')),byU={};
     usual(L).filter(t=>t.type==='expense').forEach(t=>byU[t.cat]=(byU[t.cat]||0)+(+t.amount||0));
     const over=expenseCats().map(c=>[c.name,byU[c.id]||0,effBudget(c,k)]).filter(x=>x[2]>0&&x[1]>x[2]).sort((a,b)=>(b[1]-b[2])-(a[1]-a[2]));
@@ -4411,17 +4495,17 @@ function adviceSections(){
          emDone?`الأهداف القصيرة والاحتياط: ${F(surplus*sp[2])} شهرياً.`:`صندوق الطوارئ: ${F(surplus*sp[2])} شهرياً.`,
          'هذا إطار عام للتوزيع، لا توصية بصندوق أو سهم بعينه. قبل الاستثمار المباشر في الأسهم يُستحسن استشارة مستشار مالي مرخّص.']});
   }else secs.push({h:'قبل الاستثمار',p:['الإنفاق المعتاد يساوي الدخل أو يزيد عليه، فالأولوية لخفض البنود الأعلى قبل أي استثمار.']});
-  const last=shiftMonth(k,-1),ls=spentBy(usual(txIn(last))),av=avgSpent(last,3),cut=[];
+  const last=shiftMonth(k,-1),ls=spentBy(usual(txIn(last))),av=baseMedians(last,1).med,cut=[];
   Object.keys(ls).forEach(id=>{const v=ls[id],a=av[id]||0;if(a>0&&v>a*1.2&&v-a>=Math.max(5,avgExp*0.02))cut.push({id,v,a})});
   cut.sort((x,y)=>(y.v-y.a)-(x.v-x.a));
   const tot=Object.values(ls).reduce((a,b)=>a+b,0),topId=Object.keys(ls).sort((a,b)=>ls[b]-ls[a])[0];
-  const cb=cut.slice(0,5).map(c=>{const ct=catById(c.id);return `${ct.name}: ${F(c.v)} الشهر الماضي مقابل متوسط ${F(c.a)} (+${Math.round((c.v/c.a-1)*100)}٪)، والعودة إلى المتوسط توفر ${F(c.v-c.a)} شهرياً.`});
+  const cb=cut.slice(0,5).map(c=>{const ct=catById(c.id);return `${ct.name}: ${F(c.v)} الشهر الماضي مقابل معتاده ${F(c.a)} (+${Math.round((c.v/c.a-1)*100)}٪)، والعودة إلى المعتاد توفر ${F(c.v-c.a)} شهرياً.`});
   if(topId&&tot>0&&Object.keys(ls).length>1&&ls[topId]/tot>0.35)cb.push(`${catById(topId).name} وحده ${Math.round(ls[topId]/tot*100)}٪ من إنفاقك الشهر الماضي؛ خفضه 10٪ يوفر ${F(ls[topId]*0.1)} شهرياً.`);
-  if(cb.length)secs.push({h:'بنود يمكن خفضها',b:cb});
+  if(cb.length)secs.push({h:'بنود يمكن خفضها',p:['المعتاد: وسيط آخر 12 شهراً، وهو الأساس نفسه في «مواطن الخلل».'],b:cb});
   const owed=S.settings.accounts.filter(a=>a.type==='credit').map(a=>({a,v:-accBalBase(a.id)})).filter(x=>x.v>0.5);
   if(owed.length)secs.push({h:'البطاقات الائتمانية',p:[`المستحق على البطاقات ${F(owed.reduce((s,x)=>s+x.v,0))}. سدّد الرصيد كاملاً قبل تاريخ الاستحقاق كل شهر، فالفوائد ربا وتُثقل الميزانية.`]});
   const TRV=/سفر|طيران|تذاكر|تذكرة|فندق|فنادق|رحل|travel|flight|hotel|airbnb|booking/i;
-  let t12=0,a12=0;for(let i=1;i<=12;i++){txIn(shiftMonth(k,-i)).filter(t=>t.type==='expense').forEach(t=>{const v=+fromAmt(t);a12+=v;if(TRV.test(catById(t.cat).name||'')||TRV.test(t.note||''))t12+=v})}
+  let t12=0,a12=0;for(let i=1;i<=12;i++){txIn(shiftMonth(k,-i)).filter(t=>t.type==='expense').forEach(t=>{const v=+t.amount||0;a12+=v;if(TRV.test(catById(t.cat).name||'')||TRV.test(t.note||''))t12+=v})}
   if(t12>0)secs.push({h:'السفر',p:[`صرفت على السفر ${F(t12)} في آخر 12 شهراً (${a12?Math.round(t12/a12*100):0}٪ من إنفاقك). جنّب له ${F(t12/12)} شهرياً بدل أن يُدفع دفعة واحدة.`],
     b:['قارن أسعار الطيران والفنادق قبل الحجز بأسابيع، من أدوات السفر في صفحة خطتي المالية.','عند الدفع بالبطاقة في الخارج اختر عملة البلد لا الدينار، فتحويل التاجر أغلى عادة.','اسأل بنكك عن رسوم المعاملات الأجنبية للبطاقة قبل السفر.']});
   else secs.push({h:'السفر',p:['لا يظهر إنفاق على السفر في آخر 12 شهراً. سمِّ بنده "السفر" أو اذكر الطيران والفندق في الوصف ليُتتبع.']});
